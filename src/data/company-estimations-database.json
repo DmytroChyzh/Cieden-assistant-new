@@ -1,0 +1,80 @@
+{
+  "metadata": {
+    "description": "Comprehensive database of real company estimations from Cieden",
+    "lastUpdated": "2024-12-19",
+    "totalProjects": 15,
+    "source": "Real client projects and estimations"
+  },
+  "projects": [
+    {
+      "id": "bruhnpartner",
+      "name": "BruhnPartner Platform",
+      "type": "dashboard",
+      "complexity": "high",
+      "description": "Platform for creating reports and sharing them with customers.",
+      "roles": ["Consultant", "Admin", "Customer"],
+      "features": ["Dashboard creation interface", "Customer access interface", "Admin user management", "Report sharing via email", "Customer branding (name & logo)", "Multiple studies access"],
+      "phases": { "ux_ui": { "total_hours": 194 }, "design_operational": { "total_hours": 36 }, "ba_pm": { "total_hours": 40 } },
+      "totals": { "total_hours": 263, "total_cost": 18593.7, "timeline_weeks": 8, "team_size": 2 },
+      "hourly_rate": 50
+    },
+    {
+      "id": "living_sunshine",
+      "name": "Living Sunshine Website",
+      "type": "website",
+      "complexity": "low",
+      "description": "Website design for Living Sunshine with desktop and mobile versions",
+      "features": ["Moodboard (optional)", "Home page design", "Product pages (5 pages)", "Surf Shop section", "Responsive mobile design", "UI Kit setup"],
+      "phases": { "website_design_desktop": { "total_hours": 48 }, "responsive_mobile": { "total_hours": 18 }, "design_system": { "total_hours": 4 } },
+      "totals": { "total_hours": 62, "total_cost": 3960, "timeline_weeks": 4, "team_size": 1 },
+      "hourly_rate": 50
+    },
+    {
+      "id": "refmax",
+      "name": "Refmax Real Estate Platform",
+      "type": "web-app",
+      "complexity": "high",
+      "description": "Real estate solution for brokerage and agencies worldwide.",
+      "roles": ["Agent", "Manager", "Office Manager"],
+      "features": ["Sign up/Login/Forgot password", "Onboarding flow", "Referrals management", "Directory", "Listings management", "Upgrades system", "FAQ + Knowledge base", "Notifications", "Alerts", "Profile management", "Analytics", "Dashboard"],
+      "phases": { "desktop_design": { "total_hours": 288 }, "mobile_design": { "total_hours": 125 }, "floating_estimates": { "total_hours": 20 } },
+      "totals": { "total_hours": 395, "total_cost": 15780, "timeline_weeks": 9, "team_size": 1.5 },
+      "hourly_rate": 40
+    },
+    {
+      "id": "property_management",
+      "name": "Property Management System",
+      "type": "web-app",
+      "complexity": "high",
+      "description": "Property management system with multiple user roles and comprehensive functionality",
+      "roles": ["Super Admin", "Property Manager", "Tenant", "Vendor"],
+      "features": ["Registration and authentication", "User management", "Reports and analytics", "Property management", "Appliances management", "Assignments (Jobs)", "Vendors management", "Tenants management", "Import functionality", "Documents management", "Payments", "Notifications", "Settings", "Profiles", "Knowledge base"],
+      "phases": { "phase_1": { "total_hours": 200 }, "phase_2": { "total_hours": 150 }, "phase_3": { "total_hours": 100 } },
+      "totals": { "total_hours": 450, "total_cost": 18000, "timeline_weeks": 12, "team_size": 2 },
+      "hourly_rate": 40
+    },
+    {
+      "id": "shipro_website",
+      "name": "Shipro Website",
+      "type": "website",
+      "complexity": "medium",
+      "description": "Website for Shipro - comprehensive logistics solutions for e-commerce",
+      "features": ["Wireframes for all unique pages", "Design concept and homepage", "Multiple page templates", "Responsive design", "UI kit"],
+      "phases": { "wireframes": { "total_hours": 48 }, "design_concept": { "total_hours": 48 }, "pages_design": { "total_hours": 145.5 }, "adaptives": { "total_hours": 89 }, "ui_kit": { "total_hours": 12 } },
+      "totals": { "total_hours": 315, "total_cost": 15750, "timeline_weeks": 8, "team_size": 1 },
+      "hourly_rate": 50
+    }
+  ],
+  "patterns": {
+    "hourly_rates": { "low_complexity": 50, "medium_complexity": 50, "high_complexity": 40 },
+    "timeline_multipliers": { "low_complexity": 0.8, "medium_complexity": 1.0, "high_complexity": 1.2 },
+    "team_size_by_complexity": { "low_complexity": 1, "medium_complexity": 1.5, "high_complexity": 2 },
+    "phase_distribution": { "research_analysis": 0.15, "wireframing": 0.20, "design": 0.35, "prototyping": 0.15, "testing": 0.15 }
+  },
+  "project_types": {
+    "website": { "base_hours": 60, "base_cost": 3000, "complexity_multipliers": { "low": 1.0, "medium": 1.5, "high": 2.5 } },
+    "dashboard": { "base_hours": 200, "base_cost": 10000, "complexity_multipliers": { "low": 1.0, "medium": 1.3, "high": 1.8 } },
+    "web-app": { "base_hours": 300, "base_cost": 15000, "complexity_multipliers": { "low": 1.0, "medium": 1.4, "high": 2.0 } },
+    "e-commerce": { "base_hours": 250, "base_cost": 12500, "complexity_multipliers": { "low": 1.0, "medium": 1.6, "high": 2.2 } }
+  }
+}

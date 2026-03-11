@@ -1,0 +1,29 @@
+# Cieden Assistant Development Rules
+
+## Project Context
+- Cieden AI Sales & Consulting Assistant (UI/UX design and software development company)
+- Voice and text powered with ElevenLabs
+- Visual AI with CopilotKit
+- Real-time with Convex
+- No bank/financial assistant persona — agent represents Cieden only
+
+## Tech Stack
+- Next.js 15.4 with App Router
+- TypeScript (strict mode)
+- Convex for backend
+- CopilotKit self-hosted runtime
+- ElevenLabs ConvAI CLI
+- Tailwind CSS + shadcn/ui
+
+## Code Standards
+- Feature-based folder structure
+- Self-hosted CopilotKit for low latency
+- Convex for all state management
+- Mobile-first responsive design
+- Performance target: <500ms voice-to-chart
+
+## Key Patterns
+- No zustand (Convex handles state)
+- Direct OpenAI integration (not cloud)
+- Hybrid ElevenLabs widget approach
+- Edge functions for webhooks

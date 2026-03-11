@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ElevenLabs text_only Override Test</title>
+</head>
+<body>
+  <h1>ElevenLabs text_only Override Test</h1>
+  <button id="connect">Connect with text_only: true</button>
+  <button id="send">Send Message</button>
+  <button id="disconnect">Disconnect</button>
+  <div id="log" style="margin-top: 20px; font-family: monospace; white-space: pre-wrap;"></div>
+
+  <script>
+    let ws = null;
+    const log = document.getElementById('log');
+
+    function addLog(message) {
+      const timestamp = new Date().toISOString();
+      log.textContent += `[${timestamp}] ${message}\n`;
+      console.log(message);
+    }
+
+    document.getElementById('connect').addEventListener('click', async () => {
+      // REPLACE THIS WITH YOUR AGENT ID
+      const AGENT_ID = 'agent_9101k1ywagpreh88xcx70qeadegf';
+
+      addLog('🔌 Connecting to ElevenLabs WebSocket...');
+
+      // Get signed URL from your API
+      const response = await fetch('http://localhost:3000/api/elevenlabs/signed-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: AGENT_ID })
+      });
+
+      const { signed_url } = await response.json();
+      addLog('✅ Got signed URL');
+
+      // Connect to WebSocket
+      ws = new WebSocket(signed_url);
+
+      ws.onopen = () => {
+        addLog('✅ WebSocket connected');
+
+        // Send init payload with text_only override
+        const initPayload = {
+          type: 'conversation_initiation_client_data',
+          conversation_initiation_client_data: {
+            agent_id: AGENT_ID,
+            conversation_config_override: {
+              agent: {
+                first_message: ''
+              },
+              conversation: {
+                text_only: true
+              }
+            },
+            metadata: {
+              source: 'pure_test'
+            }
+          }
+        };
+
+        addLog('📤 Sending init payload: ' + JSON.stringify(initPayload, null, 2));
+        ws.send(JSON.stringify(initPayload));
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        addLog('📨 Received: ' + event.data.substring(0, 200));
+
+        if (data.type === 'conversation_initiation_metadata') {
+          const meta = data.conversation_initiation_metadata_event;
+
+          if (meta.agent_output_audio_format || meta.user_input_audio_format) {
+            addLog('❌ FAIL: Agent sent audio formats despite text_only: true');
+            addLog('   audioFormat: ' + meta.agent_output_audio_format);
+            addLog('   inputFormat: ' + meta.user_input_audio_format);
+            addLog('   👉 This proves the agent is ignoring the override!');
+          } else {
+            addLog('✅ PASS: No audio formats - text-only mode working!');
+          }
+        }
+
+        if (data.type === 'audio') {
+          addLog('❌ FAIL: Received audio event in text-only mode!');
+        }
+
+        if (data.type === 'agent_response') {
+          addLog('✅ Agent text response: ' + data.agent_response_event.agent_response);
+        }
+      };
+
+      ws.onerror = (error) => {
+        addLog('❌ WebSocket error: ' + error);
+      };
+
+      ws.onclose = (event) => {
+        addLog('🔌 WebSocket closed: ' + event.code + ' ' + event.reason);
+      };
+    });
+
+    document.getElementById('send').addEventListener('click', () => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        addLog('❌ WebSocket not connected');
+        return;
+      }
+
+      const message = 'What is 2 + 2?';
+      addLog('📤 Sending message: ' + message);
+      ws.send(JSON.stringify({ type: 'user_message', text: message }));
+    });
+
+    document.getElementById('disconnect').addEventListener('click', () => {
+      if (ws) {
+        ws.close();
+        ws = null;
+        addLog('🔌 Disconnected');
+      }
+    });
+  </script>
+</body>
+</html>

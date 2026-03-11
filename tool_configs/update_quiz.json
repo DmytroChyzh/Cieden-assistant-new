@@ -1,0 +1,43 @@
+{
+    "type": "client",
+    "name": "update_quiz",
+    "description": "Use this tool to update a quiz created by the start-quiz tool.  Use this tool to update quiz state in the UI based on the user's voice input (e.g., selecting an option, going to next/previous question, or finishing the quiz).\n\n- When to use: After the user provides an answer or a navigation intent during an active quiz. \n\n  \"quiz_steps\": [\n\n    {\n\n      \"index\": 1,\n\n      \"id\": \"loanAmount\",\n\n      \"question\": \"How much loan amount do you need?\",\n\n      \"options\": [\n\n        { \"position\": 1, \"value\": \"1000-3000\", \"label\": \"$1,000 - $3,000\" },\n\n        { \"position\": 2, \"value\": \"3000-5000\", \"label\": \"$3,000 - $5,000\" },\n\n        { \"position\": 3, \"value\": \"5000-10000\", \"label\": \"$5,000 - $10,000\" },\n\n        { \"position\": 4, \"value\": \"10000+\", \"label\": \"$10,000+\" }\n\n      ]\n\n    },\n\n    {\n\n      \"index\": 2,\n\n      \"id\": \"loanPurpose\",\n\n      \"question\": \"What is the primary purpose for this loan?\",\n\n      \"options\": [\n\n        { \"position\": 1, \"value\": \"home_improvement\", \"label\": \"Home improvement\" },\n\n        { \"position\": 2, \"value\": \"medical\", \"label\": \"Medical expenses\" },\n\n        { \"position\": 3, \"value\": \"education\", \"label\": \"Education\" },\n\n        { \"position\": 4, \"value\": \"debt_consolidation\", \"label\": \"Debt consolidation\" },\n\n        { \"position\": 5, \"value\": \"other\", \"label\": \"Other\" }\n\n      ]\n\n    },\n\n    {\n\n      \"index\": 3,\n\n      \"id\": \"employmentType\",\n\n      \"question\": \"What is your current employment status?\",\n\n      \"options\": [\n\n        { \"position\": 1, \"value\": \"salaried\", \"label\": \"Salaried Employee\" },\n\n        { \"position\": 2, \"value\": \"self_employed\", \"label\": \"Self-employed / Business\" }\n\n      ]\n\n    },\n\n    {\n\n      \"index\": 4,\n\n      \"id\": \"monthlyIncome\",\n\n      \"question\": \"What is your monthly take-home income?\",\n\n      \"options\": [\n\n        { \"position\": 1, \"value\": \"2500-4000\", \"label\": \"$2,500 - $4,000\" },\n\n        { \"position\": 2, \"value\": \"4000-6000\", \"label\": \"$4,000 - $6,000\" },\n\n        { \"position\": 3, \"value\": \"6000-10000\", \"label\": \"$6,000 - $10,000\" },\n\n        { \"position\": 4, \"value\": \"10000+\", \"label\": \"$10,000+\" }\n\n      ]\n\n    },\n\n    {\n\n      \"index\": 5,\n\n      \"id\": \"loanTenure\",\n\n      \"question\": \"What loan repayment tenure do you prefer?\",\n\n      \"options\": [\n\n        { \"position\": 1, \"value\": \"12\", \"label\": \"1 Year (Higher EMI, Lower Interest)\" },\n\n        { \"position\": 2, \"value\": \"24\", \"label\": \"2 Years (Balanced Option)\" },\n\n        { \"position\": 3, \"value\": \"36\", \"label\": \"3 Years (Popular Choice)\" },\n\n        { \"position\": 4, \"value\": \"48\", \"label\": \"4 Years (Lower EMI)\" },\n\n        { \"position\": 5, \"value\": \"60\", \"label\": \"5 Years (Lowest EMI, Higher Interest)\" }\n\n      ]\n\n    }\n\n  ],\n\n  \"notes\": [\n\n    \"Use options[*].value exactly for selected_value (string match).\",\n\n    \"After selectOption nextQuestion switch is done automatically in 1.5 sec, do not triger nextQuestion after selectOption\".\n\n    \"For navigation, use question_id=\\\"current\\\" with action nextQuestion | prevQuestion | showResults.\",\n\n    \"Actions: selectOption | nextQuestion | prevQuestion | showResults.\"\n\n  ]",
+    "response_timeout_secs": 20,
+    "disable_interruptions": false,
+    "force_pre_tool_speech": false,
+    "assignments": [],
+    "parameters": {
+        "type": "object",
+        "required": [
+            "selectedValue",
+            "questionId",
+            "action"
+        ],
+        "description": "",
+        "properties": {
+            "selectedValue": {
+                "type": "string",
+                "description": "Required when `action` is `selectOption`. Provide the option's value (e.g., `50-75k`, `yes`). Match the `options[].value` used in the quiz.",
+                "dynamic_variable": "",
+                "constant_value": ""
+            },
+            "questionId": {
+                "type": "string",
+                "description": "Stable identifier of the current question (e.g., `employment`, `salary_range`). Infer from the ongoing quiz context.",
+                "dynamic_variable": "",
+                "constant_value": ""
+            },
+            "action": {
+                "type": "string",
+                "description": "One of `selectOption`, `nextQuestion`, `prevQuestion`, `showResults`. Choose based on user intent (e.g., “select option two”, “next”, “go back”, “show results”).",
+                "dynamic_variable": "",
+                "constant_value": ""
+            }
+        }
+    },
+    "expects_response": false,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    },
+    "execution_mode": "immediate"
+}

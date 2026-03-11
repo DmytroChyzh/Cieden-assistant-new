@@ -1,0 +1,70 @@
+{
+    "tools": [
+        {
+            "name": "show_emi_info",
+            "type": "client",
+            "config": "tool_configs/show_emi_info.json",
+            "id": "tool_0701k3pbbcedemnv5pv41jfd6yxb"
+        },
+        {
+            "name": "show_lending_options",
+            "type": "client",
+            "config": "tool_configs/show_lending_options.json",
+            "id": "tool_2901k3pb6hczfy08fjaqwwtmgkba"
+        },
+        {
+            "name": "show_credit_score",
+            "type": "client",
+            "config": "tool_configs/show_credit_score.json",
+            "id": "tool_2901k3pb9at0fh7b248avcjp4n8d"
+        },
+        {
+            "name": "show_document_id",
+            "type": "client",
+            "config": "tool_configs/show_document_id.json",
+            "id": "tool_3501k2e1k61efnda1a9w6n5484ng"
+        },
+        {
+            "name": "show_loans",
+            "type": "client",
+            "config": "tool_configs/show_loans.json",
+            "id": "tool_5501k3pb3f54feab17c27zv56pt2"
+        },
+        {
+            "name": "update_quiz",
+            "type": "client",
+            "config": "tool_configs/update_quiz.json",
+            "id": "tool_5901k3pbxkhzeam8xzhn3tnyb198"
+        },
+        {
+            "name": "start_quiz",
+            "type": "client",
+            "config": "tool_configs/start_quiz.json",
+            "id": "tool_6101k3pbecmjfc39k1tv1wwpwhcn"
+        },
+        {
+            "name": "show_savings_goal",
+            "type": "client",
+            "config": "tool_configs/show_savings_goal.json",
+            "id": "tool_9301k29xq3bdep4tvrx6a449dyzq"
+        },
+        {
+            "name": "show_balance",
+            "type": "client",
+            "config": "tool_configs/show_balance.json",
+            "id": "tool_9601k25t7hhyfbgatynp2ag8kfqd"
+        },
+        {
+            "name": "create_pie_chart",
+            "type": "client",
+            "config": "tool_configs/create_pie_chart.json",
+            "id": "tool_1760800126878"
+        },
+        {
+            "name": "create_bar_chart",
+            "type": "client",
+            "config": "tool_configs/create_bar_chart.json",
+            "id": "tool_1760800126988"
+        }
+    ]
+}

@@ -1,0 +1,419 @@
+{
+  "name": "Requirements DSL",
+  "scopeName": "source.requirements-dsl",
+  "fileTypes": ["spec"],
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#parentheticals"
+    },
+    {
+      "include": "#section-headers"
+    },
+    {
+      "include": "#change-markers"
+    },
+    {
+      "include": "#error-keywords"
+    },
+    {
+      "include": "#success-keywords"
+    },
+    {
+      "include": "#control-keywords"
+    },
+    {
+      "include": "#meta-keywords"
+    },
+    {
+      "include": "#action-verbs"
+    },
+    {
+      "include": "#function-calls"
+    },
+    {
+      "include": "#environment-variables"
+    },
+    {
+      "include": "#state-flags"
+    },
+    {
+      "include": "#data-sources"
+    },
+    {
+      "include": "#boolean-values"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#operators"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.requirements-dsl",
+          "match": "^\\s*#.*$"
+        }
+      ]
+    },
+    "parentheticals": {
+      "patterns": [
+        {
+          "name": "comment.block.parenthetical.requirements-dsl",
+          "match": "\\([^)]+\\)",
+          "captures": {
+            "0": {
+              "name": "comment.block.requirements-dsl"
+            }
+          }
+        }
+      ]
+    },
+    "section-headers": {
+      "patterns": [
+        {
+          "name": "entity.name.section.define.requirements-dsl",
+          "match": "^\\[(Define)\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.requirements-dsl"
+            },
+            "2": {
+              "name": "entity.name.type.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "entity.name.section.state.requirements-dsl",
+          "match": "^\\[(State)\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.requirements-dsl"
+            },
+            "2": {
+              "name": "entity.name.type.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "entity.name.section.action.requirements-dsl",
+          "match": "^\\[(Action)\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.requirements-dsl"
+            },
+            "2": {
+              "name": "entity.name.function.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "entity.name.section.component.requirements-dsl",
+          "match": "^\\[(Component)\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.requirements-dsl"
+            },
+            "2": {
+              "name": "entity.name.class.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "entity.name.section.session.requirements-dsl",
+          "match": "^\\[(Session)\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.requirements-dsl"
+            },
+            "2": {
+              "name": "entity.name.namespace.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "entity.name.section.behavior.requirements-dsl",
+          "match": "^\\[(Behavior)\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.requirements-dsl"
+            },
+            "2": {
+              "name": "entity.name.tag.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "entity.name.section.configuration.requirements-dsl",
+          "match": "^\\[(Configuration)\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.requirements-dsl"
+            },
+            "2": {
+              "name": "entity.name.constant.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "entity.name.section.error.requirements-dsl",
+          "match": "^\\[(Error)\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.requirements-dsl"
+            },
+            "2": {
+              "name": "entity.name.exception.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "entity.name.section.integration.requirements-dsl",
+          "match": "^\\[(Integration)\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.requirements-dsl"
+            },
+            "2": {
+              "name": "entity.name.interface.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "entity.name.section.context.requirements-dsl",
+          "match": "^\\[(Context)\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.requirements-dsl"
+            },
+            "2": {
+              "name": "entity.name.type.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "entity.name.section.insight.requirements-dsl",
+          "match": "^\\[(Insight)\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.requirements-dsl"
+            },
+            "2": {
+              "name": "markup.italic.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "entity.name.section.system.requirements-dsl",
+          "match": "^\\[(System)\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.requirements-dsl"
+            },
+            "2": {
+              "name": "entity.name.namespace.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "entity.name.section.change.requirements-dsl",
+          "match": "^\\[(Change)\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "keyword.control.requirements-dsl"
+            },
+            "2": {
+              "name": "entity.name.tag.requirements-dsl"
+            }
+          }
+        }
+      ]
+    },
+    "change-markers": {
+      "patterns": [
+        {
+          "name": "markup.inserted.requirements-dsl",
+          "match": "^\\[\\+\\s+Add\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "entity.name.type.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "markup.deleted.requirements-dsl",
+          "match": "^\\[-\\s+Remove\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "entity.name.type.requirements-dsl"
+            }
+          }
+        },
+        {
+          "name": "markup.changed.requirements-dsl",
+          "match": "^\\[~\\s+Modify\\s+([^\\]]+)\\]",
+          "captures": {
+            "1": {
+              "name": "entity.name.type.requirements-dsl"
+            }
+          }
+        }
+      ]
+    },
+    "error-keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.error.requirements-dsl",
+          "match": "^\\s*(On error|On timeout|Error|Fails|Failed|Recovery|Reject waiters when|Cleanup on error).*?:"
+        }
+      ]
+    },
+    "success-keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.success.requirements-dsl",
+          "match": "^\\s*(On success|Resolve waiters when).*?:"
+        }
+      ]
+    },
+    "action-verbs": {
+      "patterns": [
+        {
+          "name": "keyword.other.canonical.requirements-dsl",
+          "match": "\\b(set|create|clear|store|check|await|do|send|log|acquire|release|start|stop)\\b"
+        },
+        {
+          "name": "invalid.deprecated.synonym.requirements-dsl",
+          "match": "\\b(Set|Mark|Update|Apply|Assign|Configure|Define|Establish|Initialize|Init|Instantiate|Build|Construct|Setup|Verify|Validate|Confirm|Ensure|Test|Inspect|Run|Execute|Perform|Call|Trigger|Invoke|Wait|Expect|Block|Reset|Delete|Remove|Erase|Purge|Wipe|Save|Persist|Write|Record|Cache|Transmit|Emit|Broadcast|Dispatch|Push|Post|Get|Obtain|Take|Lock|Reserve|Claim|Free|Unlock|Relinquish|Drop|Yield|Begin|Launch|Initiate|Activate|End|Terminate|Kill|Close|Finish|Halt|Flush|Cancel|Request|Prepare|Complete)\\b"
+        }
+      ]
+    },
+    "function-calls": {
+      "patterns": [
+        {
+          "name": "meta.function-call.requirements-dsl",
+          "match": "\\b([a-z_][a-z0-9_]*)\\s*(\\()",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.requirements-dsl"
+            },
+            "2": {
+              "name": "punctuation.definition.parameters.begin.requirements-dsl"
+            }
+          }
+        }
+      ]
+    },
+    "environment-variables": {
+      "patterns": [
+        {
+          "name": "variable.other.constant.env.requirements-dsl",
+          "match": "\\b[A-Z][A-Z0-9_]*[A-Z0-9]\\b(?=:)"
+        }
+      ]
+    },
+    "control-keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.conditional.requirements-dsl",
+          "match": "^\\s*(Show if|Hide if|Execute if|Skip if|When|Occurs when|Apply to|Used for|Add to queue when|Flush queue when|Timer reset when|Lock acquisition|Lock release|Cleanup when|Pre-checks|Pre-cleanup|Pre-steps|Auto start|Auto end|Start conditions|Connection steps|Cleanup steps|Queue cleared when|Add waiter when|Timer start|Timer cancel):"
+        },
+        {
+          "name": "keyword.control.flow.requirements-dsl",
+          "match": "^\\s*(Steps|Response|Detection|Processing|Behavior when|Special handling for|Reason|Impact|Solution|Problem|Challenge|Trade-off|Result|Order):"
+        }
+      ]
+    },
+    "meta-keywords": {
+      "patterns": [
+        {
+          "name": "entity.other.attribute-name.requirements-dsl",
+          "match": "^\\s*(Description|Purpose|Rationale|Benefits|Why it matters|Why order matters|Critical in|Note|Type|Label|Style|Fields|Options|Storage|Default|Lifecycle|Reset when|Persistence|Source|Provider|Mode|Transport|Values|Timeout|Retry|Max duration|Idle timeout|Max queue size|Queue limit|Threshold|Update frequency|Enabled by|Conditions|Registration|Tool execution flow|Tool types|Example tools|Handler registration|Required props|Methods|Stream lifecycle|Exposed values|Exposed methods|Hook for consumption|Error if used outside provider|Code location|Cleanup|Safety|Prevention|Waiter object|Waiter object contains|Waiter collections|Protected by transition|Transition lifecycle|Transition serialization|History sources|Passing history to|Restart if needed|Queueing logic|State tracking|Timing|Prevention of duplicate starts|Lifecycle hooks|Special cases|Message type detection|Message types persisted|Tools registered|Props required|Behavior|Concurrent sessions|Cross-tab enforcement|Retry logic|Data received|State updates|Debug telemetry|Lock data structure|Lock update|Staleness check|Text sessions|Cross-tab messages|Message handling|Cleanup on mount|Queues|Clear when|Data fields|Usage|Heartbeat|Stale session threshold|Required environment variables|Text mode configuration|Voice mode configuration|Client tools):"
+        }
+      ]
+    },
+    "state-flags": {
+      "patterns": [
+        {
+          "name": "variable.other.constant.state.requirements-dsl",
+          "match": "\\bSTATE\\.[a-zA-Z_][a-zA-Z0-9_]*\\b"
+        }
+      ]
+    },
+    "data-sources": {
+      "patterns": [
+        {
+          "name": "variable.other.property.requirements-dsl",
+          "match": "\\b(DB|Session|State|Props|API|SDK|Cross-tab|Lock|Current|Text|Voice|Conversation|Stream|Pending|Last|This|Active|Other|Message|Tool|Error|Connection|Mode)\\.[a-zA-Z_][a-zA-Z0-9_.]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)*"
+        }
+      ]
+    },
+    "boolean-values": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.yes.requirements-dsl",
+          "match": "\\byes\\b"
+        },
+        {
+          "name": "constant.language.boolean.no.requirements-dsl",
+          "match": "\\bno\\b"
+        },
+        {
+          "name": "constant.language.boolean.none.requirements-dsl",
+          "match": "\\b(none|empty)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.requirements-dsl",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.requirements-dsl",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.requirements-dsl",
+          "match": "\\b([0-9]+\\.?[0-9]*)\\s*(seconds|milliseconds|minutes|hours|days|ms|s|m|h|%)?\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.arrow.requirements-dsl",
+          "match": "(→|←)"
+        },
+        {
+          "name": "keyword.operator.comparison.requirements-dsl",
+          "match": "(>=|<=|>|<|:)"
+        },
+        {
+          "name": "keyword.operator.arithmetic.requirements-dsl",
+          "match": "(\\+|\\-)"
+        },
+        {
+          "name": "keyword.operator.logical.requirements-dsl",
+          "match": "(\\?)"
+        }
+      ]
+    }
+  }
+}

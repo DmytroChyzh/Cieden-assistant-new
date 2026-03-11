@@ -1,0 +1,57 @@
+{
+    "type": "client",
+    "name": "show_savings_goal",
+    "description": "Use this tool to show the user their savings goals in a UI component that shows Savings, Progress, Deadline, and Remaining. All amounts should be in USD (e.g., goal_amount: 10000 for $10,000, current_savings: 3500 for $3,500).",
+    "response_timeout_secs": 20,
+    "disable_interruptions": false,
+    "force_pre_tool_speech": false,
+    "assignments": [],
+    "parameters": {
+        "type": "object",
+        "required": [
+            "deadline",
+            "currentSavings",
+            "monthlyTarget",
+            "goalAmount",
+            "goalName"
+        ],
+        "description": "",
+        "properties": {
+            "deadline": {
+                "type": "string",
+                "description": "Target completion date",
+                "dynamic_variable": "",
+                "constant_value": ""
+            },
+            "current_savings": {
+                "type": "number",
+                "description": "Current amount saved towards the goal in USD (e.g., 3500 for $3,500)",
+                "dynamic_variable": "",
+                "constant_value": ""
+            },
+            "monthly_target": {
+                "type": "number",
+                "description": "Monthly savings target in USD (e.g., 500 for $500 per month)",
+                "dynamic_variable": "",
+                "constant_value": ""
+            },
+            "goal_amount": {
+                "type": "number",
+                "description": "Target amount for the savings goal in USD (e.g., 10000 for $10,000)",
+                "dynamic_variable": "",
+                "constant_value": ""
+            },
+            "goal_name": {
+                "type": "string",
+                "description": " Name of the savings goal (e.g., \"Buy Tractor\")",
+                "dynamic_variable": "",
+                "constant_value": ""
+            }
+        }
+    },
+    "expects_response": false,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    },
+    "execution_mode": "immediate"
+}

@@ -1,0 +1,81 @@
+About Refmax,"We had already been working with this client on another UX design project, and the CIO approached us, asking if we could assist with the product discovery for a new solution they intended to launch quickly. Soon our collaboration turned into a full user experience design for the product.
+
+The solution was in the real estate domain, for brokerage and real estate agencies all over the world. It contained three cornerstone blocks of the system: management of property listings, management of leads and clients, and website builder for quick and easy creation of personalized webpages. It was part of a larger product environment, which shared the same data sources. A solution of this kind is unique, though there are indirect competitors that cover certain features.",,
+Pages/Flows,Hours min,Hours max,Comments 
+Design for desctop resolution. Agent + Manager + Office manager roles ,,,"(please see more detailed information architecture in Miro - Information Architecture ""Suggested IA"")"
+Sing up/Login/Forgot pass ,16,24,"Agent, manager, office manager flows (and for Office manager with multiple offices)
+Duration might depend if we will require to fill entife profile at once. "
+Onboarding ,12,14,"BA/PdM effort. Suggest to use Intercom API or other third party. This estimate covers documenting requirements for copy and flow of onboarding (12h).  
+This flow will require copywriter. 
+Design of tooltips and pop-ups for onboarding - 2-3h. "
+Referrals (list) ,24,32,"Estimate covers multiple versions of low-res wires for confirmation: with profile section, feed or filter in side bar. 
+Detailed breakdown: 
+- Layout versions (Low res wire): 4h brainstorms and wire + 2-3h present and discuss versions
+- High-res wires with subtabs - min 4h  + 1-2h for fixes upon feedback
+- filters - 4h 
+- card styles  - 8h (different versions and states) "
+Create referral flow ,20,26,"- brainstorm + low-res wires - 4h
+- wireframing - 12h + 2h fixes upon feedback
+- clarification and discussuion with Immobel team - 2h "
+Referral page (layout) + flows ,72,96,"- brainstorming + low res wires  of all flows 21h (2des + BA) + testing (recommended)
+- validation1-2h (demo and discussion)
+- high-res wires of flows of interaction (12 possible flows) - 48h (i.e. 4h per flow)"
+Directory ,12,14,"- list view (with cards) + filtering 
+- preview of agent profile (external & internal) "
+Listings,12,14,"- list of properies + filters + cards
+- property preview (in sidebar) "
+Upgrades ,20,24,"- list of products + preview of product details + card styles/states 8h 
+- flow of buying upgrades (+ for multiple people as manager) - 4-8h
+- billing history  (package history) - 4h 
+- unsubscribe flow - 2h"
+FAQ + Knowledge base ,"TBD how we can re-style FreshDesk. This would be mainly UI effort, so not sure if we should scope it in wireframing.",,
+Notifications ,8,12,"- Flag notifications styles 
+- Notifications page + filtering 
+- Notifications logic (+ Remind me later feature)
+"
+Alerts ,8,12,"- tost notification/messages -> these are alerts that require action. 
+We'll need to research proper solution, because we will have alarmes for managers and there will be action-required notifications that are similar to tasks "
+Profile ,28,36,"Office manager 
+- personal profile (view and edit page) - 10h
+- office list (for multiple offices) - 2-3h
+- office profile + 4h
+- user list - 4-6h (User list can be as separate page, not inside Office profile)
+ - invite member  flow - 5h
+    
+Manager + Agent profiles -> personal profiles "
+Analytics ,22,32,"- Research and clarification - what analtics to show 8h  (explore details of current analytics and reports, communication, clarification, brainstorming) 
+- wires - 14h
+Estimate covers analytics for three roles - agent, manager, office manager"
+Dashboard ,18,24,"Estimate covers Dashboards for Agent, Manager and Office manager 
+- research & validation - 10h
+- wireframing - 8h"
+Design System,16,32,"Creating and maintaining design components, that can be re-used by UI designers"
+Desktop Design Total (hours) ,288,392,
+Desktop Design Cost,$11 520,$15 680,Cieden applies $40 flat rate on Upwork. 
+,,,
+Mobile Design total,125,177,"Estimate for mobile is 50% of desktop design deducting time for brainstorming and validation. Although we'll have established components for desktop design, on mobile navigation will work differently and it will be close to mobile app. So this will be not responsive, but adaptive design. On mobile, navigation elements should be different then on desktop."
+Mobile design cost,$4 980,$7 060,
+,,,
+Floating estimates (depend on the duration of the project),,,
+Prototyping ,12,17,Clickable prototype to show interraction and can be used for testing. Prototyping is estimated as 3% of the project. To keep it up-to-date. (this equals to 3min out of 1h of work) . We will maintain clickable prototype in Figma 
+BA/Documentation/Scoping,8,12,Weekly 
+Communication with Immobel team,2,4,Weekly
+Demo & Presentations of work ,2,2,Bi-weekly meetings 
+,,,
+,,,
+OVERALL TOTAL (hours),395,609,
+OVERALL TOTAL (cost),$15 780,$24 367,
+,,,
+,,,
+Estimated duration of the project,9,12,WEEKS (design of desktop and mobile resolutions) 
+,,,
+Team composition,Q-ty,Weekly capacity ,
+UX/UI Designers,"1,5",56,1 full-time designr with capacity of 7h daily and 1 half-time designer with capacity 4h daily
+BA/Product manager,1,12,"1 BA/Proxy-product manager with capacity 20h weekly (in scope of this estimate expected effort 8-12h per week, the rest would be on other roles and documentation) "
+Expected team weekly load,,68,
+,,,
+Other team capabilities (not included in estimate) ,,,
+Testing,,,It is highly recommended to validate design decisions with real users. Upon user feedback we can adjust flows or UX to meet real user needs. 
+- preparation,,,Create prototype + write script for usability testing + schedule meetings. Depending on the complexity of the flow it can be 2-6h
+- conduct testing,,,Depending on the complexity of the prototype 30min - 1h 
+- process results,,,15min after each testing + 30in-1h to process overall results 

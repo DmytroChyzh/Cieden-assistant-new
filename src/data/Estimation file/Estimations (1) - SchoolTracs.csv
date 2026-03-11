@@ -1,0 +1,67 @@
+About,"SchoolTracs — це комплексна система управління курсами, призначена для оптимізації щоденних операцій у навчальних центрах різного розміру. Вона пропонує інтелектуальну POS-систему для спрощення продажів курсів та матеріалів, зручний інструмент для створення розкладу занять, ефективне управління базою даних студентів з можливістю відстеження історії платежів та відвідуваності, а також формування щоденних та щомісячних звітів про доходи. Платформа також включає мобільні додатки для викладачів та студентів, що дозволяють керувати розкладом, відзначати відвідуваність та переглядати інформацію про заняття безпосередньо зі смартфона. Завдяки цим інструментам SchoolTracs допомагає навчальним закладам ефективно керувати своїми операціями та зосередитися на наданні якісної освіти. citeturn0search0",,,,,
+Website redesign - https://www.schooltracs.com/,,,,,,
+Moodboard,,2,3,4,3,
+Illustration (screenshot touch-ups),,8,10,12,10,for 10 illustrations
+Homepage ,Homepage (1 page),12,18,24,18,"custom icons + infographic
+*This page would serve as a styleguide for the rest so it takes more time to decide on all the elements"
+Features,Feature Overview (1 page),2,4,6,4,*depends on content
+Features - Sell,Point of Sale (1 page),3,5,7,5,
+,Online Store (1 page),3,4,6,4,
+Features - Admin,Scheduling  (1 page),2,4,6,4,
+,"Students Management (Students database, attendance, make up, Mobile App)  (1 page)",7,12,16,12,mockups for mobile page
+Features - Management,School Reporting  (1 page),2,3,4,3,custom illustrations ?
+,Roster and Payroll  (1 page),1,2,3,2,
+,Multi Branch  (1 page),1,2,3,2,
+Features - Integration,Integration  (1 page),2,4,6,4,*depends on content
+Why Schooltracs,Arts School (1 page),2,4,6,4,*depends on content
+,Sports School (1 page),2,4,6,4,*depends on content
+,Tuition Centers (1 page),2,4,6,4,*depends on content
+,Playgroups (1 page),2,4,6,4,*depends on content
+Pricing ,Pricing (1 page),3,5,7,5,
+Resources,Contact Sales (1 page),1,2,3,2,
+,Blog + Open Article Template (1 page),4,6,8,6,
+,Help Center (1 page),1,2,3,2,*depends on content
+,Support (1 page),1,2,3,2,*depends on content
+Design System,,3,5,7,5,"Library of components, different states, hovers, fonts etc."
+Mobile responsive,,21,27,33,27,
+*Refinements ,,14,21,28,21,
+TOTAL,,101,157,213,157,
+Mobile App design - requiremets,,,,,,
+Sign Up,,1,2,3,2,
+Sign In,,1,1,2,1,
+Schedule,,2,4,6,4,Maybe we should consider to add month view and possiblity to quickly select certain day?
+Take Attendance ,,3,5,7,5,
+Scan QR code to take attendance,,1,1,1,1,
+Teacher Clock in/Clock out,,3,5,7,5,
+"View student information, leave a comment (2 ways of entry)",,3,5,7,5,
+Notifications,,1,2,3,2,
+Menu + View multiple branches,,2,3,4,3,
+Setting preference,,1,1,1,1,
+Bi-directional message for admin/teacher and students,,1,1,1,1,
+Reschedule,,1,2,3,2,
+Viewing Invoice / Receipt,,3,5,7,5,
+*Refinements ,,7,9,12,9,
+TOTAL,,30,46,64,46,
+Design Operational,,,,,,
+Desops,Design system (Creation & maintenance),7,12,16,12,
+,QA ,3,4,4,4,
+TOTAL,,10,16,20,16,
+,Total Product Design ,141,219,297,219,
+,"Total BA/PM 
+(Including setting up the project environment, managing the project scope, documentation )",28,33,45,44,
+,TOTAL PROJECT (hours),206,310,421,321,
+,TOTAL PROJECT COST ,$10 300,$15 513,$21 038,$16 053,
+,,,,,,
+,,,,,,
+,Team Capacity ,Hours a week,,,,
+,UX/UI designer/s,30,(based on 6h efffective working day) ,,,
+,BA/PM ,10,,,,
+,,,,,,
+,Project Timeline (design effort) ,Min,Most likely,Maximum ,PERT,
+,Design effort (in weeks) ,5,7,10,7,
+,,,,,,
+,,,,,,
+,Communication,Min,Most likely,Maximum ,PERT,
+,External communication ,19,29,40,29,1-2 syncs per week
+,Internal communication ,18,29,40,29,30 min daily
+,Total communication ,37,58,79,58,

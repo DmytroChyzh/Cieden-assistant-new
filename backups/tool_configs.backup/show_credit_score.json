@@ -1,0 +1,29 @@
+{
+    "type": "client",
+    "name": "show_credit_score",
+    "description": "Use this tool to show in UI credit score to the user.  Context: His credit score is 780. ",
+    "response_timeout_secs": 20,
+    "disable_interruptions": false,
+    "force_pre_tool_speech": false,
+    "assignments": [],
+    "parameters": {
+        "type": "object",
+        "required": [
+            "score"
+        ],
+        "description": "",
+        "properties": {
+            "score": {
+                "type": "number",
+                "description": "This is the score to show to the user  (780)",
+                "dynamic_variable": "",
+                "constant_value": ""
+            }
+        }
+    },
+    "expects_response": false,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    },
+    "execution_mode": "immediate"
+}

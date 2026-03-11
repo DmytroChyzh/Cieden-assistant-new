@@ -1,0 +1,9 @@
+{
+    "agents": [
+        {
+            "name": "Support agent",
+            "config": "agent_configs/prod/support_agent.json",
+            "id": "agent_6301k7vxwa13f2qbna6q0rxa88t8"
+        }
+    ]
+}

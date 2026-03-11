@@ -1,0 +1,106 @@
+{
+  "questions": [
+    {
+      "id": 1,
+      "type": "project_type",
+      "question": "What type of project are you hiring for?",
+      "buttons": [
+        "I want to build new product or service",
+        "I need ongoing assistance or consultation (extend my team)",
+        "I have existing project that needs UX/UI improvements",
+        "None of the above, I'm just looking to learn more"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "product_type",
+      "question": "What type of product or service are you building?",
+      "buttons": ["B2C SaaS", "B2B SaaS", "Business automation", "Marketplace", "Other"]
+    },
+    {
+      "id": 3,
+      "type": "specifications",
+      "question": "Do you have product specifications ready?",
+      "buttons": ["Need research first", "Have clear ideas", "Have written specs", "Need help documenting"]
+    },
+    {
+      "id": 4,
+      "type": "goal",
+      "question": "What is your goal?",
+      "buttons": ["Design MVP", "Build launchpad", "Full product design", "Need consultation"]
+    },
+    {
+      "id": 5,
+      "type": "time_commitment",
+      "question": "What level of time commitment will you require?",
+      "buttons": ["Full time (40 hrs/week)", "Part time", "One time project", "Fixed price service"]
+    },
+    {
+      "id": 6,
+      "type": "team_size",
+      "question": "How many designers do you need?",
+      "buttons": ["One designer", "Multiple designers", "Cross-functional team", "Decide later"]
+    },
+    {
+      "id": 7,
+      "type": "duration",
+      "question": "How long do you need help with design?",
+      "buttons": ["A week", "2-3 weeks", "1-3 months", "3-6 months", "6+ months"]
+    },
+    {
+      "id": 8,
+      "type": "start_date",
+      "question": "When do you need us to start?",
+      "buttons": ["Immediately", "1-2 weeks", "In a month", "1-3 months", "3+ months"]
+    },
+    {
+      "id": 9,
+      "type": "scope",
+      "question": "How big is the scope of work?",
+      "buttons": ["Small project", "Medium project", "Large project", "Enterprise project", "Not sure"]
+    },
+    {
+      "id": 10,
+      "type": "services",
+      "question": "What services do you need?",
+      "buttons": ["UX Research", "UI Design", "Prototyping", "Design System", "All services"]
+    },
+    {
+      "id": 11,
+      "type": "complexity",
+      "question": "How complex is your app?",
+      "buttons": ["Essential (simple)", "Advanced (complex)", "Enterprise-grade", "Need assessment"]
+    }
+  ],
+  "pricing": {
+    "base_prices": {
+      "website": { "min": 3000, "max": 8000, "hours": { "min": 60, "max": 160 } },
+      "webapp": { "min": 8000, "max": 25000, "hours": { "min": 160, "max": 500 } },
+      "mobile_app": { "min": 30000, "max": 80000, "hours": { "min": 600, "max": 1600 } },
+      "enterprise": { "min": 60000, "max": 150000, "hours": { "min": 1200, "max": 3000 } }
+    },
+    "multipliers": {
+      "platforms": {
+        "android_only": 0.7,
+        "ios_only": 0.7,
+        "android_ios": 1.0,
+        "android_ios_web": 1.4
+      },
+      "complexity": {
+        "essential": 0.8,
+        "advanced": 1.0,
+        "enterprise": 1.5
+      },
+      "team_size": {
+        "one_designer": 0.8,
+        "multiple_designers": 1.0,
+        "cross_functional": 1.3
+      },
+      "timeline": {
+        "standard": 1.0,
+        "rush": 1.5,
+        "flexible": 0.9
+      }
+    }
+  }
+}

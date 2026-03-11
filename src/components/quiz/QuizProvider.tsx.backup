@@ -1,0 +1,201 @@
+"use client";
+
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
+
+// Quiz types
+interface QuizQuestion {
+  id: string;
+  question: string;
+  type: 'yesno' | 'range' | 'choice' | 'cards';
+  options?: Array<{
+    value: string;
+    label?: string;
+    title?: string;
+    points?: string[];
+  }>;
+  followUp?: {
+    condition: string;
+    question: string;
+    type: string;
+    options: Array<{
+      value: string;
+      label: string;
+    }>;
+  };
+}
+
+interface Quiz {
+  _id?: string;
+  title: string;
+  description?: string;
+  questions: QuizQuestion[];
+  conversationId?: string;
+  userId?: string;
+  isActive?: boolean;
+  createdAt?: number;
+}
+
+interface QuizState {
+  currentQuestion: number;
+  answers: Record<string, string>;
+  showResults: boolean;
+  overlay: {
+    type: string;
+    data: any;
+  } | null;
+}
+
+interface QuizContextType {
+  isActive: boolean;
+  currentQuiz: Quiz | null;
+  quizState: QuizState;
+  updateQuizState: (update: Partial<QuizState>) => void;
+  setCurrentQuiz: (quiz: Quiz | null) => void;
+  handleToolCall: (toolCall: string) => boolean;
+  showOverlay: (cardType: string, data: any) => void;
+  closeOverlay: () => void;
+  resetQuiz: () => void;
+}
+
+const QuizContext = createContext<QuizContextType | undefined>(undefined);
+
+export function useQuiz() {
+  const context = useContext(QuizContext);
+  if (context === undefined) {
+    throw new Error('useQuiz must be used within a QuizProvider');
+  }
+  return context;
+}
+
+interface QuizProviderProps {
+  children: React.ReactNode;
+  conversationId?: Id<"conversations"> | null;
+}
+
+export function QuizProvider({ children, conversationId }: QuizProviderProps) {
+  const [currentQuiz, setCurrentQuiz] = useState<Quiz | null>(null);
+  const [quizState, setQuizState] = useState<QuizState>({
+    currentQuestion: 0,
+    answers: {},
+    showResults: false,
+    overlay: null
+  });
+
+  const updateQuizState = useCallback((update: Partial<QuizState>) => {
+    setQuizState(prev => ({ ...prev, ...update }));
+  }, []);
+
+  const handleToolCall = useCallback((toolCall: string): boolean => {
+    if (toolCall.startsWith('TOOL_CALL:updateQuiz:')) {
+      try {
+        const data = JSON.parse(toolCall.replace('TOOL_CALL:updateQuiz:', ''));
+        
+        // Map snake_case from voice tool to camelCase for UI
+        const questionId = data.questionId || data.question_id;
+        const selectedValue = data.selectedValue || data.selected_value;
+        const action = data.action;
+        
+        // Update quiz state based on agent's tool call
+        if (action === 'selectOption') {
+          if (questionId && selectedValue) {
+            setQuizState(prev => ({
+              ...prev,
+              answers: { 
+                ...prev.answers, 
+                [questionId]: selectedValue 
+              }
+            }));
+          }
+        } else if (action === 'nextQuestion') {
+          setQuizState(prev => ({ 
+            ...prev, 
+            currentQuestion: Math.min(prev.currentQuestion + 1, (currentQuiz?.questions?.length || 1) - 1)
+          }));
+        } else if (action === 'prevQuestion') {
+          setQuizState(prev => ({ 
+            ...prev, 
+            currentQuestion: Math.max(prev.currentQuestion - 1, 0)
+          }));
+        } else if (action === 'showResults') {
+          setQuizState(prev => ({ ...prev, showResults: true }));
+        }
+        
+        return true; // Tool call handled
+      } catch (error) {
+        console.error('Failed to parse quiz update tool call:', error);
+        return false;
+      }
+    }
+    return false; // Tool call not handled
+  }, [currentQuiz]);
+
+  const showOverlay = useCallback((cardType: string, data: any) => {
+    setQuizState(prev => ({
+      ...prev,
+      overlay: { type: cardType, data }
+    }));
+  }, []);
+
+  const closeOverlay = useCallback(() => {
+    setQuizState(prev => ({
+      ...prev,
+      overlay: null
+    }));
+  }, []);
+
+  const resetQuiz = useCallback(() => {
+    setQuizState({
+      currentQuestion: 0,
+      answers: {},
+      showResults: false,
+      overlay: null
+    });
+    setCurrentQuiz(null);
+  }, []);
+
+  // Subscribe to all messages to watch for contextual quiz updates
+  const allMessages = useQuery(api.messages.list, conversationId ? { conversationId } : "skip");
+  
+  // Process contextual messages for quiz updates
+  useEffect(() => {
+    if (!allMessages || !conversationId) return;
+    
+    // Filter for contextual messages with quiz updates
+    const contextualQuizMessages = allMessages.filter(msg => 
+      msg.role === 'system' && 
+      msg.source === 'contextual' && 
+      msg.content.startsWith('TOOL_CALL:updateQuiz:')
+    );
+    
+    // Process the most recent contextual message
+    const latestMessage = contextualQuizMessages[contextualQuizMessages.length - 1];
+    if (latestMessage) {
+      console.log('📝 QuizProvider processing contextual message:', latestMessage.content);
+      handleToolCall(latestMessage.content);
+    }
+  }, [allMessages, conversationId, handleToolCall]);
+
+  const contextValue: QuizContextType = {
+    isActive: !!currentQuiz?.isActive,
+    currentQuiz,
+    quizState,
+    updateQuizState,
+    setCurrentQuiz,
+    handleToolCall,
+    showOverlay,
+    closeOverlay,
+    resetQuiz
+  };
+
+  return (
+    <QuizContext.Provider value={contextValue}>
+      {children}
+    </QuizContext.Provider>
+  );
+}
+
+// Export types for use in other components
+export type { Quiz, QuizQuestion, QuizState };

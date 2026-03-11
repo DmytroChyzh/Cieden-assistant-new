@@ -1,0 +1,32 @@
+About,"Shipro — це вебсайт, який пропонує комплексні логістичні рішення для електронної комерції. Платформа інтегрується з вашим інтернет-магазином, автоматизуючи процеси від зберігання товарів до виконання замовлень, включаючи пакування та доставку. Shipro забезпечує ефективне управління запасами, обробку повернень та надає можливості для налаштування під специфічні потреби бізнесу. Завдяки глобальній мережі центрів виконання замовлень у шести країнах, Shipro допомагає швидко та надійно доставляти продукцію клієнтам по всьому світу.",,,
+Total design,315,,,
+Corrections & communication,47,,,
+Total hours,362,,,
+,,,,
+Name,Optimistic,Pessimistic,Estimate,Deviation
+Wireframes (general website structure and content structure for all unique pages),40,56,"48,00","2,67"
+Design concept based on a homepage (website look & feel),32,64,"48,00","5,33"
+,,,,
+Pages design,,,,
+Order Fulfillment (template),5,8,"6,50","0,50"
+Marketplace fulfillment (template),5,8,"6,50","0,50"
+B2B (template),5,8,"6,50","0,50"
+Omnichannel,5,8,"6,50","0,50"
+Industries (template),5,8,"6,50","0,50"
+Integrations (template),5,8,"6,50","0,50"
+Software,5,8,"6,50","0,50"
+Blog,4,8,"6,00","0,67"
+Blog article,4,8,"6,00","0,67"
+Pricing,5,9,"7,00","0,67"
+About us,4,8,"6,00","0,67"
+Talk to us,2,4,"3,00","0,33"
+Terms & conditions,2,4,"3,00","0,33"
+Privacy policy,2,4,"3,00","0,33"
+404 page,2,4,"3,00","0,33"
+Support,6,12,"9,00","1,00"
+Support article,4,8,"6,00","0,67"
+,,,,
+Adaptives,65,113,"89,00","8,00"
+UI kit,8,16,"12,00","1,33"
+,,,"294,50","10,33"
+,,,Estimate,Deviation

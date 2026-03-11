@@ -1,0 +1,51 @@
+{
+    "type": "client",
+    "name": "generate_estimate",
+    "description": "Generate a preliminary cost estimate card for a design project based on product type, complexity and scope. Use when the user asks about pricing, cost, budget, or wants an estimate for their project.",
+    "response_timeout_secs": 20,
+    "disable_interruptions": false,
+    "force_pre_tool_speech": false,
+    "assignments": [],
+    "parameters": {
+        "type": "object",
+        "required": [],
+        "description": "",
+        "properties": {
+            "productType": {
+                "type": "string",
+                "description": "Product type: web app, mobile app, B2B SaaS, marketplace, internal tool, etc.",
+                "dynamic_variable": "",
+                "constant_value": ""
+            },
+            "complexity": {
+                "type": "string",
+                "description": "Rough complexity level: low, medium, or high",
+                "dynamic_variable": "",
+                "constant_value": ""
+            },
+            "scope": {
+                "type": "string",
+                "description": "Design scope and high-level feature list",
+                "dynamic_variable": "",
+                "constant_value": ""
+            },
+            "timeline": {
+                "type": "string",
+                "description": "Desired timeline (e.g. 2-3 months, 3-6 months)",
+                "dynamic_variable": "",
+                "constant_value": ""
+            },
+            "budgetHint": {
+                "type": "number",
+                "description": "Optional budget hint from the user in USD",
+                "dynamic_variable": "",
+                "constant_value": ""
+            }
+        }
+    },
+    "expects_response": false,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    },
+    "execution_mode": "immediate"
+}

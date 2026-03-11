@@ -1,0 +1,16 @@
+
+# Convex 
+NEXT_PUBLIC_CONVEX_URL=https://watchful-hummingbird-57.convex.cloud
+
+# ElevenLabs (For voice)
+ELEVENLABS_API_KEY=sk_214de6ff474e70e3a841116d7e54f39de4a1e18c04e1f230
+NEXT_PUBLIC_ELEVENLABS_AGENT_ID=agent_9101k1ywagpreh88xcx70qeadegf
+
+# Development
+NODE_ENV=development
+
+# Deployment used by `npx convex dev`
+CONVEX_DEPLOYMENT=dev:watchful-hummingbird-57 # team: yuri, project: finpilot-project
+
+# Convex Auth (Required for JWT token generation)
+JWT_PRIVATE_KEY=MyJZhWlTY0g1tEGg2N/0vTLx5N4RqRlENWJCSgICosA=

@@ -1,0 +1,20 @@
+{
+    "type": "client",
+    "name": "show_emi_info",
+    "description": "Use this tool to show user information about what is EMI (Equated Monthly Installment). Use this tool when a user asks to explain what is EMI. When providing examples, use USD amounts (e.g., $2,500 monthly payment for a $25,000 loan).",
+    "response_timeout_secs": 20,
+    "disable_interruptions": false,
+    "force_pre_tool_speech": false,
+    "assignments": [],
+    "parameters": {
+        "type": "object",
+        "required": [],
+        "description": "",
+        "properties": {}
+    },
+    "expects_response": false,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    },
+    "execution_mode": "immediate"
+}

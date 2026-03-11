@@ -1,0 +1,58 @@
+Pages/Flows,Hours min,Hours max,Average,Comments 
+Enterprose admin ,,,,
+Company ,10,20,15,"- Company list with filters 
+- Add company fllow 
+- Company profile preview 
+- Add company admin 
+- Actions "
+Company admins ,10,20,15,"- Admin list 
+- Actions 
+- Add admin 
+- Set permissions 
+- Admin profile "
+Offices ,10,20,15,"- Office list with filters 
+- Add office (manually)
+- Actions "
+CSV upload feature ,4,8,6,- Filed mapping
+Employees ,16,24,20,"- List 
+- Filter 
+- Add employee manualy 
+- Add from data feed
+- Acions 
+- Profile preview 
+- Bulk actions "
+Referrals ,10,20,15,"- list of referrals 
+- filyters 
+- Archive of referrlals 
+- Actions + create referral + assign referral) 
+- Ref preview "
+Analytics ,TBD ,,,"- Graphs 
+- Filters "
+Reports ,16,20,18,"- Create report 
+- Set email notifs "
+Permissions ,16,24,20,"- Role presets
+- Office permissiosn (table) "
+Knowledge base ,integration ,,,
+Notifications and Alerts ,2,6,4,"- Alerts feed
+- Alert page "
+Settings ,4,8,6,"- Notifs
+- Admin details 
+- billing details (stripe) 
+- brand paymentds (for refmax usage) "
+News ,integration ,,,
+Upgrades (sales/payments),10,20,15,"- buy upgrades (bulk) 
+- list of upgrades 
+- upgrades history 
+- profit 
+- withdraw money "
+Manage APIs ,4,6,5,TBD
+,,,0,
+BA efforts,,,,
+Admin permissiosn ,10,16,,
+,,,,
+Other,,,,
+Team sync ,40,,,
+Demo ,5,,,
+Prototype,16,,,
+,,,,
+Total ,183,267,225,

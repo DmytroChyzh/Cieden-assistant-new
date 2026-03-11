@@ -1,0 +1,347 @@
+@import "tailwindcss";
+
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Custom scrollbar styles for dark theme */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  /* Main chat scrollbar - blends with app background */
+  .scrollbar-chat {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  }
+
+  .scrollbar-chat::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-chat::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-chat::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    transition: background 0.2s ease;
+  }
+
+  .scrollbar-chat::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+
+  /* Drawer scrollbar - only visible on hover, dark theme compatible */
+  .scrollbar-drawer {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .scrollbar-drawer:hover {
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  }
+
+  .scrollbar-drawer::-webkit-scrollbar {
+    width: 6px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .scrollbar-drawer:hover::-webkit-scrollbar {
+    opacity: 1;
+  }
+
+  .scrollbar-drawer::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-drawer::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    transition: background 0.2s ease;
+  }
+
+  .scrollbar-drawer:hover::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.4);
+  }
+
+  /* Light theme scrollbar for drawer */
+  .light .scrollbar-drawer:hover {
+    scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+  }
+
+  .light .scrollbar-drawer::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .light .scrollbar-drawer:hover::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  /* Animated shadow glow for assistant card */
+  .animated-shadow-glow {
+    animation: shadow-pulse 9s ease-in-out infinite;
+  }
+
+  /* Voice chat page background that extends full height */
+  .voice-chat-background {
+    background: var(--Gradient-Dark, linear-gradient(170deg, var(--Background-Gradient-dark-Dark-blue, #262531) -9.44%, var(--Background-Gradient-dark-Black, #000) 100%));
+    min-height: 100vh;
+  }
+
+  /* Mobile-embed variant: same gradient, no viewport height pressure */
+  .voice-chat-background-embed {
+    background: var(--Gradient-Dark, linear-gradient(170deg, var(--Background-Gradient-dark-Dark-blue, #262531) -9.44%, var(--Background-Gradient-dark-Black, #000) 100%));
+  }
+
+  /* Ensure body also has the background for full coverage */
+  body:has(.voice-chat-background) {
+    background: var(--Gradient-Dark, linear-gradient(170deg, var(--Background-Gradient-dark-Dark-blue, #262531) -9.44%, var(--Background-Gradient-dark-Black, #000) 100%));
+  }
+
+  @keyframes shadow-pulse {
+    0% {
+      box-shadow: 
+        0 25px 50px -12px rgba(147, 51, 234, 0.2),
+        0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+    25% {
+      box-shadow: 
+        -15px 30px 60px -10px rgba(147, 51, 234, 0.4),
+        -8px 15px 40px -8px rgba(147, 51, 234, 0.2),
+        0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+    50% {
+      box-shadow: 
+        0 35px 70px -8px rgba(147, 51, 234, 0.5),
+        0 20px 40px -10px rgba(147, 51, 234, 0.3),
+        0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+    75% {
+      box-shadow: 
+        15px 30px 60px -10px rgba(147, 51, 234, 0.4),
+        8px 15px 40px -8px rgba(147, 51, 234, 0.2),
+        0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+    100% {
+      box-shadow: 
+        0 25px 50px -12px rgba(147, 51, 234, 0.2),
+        0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+  }
+
+  /* Cosmic background animations (for imported Chatbot-style visuals) */
+  @keyframes cosmic-drift {
+    0% {
+      transform: translateX(-100px) translateY(-100px);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    90% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateX(100vw) translateY(100vh);
+      opacity: 0;
+    }
+  }
+
+  @keyframes cosmic-pulsar {
+    0%, 100% {
+      opacity: 0.1;
+      transform: scale(0.5);
+      box-shadow: 0 0 2px #ffffff, 0 0 4px #ffffff, 0 0 6px #ffffff;
+    }
+    50% {
+      opacity: 1;
+      transform: scale(2);
+      box-shadow: 0 0 10px #ffffff, 0 0 20px #ffffff, 0 0 30px #ffffff;
+    }
+  }
+}
+
+@theme {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  --copilot-kit-primary-color: black;
+
+  /* Figma Design Tokens */
+  --Text-Primary-White: #FFF;
+  --Text-Secondary-Grey: #A3A1A1;
+  --Text-Accent-Green: #31A065;
+  --Gradient-Colorful: rgba(34, 74, 215, 0.60);
+  --Stroke-Dark-blue: #262531;
+  --background-chips-buttons-grey-15: rgba(163, 161, 161, 0.15);
+  --background-chips-buttons-white-10: rgba(255, 255, 255, 0.10);
+  --Background-Gradient-dark-Dark-blue: #262531;
+  --Background-Gradient-dark-Black: #000;
+  --Font-family-Font-Sans-Serif: Inter;
+  --Gradient-Dark: linear-gradient(170deg, var(--Background-Gradient-dark-Dark-blue, #262531) -9.44%, var(--Background-Gradient-dark-Black, #000) 100%);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.147 0.004 49.25);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.147 0.004 49.25);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.147 0.004 49.25);
+  --primary: oklch(0.216 0.006 56.043);
+  --primary-foreground: oklch(0.985 0.001 106.423);
+  --secondary: oklch(0.97 0.001 106.424);
+  --secondary-foreground: oklch(0.216 0.006 56.043);
+  --muted: oklch(0.97 0.001 106.424);
+  --muted-foreground: oklch(0.553 0.013 58.071);
+  --accent: oklch(0.97 0.001 106.424);
+  --accent-foreground: oklch(0.216 0.006 56.043);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --border: oklch(0.923 0.003 48.717);
+  --input: oklch(0.923 0.003 48.717);
+  --ring: oklch(0.869 0.005 56.366);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0.001 106.423);
+  --sidebar-foreground: oklch(0.147 0.004 49.25);
+  --sidebar-primary: oklch(0.216 0.006 56.043);
+  --sidebar-primary-foreground: oklch(0.985 0.001 106.423);
+  --sidebar-accent: oklch(0.97 0.001 106.424);
+  --sidebar-accent-foreground: oklch(0.216 0.006 56.043);
+  --sidebar-border: oklch(0.923 0.003 48.717);
+  --sidebar-ring: oklch(0.869 0.005 56.366);
+}
+
+.dark {
+  --background: oklch(0.147 0.004 49.25);
+  --foreground: oklch(0.985 0.001 106.423);
+  --card: oklch(0.147 0.004 49.25);
+  --card-foreground: oklch(0.985 0.001 106.423);
+  --popover: oklch(0.147 0.004 49.25);
+  --popover-foreground: oklch(0.985 0.001 106.423);
+  --primary: oklch(0.985 0.001 106.423);
+  --primary-foreground: oklch(0.216 0.006 56.043);
+  --secondary: oklch(0.268 0.007 34.298);
+  --secondary-foreground: oklch(0.985 0.001 106.423);
+  --muted: oklch(0.268 0.007 34.298);
+  --muted-foreground: oklch(0.709 0.01 56.259);
+  --accent: oklch(0.268 0.007 34.298);
+  --accent-foreground: oklch(0.985 0.001 106.423);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.268 0.007 34.298);
+  --input: oklch(0.268 0.007 34.298);
+  --ring: oklch(0.553 0.013 58.071);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.216 0.006 56.043);
+  --sidebar-foreground: oklch(0.985 0.001 106.423);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0.001 106.423);
+  --sidebar-accent: oklch(0.268 0.007 34.298);
+  --sidebar-accent-foreground: oklch(0.985 0.001 106.423);
+  --sidebar-border: oklch(0.268 0.007 34.298);
+  --sidebar-ring: oklch(0.553 0.013 58.071);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+  /* Voice chat page background that extends full height */
+  .voice-chat-background {
+    background: var(--Gradient-Dark, linear-gradient(170deg, var(--Background-Gradient-dark-Dark-blue, #262531) -9.44%, var(--Background-Gradient-dark-Black, #000) 100%));
+    background-attachment: fixed; /* Keeps gradient attached to viewport, covering entire scroll area */
+    min-height: 100vh;
+  }
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  /* Ensure the root html element also has a dark background so that
+     any sub-pixel gaps (e.g. from 100vh rounding or fixed elements)
+     don't expose the browser's default white background, which was
+     visible as a thin white line at the very bottom of the page. */
+  html {
+    background: #000;
+  }
+}
+

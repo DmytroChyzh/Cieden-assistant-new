@@ -1,0 +1,86 @@
+{
+  "editor.tokenColorCustomizations": {
+    "[*]": {
+      "textMateRules": [
+        {
+          "scope": "keyword.control.requirements-dsl",
+          "settings": {
+            "fontStyle": "bold"
+          }
+        },
+        {
+          "scope": "entity.name.type.requirements-dsl, entity.name.function.requirements-dsl, entity.name.class.requirements-dsl",
+          "settings": {
+            "fontStyle": "bold"
+          }
+        },
+        {
+          "scope": "keyword.control.error.requirements-dsl",
+          "settings": {
+            "foreground": "#f48771",
+            "fontStyle": "bold"
+          }
+        },
+        {
+          "scope": "keyword.control.success.requirements-dsl",
+          "settings": {
+            "foreground": "#89d185",
+            "fontStyle": "bold"
+          }
+        },
+        {
+          "scope": "constant.language.boolean.yes.requirements-dsl",
+          "settings": {
+            "foreground": "#89d185"
+          }
+        },
+        {
+          "scope": "constant.language.boolean.no.requirements-dsl",
+          "settings": {
+            "foreground": "#f48771"
+          }
+        },
+        {
+          "scope": "constant.language.boolean.none.requirements-dsl",
+          "settings": {
+            "foreground": "#ce9178"
+          }
+        },
+        {
+          "scope": "comment.block.parenthetical.requirements-dsl",
+          "settings": {
+            "foreground": "#6a9955",
+            "fontStyle": "italic"
+          }
+        },
+        {
+          "scope": "keyword.other.canonical.requirements-dsl",
+          "settings": {
+            "foreground": "#4ec9b0",
+            "fontStyle": "bold"
+          }
+        },
+        {
+          "scope": "invalid.deprecated.synonym.requirements-dsl",
+          "settings": {
+            "foreground": "#f48771",
+            "fontStyle": "underline"
+          }
+        },
+        {
+          "scope": "keyword.operator.arrow.requirements-dsl",
+          "settings": {
+            "foreground": "#c586c0"
+          }
+        },
+        {
+          "scope": "variable.other.constant.env.requirements-dsl",
+          "settings": {
+            "foreground": "#4fc1ff",
+            "fontStyle": "bold"
+          }
+        }
+      ]
+    }
+  }
+}

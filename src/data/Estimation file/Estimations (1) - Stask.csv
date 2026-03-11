@@ -1,0 +1,71 @@
+About,"CRM systems allow restaurants accurately maintain compliance and ensure that health, safety, and service standards are met. Automation of task management processes helps businesses to consistently meet and exceed brand standards. To conduct a discovery phase to identify main pain points in managing restaurants in Central Asia, identify opportunities and gaps. Based on the research findings, we designed a new platform to support setting up and scaling the restaurant. The solution comprised two products (web app and mobile app) is in active implementation phase. Managing a business is very complicated work - you must keep an eye on multiple directions simultaneously, have all processes properly set up, and have the proper tools on hand to assist you while monitoring and controlling all moving parts. We tried to create a SaaS solution for an early phase startup focused on small and medium restaurants, that would help to create and run a business in the Middle East region.
+
+",,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,
+Module ,Min,Max ,Responsive ,Desktop Ave,App average ,Average effort required ,Comment ,Week 1 ,Week 2,Week 3,Week 4,Week 5,Week 6,Week 7,Week 8,Reminder ,,Actual hours ,Remaining 
+,,,,,,,,19 Apr - 25 Apr 2021,26 Apr - 02 May 2021,03 May - 09 May 2021,10 May - 16 May 2021,17 May - 23 May 2021,24 May - 30 May 2021,,,,,,
+Capacity,,,,,,,40,#VALUE!,#VALUE!,#VALUE!,#VALUE!,#VALUE!,#VALUE!,#VALUE!,#VALUE!,* with capacity up to 40h ,,,
+DESIGN SYSTEM (UI) ,8,16,,12,13,25,,,12,10,3,,,,,0,,"1,5","14,5"
+"UI Concept (Shifts, employees)",12,16,,14,,14,,,14,,,,,,,0,,18,-2
+"Registration, Login, Forgot password ",,,,,,0,onboardign with filling information,,,,,,,,,,,,0
+Onboarding ,- ,,-,,,0,Guide - integration ,,,,,,,,,0,,,0
+Dashboard ,16,20,10,18,12,40,,,,,,,,12,28,0,,,20
+Employees ,16,24,12,20,,32,"- list of employees
+- profile (salary, shift, docs, log history) 
+- add employee ",20,,4,,,8,,,0,,11,13
+Salary ,,,,,,0,"- salary table 
+- salary pop-up ",10,,,,,,,,,,11,-11
+Attendence ,12,16,8,14,,22,"- attendence table + overview 
+- Leave requests ",,,,,,,12,10,0,,25,-9
+Shifts ,18,22,,20,20,40,"- 2 view from shift perspective & employee perspective
+- create shift flow 
+- edit shifts ",,4,16,14,,,6,,0,,,22
+Tasks + task templates ,30,38,,34,22,56,"- create task 
+- task list 
+- template management 
+- list view 
+- (Gant chart view) if with Gant chart view -> 36-46hours 
+- pop-ups 
+
+",,,,29,17,10,,,0,,3,35
+Knowledge base ,18,22,10,20,4,34,- wiki with mnowledge base ,,,,,24,10,,,0,,,22
+Profile ,,,,,,,,,,,,,,,,,,,0
+Payments management ,,,,,,0,"- bank transfer
+- credit card ",,,,,,,,,,,,0
+Analytics ,,,,,,0,But depends if this should be graphical or text ,,,,,,,,,,,,0
+Settings ,,,,,,,"- permission management
+- penalties
+- notification settings ",,,,,,,,,,,,0
+Notifications ,,,,,,0,,,,,,,,,,,,,0
+Docuemnts ,,,,,,0,,,,,,,,,,,,,0
+Support ,,,,,,0,- > could be with integration ,,,,,,,,,,,,0
+Letters ,20,24,12,22,,34,"- create template
+- letter preview ",,,,,,22,12,,0,,,
+Clockin/out flow ,,,,,5,5,,,,,,,,,5,0,,,
+Leave requests ,,,,,,0,,,,,,,,,,,,,
+DESKTOP ,110,142,,,,,,,,,,,,,,,,,
+RESPONSIVE ,52,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,
+,Min,Max ,,,,,,,,,,,,,,0,,,
+Desktop (in UI) ,110,142,,,,0,,,,,,,,,,,,,
+Mobile responsive ,52,109,,,,,,,,,,,,,,,,,
+Communication,15,20,,,,,Demo and syncs ,,,,,,,,,,,,
+Mobile app ,64,96,,,,,,,,,,,,,,,,,
+PRODUCT TOTAL ,241,367,,,,,,"25,5","35,6","34,5",23,"31,8",24,,,,"174,4","66,6",
+,,,,,,,,,,,,,,,,,,,
+,90,147,,,,250,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,
+App ,min,max,,ave,,,,,,,,,,,,,,,
+UI concept + design system ,10,16,,13,,,,,,,,,,,,,,9,7
+Registration/Login/Forgot passwrod ,,,,,,,,,,,,,,,,,,,0
+Profile ,,,,,,,,,,,,,,,,,,,0
+Tasks,20,24,,22,,,,,,,,,,,,,,,24
+Dashboard ,8,16,,12,,,,,,,,,,,,,,4,12
+Knowledge base ,6,10,,8,,,,,,,,,,,,,,,10
+Notifications ,,,,,,,,,,,,,,,,,,,0
+clock in/out ,4,6,,5,,,,,,,,,,,,,,,6
+Leave requests ,,,,,,,,,,,,,,,,,,,0
+Settings ,,,,,,,,,,,,,,,,,,,0
+Shifts ,16,24,,20,,,,,,,,,,,,,,"4,5","19,5"
+Total,64,96,,,,,,,,,,,,,,,,,

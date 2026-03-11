@@ -1,0 +1,33 @@
+{
+  "type": "client",
+  "name": "show_case_details",
+  "description": "Show one Cieden case study by id or by industry. Use when the user asks for a specific case, cases in their industry, or details of one project. Pass id (e.g. sitenna, lykon, wealth-management) or filter (e.g. fintech, healthcare) to narrow.",
+  "response_timeout_secs": 20,
+  "disable_interruptions": false,
+  "force_pre_tool_speech": false,
+  "assignments": [],
+  "parameters": {
+    "type": "object",
+    "required": [],
+    "description": "",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Case study id (e.g. sitenna, lykon, wealth-management)",
+        "dynamic_variable": "",
+        "constant_value": ""
+      },
+      "filter": {
+        "type": "string",
+        "description": "Industry or domain keyword (e.g. fintech, healthcare, AI)",
+        "dynamic_variable": "",
+        "constant_value": ""
+      }
+    }
+  },
+  "expects_response": false,
+  "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+  },
+  "execution_mode": "immediate"
+}

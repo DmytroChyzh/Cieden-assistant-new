@@ -1,0 +1,757 @@
+"use client";
+
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Mic, MicOff, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useConversation } from '@elevenlabs/react';
+import { useMutation, useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
+import { useElevenLabsMessages } from '@/src/hooks/useElevenLabsMessages';
+import { buildDynamicVariables } from '@/src/utils/agentContext';
+// POC: Removed WebSocket import - using SDK events only
+// import { useElevenLabsWebSocket } from '../../../hooks/useElevenLabsWebSocket';
+
+// Toggle verbose logging in production via env var
+const DEBUG = process.env.NEXT_PUBLIC_VOICE_DEBUG === '1';
+
+interface VoiceButtonProps {
+  conversationId?: Id<"conversations"> | null;
+  onTranscriptUpdate?: (transcript: string) => void;
+  onTranscriptFinal?: (transcript: string) => void;
+  onStatusChange?: (status: VoiceStatus) => void;
+  onTextFunctions?: (functions: {
+    sendUserMessage: (text: string) => void;
+    sendUserActivity: () => void;
+  }) => void;
+}
+
+type VoiceStatus = 'idle' | 'connecting' | 'listening' | 'processing' | 'speaking';
+
+export function VoiceButton({ 
+  conversationId, 
+  onTranscriptUpdate, 
+  onTranscriptFinal, 
+  onStatusChange,
+  onTextFunctions 
+}: VoiceButtonProps) {
+  // Messages removed from UI - transcripts handled by CopilotKit via Convex streams
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
+  // Performance timing
+  const [connectionStartTime, setConnectionStartTime] = useState<number | null>(null);
+  // WebRTC via SDK only; no custom WebSocket
+  
+  // Convex mutations for streaming
+  const startStream = useMutation(api.streaming.startStreamingTranscript);
+  const updateStream = useMutation(api.streaming.updateStreamingTranscript);
+  const cleanupStreams = useMutation(api.streaming.cleanupOldStreams);
+  
+  // ElevenLabs message bridge
+  const { handleAgentMessage, handleUserMessage } = useElevenLabsMessages({ 
+    conversationId: conversationId || null 
+  });
+  
+  // Refs to prevent stale closures in useEffect
+  const handleUserMessageRef = useRef(handleUserMessage);
+  const conversationIdRef = useRef(conversationId);
+  
+  // Update refs when values change
+  useEffect(() => {
+    handleUserMessageRef.current = handleUserMessage;
+  }, [handleUserMessage]);
+
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
+  
+  // Streams are handled by CopilotKit - no UI display needed
+
+  // POC: Removed WebSocket - using SDK events only
+  // All transcripts and responses now handled through SDK's onMessage callback
+  /*
+  const webSocket = useElevenLabsWebSocket({
+    agentId: process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || '',
+    conversationId,
+    onUserTranscript: (transcript) => {
+      console.log('🚀 REAL-TIME WebSocket Transcript:', transcript);
+      setWebSocketTranscripts(prev => [...prev, transcript]);
+      onTranscriptUpdate?.(transcript);
+      onTranscriptFinal?.(transcript);
+      
+      const realtimeMessage: Message = {
+        id: `ws-${Date.now()}`,
+        role: "user",
+        text: transcript,
+        status: "final"
+      };
+      upsertMessage(realtimeMessage);
+    },
+    onAgentResponse: (response) => {
+      console.log('🚀 REAL-TIME WebSocket Agent Response:', response);
+      const agentMessage: Message = {
+        id: `ws-agent-${Date.now()}`,
+        role: "assistant", 
+        text: response,
+        status: "final"
+      };
+      upsertMessage(agentMessage);
+    },
+    onConnectionChange: (connected) => {
+      console.log('🔌 WebSocket connection status:', connected);
+    }
+  });
+  */
+  
+  // WebSocket removed - using SDK callbacks only
+
+  // Message UI handling removed - only Convex streaming remains
+
+  const handleMessage = useCallback(async (event: unknown) => {
+    // POC: ULTRA DETAILED logging to catch tool calls (gated)
+    if (DEBUG) {
+      console.log('🔍 SDK Event Analysis:', {
+        timestamp: new Date().toISOString(),
+        eventType: (event as Record<string, unknown>)?.type,
+        fullEvent: JSON.stringify(event, null, 2)
+      });
+    }
+    
+    // SPECIAL: Check for any tool-related fields
+    const eventObj = event as Record<string, unknown>;
+    const hasToolFields = Object.keys(eventObj).some(key => 
+      key.toLowerCase().includes('tool') || 
+      key.toLowerCase().includes('call') ||
+      key.toLowerCase().includes('function')
+    );
+    
+    if (hasToolFields && DEBUG) {
+      console.log('🚨 POTENTIAL TOOL EVENT DETECTED:', {
+        allKeys: Object.keys(eventObj),
+        toolRelatedKeys: Object.keys(eventObj).filter(key => 
+          key.toLowerCase().includes('tool') || 
+          key.toLowerCase().includes('call') ||
+          key.toLowerCase().includes('function')
+        ),
+        fullEvent: event
+      });
+    }
+    
+    const messageEvent = event as Record<string, unknown>;
+    const eventType = messageEvent?.type as string;
+    const source = messageEvent?.source as string;
+    const message = messageEvent?.message as string;
+    
+    // PRIORITY: Handle actual SDK format (legacy format with source/message)
+    if (source && message) {
+      if (DEBUG) console.log('✅ Processing SDK event:', { source, message });
+      
+      if (source === "user") {
+        // Handle user transcripts
+        if (DEBUG) console.log('📝 User Transcript from SDK:', message);
+        
+        // Save user message to Convex via message bridge
+        try {
+          await handleUserMessage(message, {
+            sdkEvent: true,
+            eventSource: source,
+            messageType: 'transcript' // Could be voice transcript or text message
+          });
+        } catch (error) {
+          console.error('Failed to save user message via bridge:', error);
+        }
+
+        // Stream to Convex for real-time updates (keep existing streaming)
+        if (currentStreamId) {
+          try {
+            await updateStream({
+              streamId: currentStreamId,
+              content: message,
+              isComplete: true
+            });
+            if (DEBUG) console.log('✅ Updated Convex stream with transcript:', message.slice(0, 50));
+          } catch (error) {
+            console.error('Failed to update stream:', error);
+          }
+        }
+
+        // Update transcript callbacks
+        if (onTranscriptUpdate) {
+          onTranscriptUpdate(message);
+        }
+        if (onTranscriptFinal) {
+          onTranscriptFinal(message.trim());
+        }
+        
+        return;
+      }
+      
+      if (source === "ai") {
+        // Handle agent responses - Save to Convex via message bridge
+        if (DEBUG) console.log('🤖 Agent Response from SDK:', message);
+        
+        try {
+          await handleAgentMessage(message, {
+            sdkEvent: true,
+            eventSource: source
+          });
+          console.log('✅ ElevenLabs agent response saved to Convex');
+        } catch (error) {
+          console.error('Failed to save agent message via bridge:', error);
+        }
+        
+        return;
+      }
+      
+      if (DEBUG) console.log('❓ Unknown source type:', { source, message });
+      return;
+    }
+    
+    // Handle structured SDK events (if they exist)
+    if (eventType === 'user_transcript') {
+      const transcriptData = messageEvent.user_transcription_event as Record<string, unknown>;
+      const userTranscript = transcriptData?.user_transcript as string;
+      
+      if (userTranscript) {
+        if (DEBUG) console.log('📝 Structured SDK User Transcript:', userTranscript);
+        
+        // UI message handling removed - keep Convex streaming
+
+        if (currentStreamId) {
+          try {
+            await updateStream({
+              streamId: currentStreamId,
+              content: userTranscript,
+              isComplete: true
+            });
+          } catch (error) {
+            console.error('Failed to update stream:', error);
+          }
+        }
+
+        if (onTranscriptUpdate) onTranscriptUpdate(userTranscript);
+        if (onTranscriptFinal) onTranscriptFinal(userTranscript.trim());
+        
+        return;
+      }
+    }
+
+    if (eventType === 'agent_response') {
+      const responseData = messageEvent.agent_response_event as Record<string, unknown>;
+      const agentResponse = responseData?.agent_response as string;
+      
+      if (agentResponse) {
+        if (DEBUG) console.log('🤖 Structured SDK Agent Response:', agentResponse);
+        return;
+      }
+    }
+
+    // Handle other event types
+    if (eventType === 'conversation_initiation_metadata') {
+      const metadata = messageEvent.conversation_initiation_metadata_event as Record<string, unknown>;
+      if (DEBUG) console.log('🎬 Conversation Initiated:', {
+        conversationId: metadata?.conversation_id,
+        audioFormat: metadata?.agent_output_audio_format
+      });
+      return;
+    }
+
+    if (eventType === 'ping') {
+      if (DEBUG) console.log('🏓 Ping received');
+      return;
+    }
+
+    if (eventType === 'audio') {
+      const audioData = messageEvent.audio_event as Record<string, unknown>;
+      if (DEBUG) console.log('🔊 Audio event:', { eventId: audioData?.event_id });
+      return;
+    }
+
+    if (eventType === 'client_tool_call') {
+      const toolCall = messageEvent.client_tool_call as Record<string, unknown>;
+      if (DEBUG) console.log('🛠️ Client Tool Call:', {
+        toolName: toolCall?.tool_name,
+        toolCallId: toolCall?.tool_call_id,
+        parameters: toolCall?.parameters
+      });
+      
+      // TODO: Implement client-side tool execution
+      console.warn('⚠️ Client tool calls not yet implemented');
+      
+      // For now, send a placeholder response to continue conversation
+      if (toolCall?.tool_call_id) {
+        const toolCallId = toolCall.tool_call_id as string;
+        if (DEBUG) console.log(`📤 Sending placeholder response for tool call: ${toolCallId}`);
+        
+        // Note: You would typically send this via the conversation SDK
+        // conversation.sendToolResult({
+        //   tool_call_id: toolCallId,
+        //   result: "Tool execution not implemented yet",
+        //   is_error: true
+        // });
+      }
+      return;
+    }
+
+    if (eventType === 'agent_tool_response') {
+      const toolResponse = messageEvent.agent_tool_response as Record<string, unknown>;
+      if (DEBUG) console.log('🤖🛠️ Agent Tool Response:', {
+        toolName: toolResponse?.tool_name,
+        toolCallId: toolResponse?.tool_call_id,
+        toolType: toolResponse?.tool_type,
+        isError: toolResponse?.is_error
+      });
+      
+      // Handle specific tools
+      if (toolResponse?.tool_name === 'end_call') {
+        if (DEBUG) console.log('📞 Agent ended the call using End Call tool');
+      } else if (toolResponse?.tool_name === 'skip_turn') {
+        if (DEBUG) console.log('⏭️ Agent used skip turn tool');
+      } else if (typeof toolResponse?.tool_name === 'string' && toolResponse.tool_name.includes('transfer')) {
+        if (DEBUG) console.log('📞 Agent initiated call transfer:', toolResponse.tool_name);
+      } else if (toolResponse?.is_error) {
+        console.warn(`❌ Agent tool ${toolResponse.tool_name} failed`);
+      } else {
+        if (DEBUG) console.log(`🛠️ Agent used tool: ${toolResponse?.tool_name}`);
+      }
+      return;
+    }
+
+    if (eventType === 'vad_score') {
+      const vadEvent = messageEvent.vad_score_event as Record<string, unknown>;
+      const score = vadEvent?.vad_score as number;
+      if (score > 0.7) {
+        if (DEBUG) console.log('🎤 Voice Activity:', { 
+          score: score,
+          confidence: score > 0.9 ? 'high' : 'medium'
+        });
+      }
+      return;
+    }
+
+    // Log unhandled events
+    if (DEBUG) console.log('❓ Unhandled event:', {
+      type: eventType,
+      source,
+      hasMessage: !!message,
+      keys: Object.keys(messageEvent),
+      fullEvent: messageEvent
+    });
+  }, [onTranscriptUpdate, onTranscriptFinal, currentStreamId, updateStream, handleAgentMessage, handleUserMessage]);
+
+  // Voice conversation hook - NO textOnly flag (we want audio for voice mode)
+  const conversation = useConversation({
+    // textOnly: false,  // Default is false - this enables full audio
+    // Optimize ICE configuration for faster connection
+    rtcConfig: {
+      iceTransportPolicy: "relay", // Skip UDP candidates, go straight to TURN servers
+      iceCandidatePoolSize: 2       // Enable parallel candidate gathering
+    },
+    // Log ALL callback invocations
+    onStatusChange: (status: string) => {
+      console.log('📊 ElevenLabs Status Change:', { status, timestamp: new Date().toISOString() });
+    },
+    onModeChange: (mode: string) => {
+      console.log('🔄 ElevenLabs Mode Change:', { mode, timestamp: new Date().toISOString() });
+    },
+    onConnect: async (details) => {
+      // Calculate connection time
+      const connectionTime = connectionStartTime ? performance.now() - connectionStartTime : 0;
+      console.log('⚡ CONNECTION PERFORMANCE:', {
+        totalConnectionTime: `${connectionTime.toFixed(0)}ms`,
+        timestamp: new Date().toISOString(),
+        details: DEBUG ? JSON.stringify(details, null, 2) : 'Use NEXT_PUBLIC_VOICE_DEBUG=1 for details'
+      });
+      
+      if (DEBUG) console.log('🔌 ElevenLabs SDK Connected:', JSON.stringify(details, null, 2));
+      
+      // POC: Create Convex stream for SDK events (no WebSocket needed)
+      if (conversationId && !currentStreamId) {
+        try {
+          const streamId = `sdk-stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          await startStream({
+            conversationId,
+            streamId,
+            userId: "current-user" // TODO: Get actual user ID from auth
+          });
+          setCurrentStreamId(streamId);
+          console.log('📝 Created SDK transcript stream:', streamId);
+        } catch (error) {
+          console.error('Failed to create SDK transcript stream:', error);
+        }
+      }
+      
+      if (onStatusChange) onStatusChange('listening');
+    },
+    onDisconnect: async (details) => {
+      if (DEBUG) {
+        console.log('🔌 ElevenLabs SDK Disconnect:', {
+          timestamp: new Date().toISOString(),
+          disconnectDetails: JSON.stringify(details, null, 2)
+        });
+      }
+      
+      // POC: Complete and clean up stream on disconnect (SDK only)
+      if (currentStreamId) {
+        updateStream({
+          streamId: currentStreamId,
+          content: "[SDK SESSION ENDED]",
+          isComplete: true
+        }).then(() => {
+          console.log('✅ Completed SDK stream on disconnect:', currentStreamId);
+        }).catch((error) => {
+          console.error('Failed to complete SDK stream on disconnect:', error);
+        });
+        setCurrentStreamId(null);
+      }
+      
+      if (onStatusChange) onStatusChange('idle');
+    },
+    onMessage: handleMessage,
+    onError: (error) => {
+      if (DEBUG) {
+        console.log('❌ ElevenLabs SDK Error:', {
+          timestamp: new Date().toISOString(),
+          errorDetails: JSON.stringify(error, null, 2)
+        });
+      }
+      
+      // POC: Complete and clean up stream on error (SDK only)
+      if (currentStreamId) {
+        updateStream({
+          streamId: currentStreamId,
+          content: "[SDK ERROR OCCURRED]",
+          isComplete: true
+        }).then(() => {
+          console.log('✅ Completed SDK stream on error:', currentStreamId);
+        }).catch((error) => {
+          console.error('Failed to complete SDK stream on error:', error);
+        });
+        setCurrentStreamId(null);
+      }
+      
+      if (onStatusChange) onStatusChange('idle');
+    },
+    onDebug: (message) => {
+      if (DEBUG) {
+        console.log('🔍 ElevenLabs Debug Event - ENHANCED:', {
+          timestamp: new Date().toISOString(),
+          debugMessage: JSON.stringify(message, null, 2),
+          messageKeys: Object.keys(message as object),
+          messageType: (message as Record<string, unknown>)?.type,
+          messageSource: (message as Record<string, unknown>)?.source,
+          messageContent: (message as Record<string, unknown>)?.message,
+          isTranscript: (message as Record<string, unknown>)?.transcript,
+          allProperties: message
+        });
+      }
+      
+      // SPECIAL: Check debug messages for tool calls too
+      const debugObj = message as Record<string, unknown>;
+      const hasToolInDebug = Object.keys(debugObj).some(key => 
+        key.toLowerCase().includes('tool') || 
+        key.toLowerCase().includes('call') ||
+        key.toLowerCase().includes('function')
+      );
+      
+      if (hasToolInDebug) {
+        console.log('🚨 TOOL EVENT IN DEBUG:', {
+          debugKeys: Object.keys(debugObj),
+          toolKeys: Object.keys(debugObj).filter(key => 
+            key.toLowerCase().includes('tool') || 
+            key.toLowerCase().includes('call') ||
+            key.toLowerCase().includes('function')
+          ),
+          fullDebugMessage: message
+        });
+      }
+    },
+  });
+
+  // Conversation ref - initialized after useConversation hook
+  const conversationRef = useRef(conversation);
+  
+  // Update conversation ref when it changes
+  useEffect(() => {
+    conversationRef.current = conversation;
+  }, [conversation]);
+
+  useEffect(() => {
+    requestMicrophonePermission();
+    
+    // Clean up old streams on component mount
+    cleanupStreams({
+      olderThanMs: 5 * 60 * 1000 // 5 minutes
+    }).then((result) => {
+      if (result?.deleted > 0) {
+        console.log(`🧹 Cleaned up ${result.deleted} old streams`);
+      }
+    }).catch(error => {
+      console.error('Failed to cleanup old streams:', error);
+    });
+  }, [cleanupStreams]);
+
+  useEffect(() => {
+    let status: VoiceStatus = 'idle';
+    
+    if (conversation.status === 'connecting') {
+      status = 'connecting';
+    } else if (conversation.status === 'connected') {
+      status = conversation.isSpeaking ? 'speaking' : 'listening';
+    } else {
+      status = 'idle';
+    }
+    
+    if (onStatusChange) {
+      onStatusChange(status);
+    }
+  }, [conversation.status, conversation.isSpeaking, onStatusChange]);
+
+  // Create stable functions using useCallback
+  const stableSendUserMessage = useCallback((text: string) => {
+    console.log('📤 Sending text message via ElevenLabs SDK:', text);
+    
+    // Use refs to get current values
+    const currentConversation = conversationRef.current;
+    if (currentConversation?.sendUserMessage) {
+      currentConversation.sendUserMessage(text);
+    }
+    
+    // Immediately save to Convex as text message (don't wait for SDK echo)
+    if (conversationIdRef.current) {
+      handleUserMessageRef.current(text, {
+        messageType: 'text',
+        directTextSend: true,
+        timestamp: Date.now()
+      }).catch(error => {
+        console.error('Failed to save direct text message:', error);
+      });
+    }
+  }, []); // No dependencies - everything comes from refs
+
+  const stableSendUserActivity = useCallback(() => {
+    console.log('⌨️ Sending user activity notification via ElevenLabs SDK');
+    const currentConversation = conversationRef.current;
+    if (currentConversation?.sendUserActivity) {
+      currentConversation.sendUserActivity();
+    }
+  }, []); // No dependencies - everything comes from refs
+  
+  // Expose text messaging functions to parent - now with stable dependencies
+  useEffect(() => {
+    if (onTextFunctions) {
+      console.log('📞 Setting up text functions...');
+      onTextFunctions({
+        sendUserMessage: stableSendUserMessage,
+        sendUserActivity: stableSendUserActivity
+      });
+    }
+  }, [onTextFunctions, stableSendUserMessage, stableSendUserActivity]);
+
+  const requestMicrophonePermission = async (): Promise<boolean> => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      setHasPermission(true);
+      return true;
+    } catch (error) {
+      console.error('❌ Microphone permission denied:', error);
+      setHasPermission(false);
+      return false;
+    }
+  };
+
+  // Get conversation history for context
+  const messages = useQuery(
+    api.messages.list,
+    conversationId ? { conversationId } : "skip"
+  );
+
+  // Format conversation history for ElevenLabs context
+  const formatConversationHistory = useCallback(() => {
+    if (!messages || messages.length === 0) return [];
+
+    // Take last 10 messages for context
+    return messages
+      .slice(-10)
+      .filter(msg => msg.content && (msg.role === 'user' || msg.role === 'assistant'))
+      .map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      }));
+  }, [messages]);
+
+  const startConversation = useCallback(async () => {
+    if (hasPermission !== true) {
+      if (DEBUG) console.log('🎤 Requesting microphone permission...');
+      const granted = await requestMicrophonePermission();
+      if (!granted) {
+        console.error('❌ Microphone permission not granted, cannot start conversation');
+        return;
+      }
+    }
+
+    try {
+      const agentId = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
+
+      if (!agentId) {
+        throw new Error('NEXT_PUBLIC_ELEVENLABS_AGENT_ID not configured');
+      }
+
+      // Get conversation history for context
+      const conversationHistory = formatConversationHistory();
+
+      // Build dynamic variables for voice mode
+      const dynamicVariables = buildDynamicVariables({
+        userId: 'default-user', // TODO: Get from auth context
+        conversationId: conversationId || 'new-conversation',
+        mode: 'voice'
+      });
+
+      // Start timing the connection
+      const startTime = performance.now();
+      setConnectionStartTime(startTime);
+      console.log('🚀 Starting ElevenLabs conversation with WebRTC...', {
+        agentId,
+        hasPermission,
+        contextMessages: conversationHistory.length,
+        dynamicVariables,
+        optimizations: ['ICE relay policy', 'parallel candidate gathering'],
+        timestamp: new Date().toISOString()
+      });
+
+      await conversation.startSession({
+        agentId,
+        connectionType: 'webrtc',  // Ensure WebRTC for voice mode
+        overrides: {
+          conversation: {
+            textOnly: false,  // Override default text-only to enable voice
+          },
+          agent: {
+            firstMessage: '' // Suppress greeting on voice start
+          }
+        },
+        customLlmExtraBody: {
+          dynamicVariables
+        }
+      } as any);
+
+      // Send conversation context after connection if available
+      if (conversationHistory.length > 0) {
+        console.log(`📚 Sending ${conversationHistory.length} messages as context for VOICE mode`);
+        const contextMessage = `Previous conversation context:\n${conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}`;
+
+        // Use contextual update to provide history without interrupting
+        setTimeout(() => {
+          try {
+            if (typeof conversation.sendContextualUpdate === 'function') {
+              conversation.sendContextualUpdate(contextMessage);
+              console.log('✅ Context sent via contextual update (voice mode)');
+            } else {
+              // Fallback: send as user message
+              console.log('📝 Sending context as user message (voice mode)');
+              conversation.sendUserMessage(`[Previous context]\n${contextMessage}`);
+            }
+          } catch (e) {
+            console.log('📝 Context sending failed, voice agent will start fresh');
+          }
+        }, 500); // Small delay to ensure connection is ready
+      }
+
+      console.log('✅ Conversation session started successfully');
+    } catch (error) {
+      // Reset timing on error
+      setConnectionStartTime(null);
+      console.error('❌ Failed to start conversation:', error);
+      alert('Failed to start voice session. Please check your configuration.');
+    }
+  }, [conversation, hasPermission, formatConversationHistory]);
+
+  const stopConversation = useCallback(async () => {
+    try {
+      await conversation.endSession();
+      // Reset timing when conversation ends
+      setConnectionStartTime(null);
+    } catch (error) {
+      console.error('❌ Failed to end conversation:', error);
+      // Reset timing on error too
+      setConnectionStartTime(null);
+      // onDisconnect or onError should handle UI state cleanup
+      // but if they don't fire, ensure UI is updated
+      setTimeout(() => {
+        if (onStatusChange) onStatusChange('idle');
+      }, 100);
+    }
+  }, [conversation, onStatusChange]);
+
+  // Text input functionality removed - handled by CopilotKit chat interface
+
+  const getButtonContent = () => {
+    if (conversation.status === 'connecting') {
+      return <Loader2 className="h-5 w-5 animate-spin" />;
+    }
+    if (conversation.status === 'connected') {
+      if (conversation.isSpeaking) {
+        return <div className="h-5 w-5 bg-green-500 rounded-full animate-pulse" />;
+      }
+      return <MicOff className="h-5 w-5" />;
+    }
+    return <Mic className="h-5 w-5" />;
+  };
+
+  const getButtonVariant = () => {
+    if (conversation.status === 'connected') {
+      return conversation.isSpeaking ? 'default' : 'destructive';
+    }
+    return 'default';
+  };
+
+  const getStatusText = () => {
+    if (hasPermission === false) {
+      return 'Need mic permission';
+    }
+    
+    switch (conversation.status) {
+      case 'connecting':
+        return 'Connecting...';
+      case 'connected':
+        return conversation.isSpeaking ? 'Agent speaking...' : 'Listening...';
+      default:
+        return 'Tap to speak';
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-4 w-full max-w-2xl mx-auto">
+      <div className="flex flex-col items-center gap-2">
+        <motion.div
+          animate={{
+            scale: conversation.status === 'connected' && !conversation.isSpeaking ? 1.1 : 1,
+          }}
+          transition={{ duration: 0.2 }}
+        >
+          <Button
+            onClick={conversation.status === 'connected' ? stopConversation : startConversation}
+            variant={getButtonVariant()}
+            size="lg"
+            className="h-16 w-16 rounded-full shadow-lg"
+            disabled={conversation.status === 'connecting' || hasPermission === false}
+          >
+            {getButtonContent()}
+          </Button>
+        </motion.div>
+        
+        <div className="text-sm text-muted-foreground text-center space-y-1">
+          <div>{getStatusText()}</div>
+          <div className="text-xs">
+            {conversation.status === 'connected' && currentStreamId && 'Live transcription active'}
+          </div>
+        </div>
+      </div>
+
+
+
+
+    </div>
+  );
+}

@@ -1,0 +1,20 @@
+{
+  "type": "client",
+  "name": "show_about",
+  "description": "Show information about Cieden: who we are, services, industries, design vs development. Use when the user asks what Cieden does, who we are, which industries we serve, or whether we do design only or also development.",
+  "response_timeout_secs": 20,
+  "disable_interruptions": false,
+  "force_pre_tool_speech": false,
+  "assignments": [],
+  "parameters": {
+    "type": "object",
+    "required": [],
+    "description": "",
+    "properties": {}
+  },
+  "expects_response": false,
+  "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+  },
+  "execution_mode": "immediate"
+}

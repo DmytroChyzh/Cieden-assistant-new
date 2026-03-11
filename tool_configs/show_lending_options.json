@@ -1,0 +1,33 @@
+{
+    "type": "client",
+    "name": "show_lending_options",
+    "description": "Use this to show lending programs for the user. Before triggering this tool, confirm:\n- Does the user know the purchase amount (in USD)?\n- Does the user know where they want to buy? ",
+    "response_timeout_secs": 20,
+    "disable_interruptions": false,
+    "force_pre_tool_speech": false,
+    "assignments": [],
+    "parameters": {
+        "type": "object",
+        "required": [],
+        "description": "",
+        "properties": {
+            "loanAmount": {
+                "type": "number",
+                "description": "Loan amount in USD (optional - demo options generated if not provided)",
+                "dynamic_variable": "",
+                "constant_value": ""
+            },
+            "currency": {
+                "type": "string",
+                "description": "Currency code (e.g., USD). Defaults to USD.",
+                "dynamic_variable": "",
+                "constant_value": ""
+            }
+        }
+    },
+    "expects_response": false,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    },
+    "execution_mode": "immediate"
+}

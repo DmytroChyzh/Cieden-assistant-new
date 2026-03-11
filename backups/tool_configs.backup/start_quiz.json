@@ -1,0 +1,29 @@
+{
+    "type": "client",
+    "name": "start_quiz",
+    "description": "Use this tool to ask user questions about his required loan. When he says that he needs help picking the right loan option after you showed lending options, e.g.:\n- Amount\n- Type of loan, etc\nThis quiz is managed later by another update_quiz tool to select actions for the user. ",
+    "response_timeout_secs": 20,
+    "disable_interruptions": false,
+    "force_pre_tool_speech": false,
+    "assignments": [],
+    "parameters": {
+        "type": "object",
+        "required": [
+            "quizId"
+        ],
+        "description": "",
+        "properties": {
+            "quizId": {
+                "type": "string",
+                "description": "",
+                "dynamic_variable": "",
+                "constant_value": "loan_eligibility"
+            }
+        }
+    },
+    "expects_response": false,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    },
+    "execution_mode": "immediate"
+}

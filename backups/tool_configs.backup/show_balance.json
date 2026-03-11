@@ -1,0 +1,29 @@
+{
+    "type": "client",
+    "name": "show_balance",
+    "description": "Use when a user asks to show his balance. ",
+    "response_timeout_secs": 20,
+    "disable_interruptions": false,
+    "force_pre_tool_speech": false,
+    "assignments": [],
+    "parameters": {
+        "type": "object",
+        "required": [
+            "balance"
+        ],
+        "description": "",
+        "properties": {
+            "balance": {
+                "type": "number",
+                "description": "Account balance in USD (e.g., 5000 for $5,000, 12500 for $12,500). Always use USD amounts.",
+                "dynamic_variable": "",
+                "constant_value": ""
+            }
+        }
+    },
+    "expects_response": false,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    },
+    "execution_mode": "immediate"
+}

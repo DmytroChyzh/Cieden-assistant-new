@@ -1,0 +1,335 @@
+[
+  {
+    "id": "1",
+    "fullName": "Andrii Prokopyshyn",
+    "department": "Design",
+    "role": "UX/UI Designer",
+    "leader": "Anastasiya Mudi",
+    "access": "Employee",
+    "email": "andrii@cieden.com",
+    "cv": "https://drive.google.com/...",
+    "seniority": "Senior",
+    "industries": ["Healthcare", "E-commerce", "Fintech", "Mobile Apps"],
+    "linkedin": "https://linkedin.com/in/andrii-prokopyshyn",
+    "experienceStarted": "2018-11-01",
+    "joinedCieden": "2021-11-10",
+    "inCieden": "2 years 10 months",
+    "totalExperience": "5 years",
+    "englishLevel": "B1",
+    "goals": [
+      {
+        "id": "g1",
+        "name": "Andrii Prokopyshyn",
+        "goalType": "Book",
+        "goalName": "Design Thinking in Healthcare",
+        "goalDescription": "Еллен Лаптон, Бон Ку. Дизайн-мислення в охороні здоров'я. Як створювати продукти й сервіси, що рятуватимуть життя",
+        "link": "",
+        "tags": ["Healthcare", "Design Thinking"]
+      },
+      {
+        "id": "g2",
+        "name": "Andrii Prokopyshyn",
+        "goalType": "Book",
+        "goalName": "Writing is Designing",
+        "goalDescription": "Майкл Меттс, Енді Велфл. Письмо - це дизайн: Як слова створюють досвід користування (UX)",
+        "link": "",
+        "tags": ["UX", "UX Writing"]
+      },
+      {
+        "id": "g3",
+        "name": "Andrii Prokopyshyn",
+        "goalType": "Work",
+        "goalName": "Інтегрувати АІ в диз. процеси",
+        "goalDescription": "Використовувати для швидкого прототипування та валідування ідей. Треба підписку. Way2b1 можуть надати доступ в Claude чи Cursor AI",
+        "link": "",
+        "tags": ["AI", "Prototyping"]
+      }
+    ]
+  },
+  {
+    "id": "2",
+    "fullName": "Demian Peretiatko",
+    "department": "Product",
+    "role": "Product Manager",
+    "leader": "Roman Kaminechny",
+    "access": "Manager",
+    "email": "demian@cieden.com",
+    "cv": "https://drive.google.com/...",
+    "seniority": "Senior",
+    "industries": ["SaaS", "B2B", "Product Strategy"],
+    "linkedin": "https://linkedin.com/in/demian-peretiatko",
+    "experienceStarted": "2019-01-01",
+    "joinedCieden": "2020-03-01",
+    "inCieden": "4 years 6 months",
+    "totalExperience": "5 years",
+    "englishLevel": "B2",
+    "goals": [
+      {
+        "id": "g4",
+        "name": "Demian Peretiatko",
+        "goalType": "Work",
+        "goalName": "Прийняття стратегічних рішень",
+        "goalDescription": "Більше практики в прийнятті стратегічних рішень, овнити рішення, валідувати гіпотези",
+        "link": "",
+        "tags": ["Strategy", "Decision Making"]
+      },
+      {
+        "id": "g5",
+        "name": "Demian Peretiatko",
+        "goalType": "Work",
+        "goalName": "AI запуск продуктів",
+        "goalDescription": "Розібратись більше як з допомогою ШІ повністю запускати продукти в прод",
+        "link": "",
+        "tags": ["AI", "Product Launch"]
+      }
+    ]
+  },
+  {
+    "id": "3",
+    "fullName": "Dmytro Chyzh",
+    "department": "Design",
+    "role": "UX/UI Designer",
+    "leader": "Roman Kaminechny",
+    "access": "Employee",
+    "email": "dmytro@cieden.com",
+    "cv": "https://drive.google.com/...",
+    "seniority": "Middle",
+    "industries": ["Web Design", "Branding", "UI/UX", "AI"],
+    "linkedin": "https://linkedin.com/in/dmytro-chyzh",
+    "experienceStarted": "2018-09-03",
+    "joinedCieden": "2023-03-13",
+    "inCieden": "2 years 6 months",
+    "totalExperience": "5 years",
+    "englishLevel": "B1",
+    "goals": [
+      {
+        "id": "g6",
+        "name": "Dmytro Chyzh",
+        "goalType": "Course",
+        "goalName": "UX Design Beginning",
+        "goalDescription": "Пройти курс UX Design Beginning в Projector",
+        "link": "",
+        "tags": ["UX", "Learning"]
+      },
+      {
+        "id": "g7",
+        "name": "Dmytro Chyzh",
+        "goalType": "Work",
+        "goalName": "Концепти в Cursor",
+        "goalDescription": "Концепти в Cursor (розробити бот price calculator на сайт)",
+        "link": "",
+        "tags": ["AI", "Prototyping"]
+      }
+    ]
+  },
+  {
+    "id": "4",
+    "fullName": "Illia Suprun",
+    "department": "Product",
+    "role": "Product Manager",
+    "leader": "Roman Kaminechny",
+    "access": "Manager",
+    "email": "illia@cieden.com",
+    "cv": "https://drive.google.com/...",
+    "seniority": "Senior",
+    "industries": ["B2B", "SaaS", "Product Strategy"],
+    "linkedin": "https://linkedin.com/in/illia-suprun",
+    "experienceStarted": "2018-06-01",
+    "joinedCieden": "2019-09-01",
+    "inCieden": "5 years 3 months",
+    "totalExperience": "6 years",
+    "englishLevel": "B2",
+    "goals": [
+      {
+        "id": "g8",
+        "name": "Illia Suprun",
+        "goalType": "Course",
+        "goalName": "Leading for Creativity",
+        "goalDescription": "Пройти курс \"Leading for Creativity\"",
+        "link": "https://www.ideou.com/products/leading-for-creativity",
+        "tags": ["Leadership", "Creativity"]
+      },
+      {
+        "id": "g9",
+        "name": "Illia Suprun",
+        "goalType": "Work",
+        "goalName": "Master Cursor AI",
+        "goalDescription": "Вивчити як працювати з Cursor, та практично його використовувати",
+        "link": "",
+        "tags": ["AI", "Tools"]
+      }
+    ]
+  },
+  {
+    "id": "5",
+    "fullName": "Roman Kaminechny",
+    "department": "Product",
+    "role": "Head of Product",
+    "leader": "CEO",
+    "access": "Manager",
+    "email": "roman@cieden.com",
+    "cv": "https://drive.google.com/...",
+    "seniority": "Lead",
+    "industries": ["Product Strategy", "AI", "B2B", "SaaS"],
+    "linkedin": "https://linkedin.com/in/roman-kaminechny",
+    "experienceStarted": "2017-01-01",
+    "joinedCieden": "2018-01-01",
+    "inCieden": "6 years 8 months",
+    "totalExperience": "7 years",
+    "englishLevel": "B2",
+    "goals": [
+      {
+        "id": "g10",
+        "name": "Roman Kaminechny",
+        "goalType": "Work",
+        "goalName": "AI Application for Portfolio",
+        "goalDescription": "Розробити AI-додаток для кейсів сайдену, навчити дизайнерів ним користуватись",
+        "link": "",
+        "tags": ["AI", "Portfolio", "Team Development"]
+      }
+    ]
+  },
+  {
+    "id": "6",
+    "fullName": "Marta Kacharaba",
+    "department": "Design",
+    "role": "UX/UI Designer",
+    "leader": "Roman Kaminechny",
+    "access": "Employee",
+    "email": "marta@cieden.com",
+    "cv": "https://drive.google.com/...",
+    "seniority": "Middle",
+    "industries": ["UX Research", "Testing", "AI", "Mobile Apps"],
+    "linkedin": "https://linkedin.com/in/marta-kacharaba",
+    "experienceStarted": "2019-03-01",
+    "joinedCieden": "2020-06-01",
+    "inCieden": "4 years 3 months",
+    "totalExperience": "5 years",
+    "englishLevel": "B1",
+    "goals": [
+      {
+        "id": "g11",
+        "name": "Marta Kacharaba",
+        "goalType": "Work",
+        "goalName": "AI in Design Process",
+        "goalDescription": "Опрацювати AI-інструменти для дизайну (Cursor, інші). Освоїти щонайменше 3 інструменти та впровадити в роботу.",
+        "link": "",
+        "tags": ["AI", "Design Process", "Tools"]
+      },
+      {
+        "id": "g12",
+        "name": "Marta Kacharaba",
+        "goalType": "Work",
+        "goalName": "Тестування UX",
+        "goalDescription": "Відточити навички UX-тестування. Провести мінімум ще 3 юзер-тестування з документуванням, аналізом та імплементацією змін.",
+        "link": "",
+        "tags": ["UX", "Testing", "User Research"]
+      }
+    ]
+  },
+  {
+    "id": "7",
+    "fullName": "Vladyslav Pianov",
+    "department": "Product",
+    "role": "Product Manager",
+    "leader": "Roman Kaminechny",
+    "access": "Manager",
+    "email": "vladyslav@cieden.com",
+    "cv": "https://drive.google.com/...",
+    "seniority": "Senior",
+    "industries": ["Product Strategy", "Analytics", "Startups", "MVP"],
+    "linkedin": "https://linkedin.com/in/vladyslav-pianov",
+    "experienceStarted": "2018-01-01",
+    "joinedCieden": "2019-03-01",
+    "inCieden": "5 years 6 months",
+    "totalExperience": "6 years",
+    "englishLevel": "B2",
+    "goals": [
+      {
+        "id": "g13",
+        "name": "Vladyslav Pianov",
+        "goalType": "Work",
+        "goalName": "Manage 2–3 Projects",
+        "goalDescription": "Менеджити 2–3 проекти одночасно (менше UI-дизайну)",
+        "link": "",
+        "tags": ["Leadership", "Project Management"]
+      },
+      {
+        "id": "g14",
+        "name": "Vladyslav Pianov",
+        "goalType": "Work",
+        "goalName": "Pre-sale, MVP, Startups",
+        "goalDescription": "Більше залучення до рісерчу, MVP, роботи з стартапами",
+        "link": "",
+        "tags": ["Discovery", "Startups", "MVP"]
+      }
+    ]
+  },
+  {
+    "id": "8",
+    "fullName": "Volodymyr Merlenko",
+    "department": "Design",
+    "role": "Lead Product Designer",
+    "leader": "Roman Kaminechny",
+    "access": "Manager",
+    "email": "volodymyr@cieden.com",
+    "cv": "https://drive.google.com/...",
+    "seniority": "Lead",
+    "industries": ["Product Design", "AI", "Personal Brand", "Pet Projects"],
+    "linkedin": "https://linkedin.com/in/volodymyr-merlenko",
+    "experienceStarted": "2017-06-01",
+    "joinedCieden": "2018-09-01",
+    "inCieden": "5 years 11 months",
+    "totalExperience": "7 years",
+    "englishLevel": "B2",
+    "goals": [
+      {
+        "id": "g15",
+        "name": "Volodymyr Merlenko",
+        "goalType": "Personal",
+        "goalName": "LinkedIn Posts & Article",
+        "goalDescription": "Щотижня писати пости в LinkedIn, підготувати гайд-статтю на базі pet-проекту, податись в Smashing Magazine або DOU",
+        "link": "",
+        "tags": ["Personal Brand", "Content Creation"]
+      },
+      {
+        "id": "g16",
+        "name": "Volodymyr Merlenko",
+        "goalType": "Work",
+        "goalName": "Pet Project MVP",
+        "goalDescription": "Завершити дизайн, написати статтю, розробити MVP та податись в YEP",
+        "link": "",
+        "tags": ["Pet Project", "MVP", "Innovation"]
+      }
+    ]
+  },
+  {
+    "id": "9",
+    "fullName": "CEO",
+    "department": "Management",
+    "role": "Chief Executive Officer",
+    "leader": "Board",
+    "access": "CEO",
+    "email": "ceo@cieden.com",
+    "cv": "https://drive.google.com/...",
+    "seniority": "Principal",
+    "industries": ["Business Strategy", "Leadership", "Product Strategy", "Growth"],
+    "linkedin": "https://linkedin.com/in/cieden-ceo",
+    "experienceStarted": "2015-01-01",
+    "joinedCieden": "2016-01-01",
+    "inCieden": "8 years 8 months",
+    "totalExperience": "9 years",
+    "englishLevel": "C1",
+    "goals": [
+      {
+        "id": "g17",
+        "name": "CEO",
+        "goalType": "Work",
+        "goalName": "Company Growth Strategy",
+        "goalDescription": "Розробити та впровадити стратегію росту компанії на 2024-2025",
+        "link": "",
+        "tags": ["Strategy", "Growth", "Leadership"]
+      }
+    ]
+  }
+]

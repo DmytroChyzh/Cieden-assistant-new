@@ -1,0 +1,62 @@
+About,"The founders of various eCommerce and logistics companies, who have seen and faced every challenge in the industry, realized that the experience put to the table by the 3PL software tools needs to be improved.
+After conducting thorough market research and competitor analysis, they identified significant gaps in competitors' offerings. In response, they developed a technical solution addressing these gaps.
+Project overview
+The project aimed to design an intuitive order fulfillment platform, encompassing discovery, product and web design, and brand identity creation from scratch. Key challenges included integrating comprehensive shipping logic into the platform design, refining user flows, and simplifying data presentation for quick scanning of extensive datasets. The team also focused on enhancing usability by removing excessive statuses and complex components.
+Challenges
+Implementing comprehensive shipping logic into platform design, aligning with customer journey and service maps;
+Refining user flows;
+Simplifying data presentation for rapid scanning of vast datasets;
+Enhancing usability by removing excessive statuses and complex components;
+Ensuring developer-friendly design for easy implementation and maintenance.
+Results
+40% Reduction in confusing order statuses;
+65% Reduction in unnecessary filters previously used by competitors;
+The design was seamlessly implemented by the developers without requiring any additional adjustments.",,,,,
+,,,,,,
+Epics,Min,Maximum ,Comments,,,
+Branding,100,100,Fix price for this type of work: $5k,,,
+Total Branding,100,100,,,,
+Discovery,,,,,,
+Discover Inputs,32,32,"Analyze all input docs, creating mind map, creating blueprint, defining main flows",,,
+Competitors Research,20,20,,,,
+UX Audit,23,23,"Analyze user experince inside Shipmonk app, Orders Inventory",,,
+User Interviews,15,26,"Without recruting users, it may take unexpected amount of time",,,
+Total Discovery,90,101,Completed,,,
+UX/Wireframing,,,,,,
+Log in,6,8,Reset password,,,
+Dashboard,36,48,,,,
+Orders,78,92,"Overview, Create (2 days), Import (5-6 days 36-56h), Details (18h)",,,
+Inventory,78,92,"Overview (2 days), Create (1 day), Import (12h), Details (5 days)",,,
+Receiving,40,48,"Overview, Details, Create (5-6 days)",,,Next
+Returns,16,24,"Overview, Details (2-3 days)",,,
+Report,,,TBD,,,
+Notifications /Emails,8,12,"Toasts + Email templates, Could extend if we need to create custom emails",,,
+Settings,72,98,"Personal, Inegrations, Users, Billing",,,Next 1
+Total UX,334,422,,,,
+UI,,,,,,
+UI Options,16,18,,,,
+Apply UI style to the App,18,24,,,,
+Total UI,34,42,,,,
+Admin Pannel,,,"TBD, need to define structure",,,
+Marketing Landing Page,40,54,"*1 page (concepts, structure, UI) – Content is needed",,,
+Design Operations,,,,,,
+Main Components Definition,80,80,"Navigation, Search, Filters, Table",,,
+Total Design,488,598,,,,
+Design System,122,"149,5",,,,
+,800,949,,,,
+Total BA/PM,80,"94,85","Backlog management, design review",,,
+TOTAL PROJECT (hours),880,1043,,,,
+TOTAL PROJECT COST ,$44 000,$52 168,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+Team Capacity ,Hours a week,,,,,
+UX/UI designers,80,,,,,
+BA/PM ,10,,,,,
+,,,,,,
+Project Timeline (design effort) ,Min,Maximum ,,,,
+Design effort (in weeks) ,11,13,,,,
+,,,,,,
+Communication Internal,"82,50","97,8",daily meetings,,,
+Communication External,"33,0","39,1",meetings with client,,,
+Total Communication,"115,50","136,9",,,,

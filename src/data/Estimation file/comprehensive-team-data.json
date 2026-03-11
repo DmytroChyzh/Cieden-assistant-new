@@ -1,0 +1,1684 @@
+{
+  "lastUpdated": "2025-09-03T19:33:04.457Z",
+  "totalMembers": 41,
+  "departments": [
+    "Design",
+    "Product",
+    "Finance",
+    "Marketing",
+    "Sales",
+    "Talent Management",
+    "CEO"
+  ],
+  "roles": [
+    "UX/UI Designer",
+    "Product Manager/Business Analyst",
+    "Finance Manager",
+    "Аccountant",
+    "Marketing Manager",
+    "SMM-manager",
+    "Content Marketing Manager",
+    "Graphic Designer",
+    "Sales Manager",
+    "Lead Generation/Account Manager",
+    "Lead Generation Manager",
+    "Office manager/Event manager",
+    "Recruiter",
+    "Head of Talent Management",
+    "C-level"
+  ],
+  "seniorityLevels": [
+    "Senior",
+    "Middle",
+    "Unknown",
+    "Str. Middle"
+  ],
+  "members": [
+    {
+      "id": "1",
+      "fullName": "Andrii Prokopyshyn",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Anastasiya Mudryk",
+      "access": "Employee",
+      "email": "andrii.prokopyshyn@cieden.com",
+      "cv": "https://drive.google.com/file/d/15wge4YXsQ5SnZf3W3b7czqhwYuE0mCXp/view?usp=drive_link",
+      "seniority": "Senior",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "",
+      "joinedCieden": "15/8/18",
+      "inCieden": "",
+      "totalExperience": "",
+      "englishLevel": "B1",
+      "goals": [
+        {
+          "id": "g2_0",
+          "name": "Andrii Prokopyshyn",
+          "goalType": "Book",
+          "goalName": "Design Thinking in Healthcare",
+          "goalDescription": "Еллен Лаптон, Бон Ку. Дизайн-мислення в охороні здоров’я. Як створювати продукти й сервіси, що рятуватимуть життя",
+          "link": "",
+          "tags": []
+        },
+        {
+          "id": "g2_1",
+          "name": "Andrii Prokopyshyn",
+          "goalType": "Book",
+          "goalName": "Writing is Designing",
+          "goalDescription": "Майкл Меттс, Енді Велфл. Письмо - це дизайн: Як слова створюють досвід користування (UX)",
+          "link": "",
+          "tags": [
+            "UX"
+          ]
+        },
+        {
+          "id": "g2_2",
+          "name": "Andrii Prokopyshyn",
+          "goalType": "Book",
+          "goalName": "Articulating Design Decisions",
+          "goalDescription": "Articulating Design Decisions",
+          "link": "https://www.amazon.com/Articulating-Design-Decisions-Communicate-Stakeholders/dp/1491921560",
+          "tags": []
+        },
+        {
+          "id": "g2_3",
+          "name": "Andrii Prokopyshyn",
+          "goalType": "Work",
+          "goalName": "Інтегрувати АІ в диз. процеси",
+          "goalDescription": "Використовувати для швидкого прототипування та валідування ідей. Треба підписку. Way2b1 можуть надати доступ в Claude чи Cursor AI",
+          "link": "",
+          "tags": [
+            "AI"
+          ]
+        },
+        {
+          "id": "g2_4",
+          "name": "Andrii Prokopyshyn",
+          "goalType": "Work",
+          "goalName": "Покращити інтерактивність мобільного застосунку",
+          "goalDescription": "Додати мікроінтерекшени в таски і decisions",
+          "link": "",
+          "tags": [
+            "Mobile"
+          ]
+        },
+        {
+          "id": "g2_5",
+          "name": "Andrii Prokopyshyn",
+          "goalType": "Work",
+          "goalName": "Customer Journey for Creset",
+          "goalDescription": "Create Customer journey for Creset (admin, advisor, client personas) - low priority (17 April)",
+          "link": "",
+          "tags": []
+        },
+        {
+          "id": "g2_6",
+          "name": "Andrii Prokopyshyn",
+          "goalType": "Work",
+          "goalName": "Мобільне тестування",
+          "goalDescription": "Провести тестування на мобайлі (test with Ben, Andrew, Brett)",
+          "link": "",
+          "tags": [
+            "Mobile"
+          ]
+        },
+        {
+          "id": "g2_7",
+          "name": "Andrii Prokopyshyn",
+          "goalType": "Work",
+          "goalName": "Надання ефективного фідбеку",
+          "goalDescription": "Надання ефективного фідбеку - відео Зоряни Борбулевич",
+          "link": "",
+          "tags": [
+            "Soft Skills"
+          ]
+        },
+        {
+          "id": "g2_8",
+          "name": "Andrii Prokopyshyn",
+          "goalType": "English",
+          "goalName": "Reach B2 level in English",
+          "goalDescription": "To reach B2 level and improve fluency, refining grammar accuracy, expanding vocabulary, and mastering complex structures is essential.",
+          "link": "",
+          "tags": [
+            "English"
+          ]
+        },
+        {
+          "id": "g2_9",
+          "name": "Andrii Prokopyshyn",
+          "goalType": "Course",
+          "goalName": "Mobile Design",
+          "goalDescription": "UXcel course: Mobile Design",
+          "link": "https://app.uxcel.com/courses/mobile-design",
+          "tags": [
+            "Mobile"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "fullName": "Bohdan Borys",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "bohdan.borys@cieden.com",
+      "cv": "",
+      "seniority": "Middle",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "",
+      "joinedCieden": "",
+      "inCieden": "",
+      "totalExperience": "",
+      "englishLevel": "Unknown",
+      "goals": []
+    },
+    {
+      "id": "3",
+      "fullName": "Demian Peretiatko",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "demian.peretiatko@cieden.com",
+      "cv": "https://drive.google.com/file/d/13czCTca2MYPsbV4ssgzwJrC6CttKlReK/view?usp=drive_link",
+      "seniority": "Senior",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/demian-peretiatko-3a4054191",
+      "experienceStarted": "11/1/18",
+      "joinedCieden": "11/10/21",
+      "inCieden": "",
+      "totalExperience": "7 years",
+      "englishLevel": "Unknown",
+      "goals": [
+        {
+          "id": "g4_0",
+          "name": "Demian Peretiatko",
+          "goalType": "Work",
+          "goalName": "Прийняття стратегічних рішень",
+          "goalDescription": "Більше практики в прийнятті стратегічних рішень, овнити рішення, валідувати гіпотези",
+          "link": "",
+          "tags": [
+            "Strategy"
+          ]
+        },
+        {
+          "id": "g4_1",
+          "name": "Demian Peretiatko",
+          "goalType": "Work",
+          "goalName": "AI запуск продуктів",
+          "goalDescription": "Розібратись більше як з допомогою ШІ повністю запускати продукти в прод",
+          "link": "",
+          "tags": [
+            "AI"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "fullName": "Denis Dudar",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Tetiana Bondarchuk",
+      "access": "Employee",
+      "email": "denis.dudar@cieden.com",
+      "cv": "https://drive.google.com/file/d/1FlzUparfJMYjtLM-sRk_9suM0UfYW9On/view?usp=drive_link",
+      "seniority": "Senior",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/denis-dudar-88274a164?trk=people-guest_people_search-card",
+      "experienceStarted": "1/12/16",
+      "joinedCieden": "13/11/18",
+      "inCieden": "",
+      "totalExperience": "9 years",
+      "englishLevel": "B2",
+      "goals": [
+        {
+          "id": "g5_0",
+          "name": "Denis Dudar",
+          "goalType": "English",
+          "goalName": "Improve English Grammar to B2",
+          "goalDescription": "While grammar is strong for B1 level, refine verb tense consistency and practice advanced structures like mixed conditionals and modals.",
+          "link": "",
+          "tags": [
+            "English"
+          ]
+        },
+        {
+          "id": "g5_1",
+          "name": "Denis Dudar",
+          "goalType": "Course",
+          "goalName": "Product Psychology Masterclass",
+          "goalDescription": "Пройти курс Product Psychology Masterclass",
+          "link": "https://growth.design/course",
+          "tags": [
+            "UX"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "fullName": "Dmytro Chyzh",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "dima.chyzh@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "",
+      "joinedCieden": "",
+      "inCieden": "",
+      "totalExperience": "",
+      "englishLevel": "A1",
+      "goals": [
+        {
+          "id": "g6_0",
+          "name": "Dmytro Chyzh",
+          "goalType": "Course",
+          "goalName": "UX Design Beginning",
+          "goalDescription": "Пройти курс UX Design Beginning в Projector",
+          "link": "",
+          "tags": [
+            "UX"
+          ]
+        },
+        {
+          "id": "g6_1",
+          "name": "Dmytro Chyzh",
+          "goalType": "Course",
+          "goalName": "Growth Design",
+          "goalDescription": "Пройти курс з Growth Design (у Романа є доступ)",
+          "link": "",
+          "tags": [
+            "UX"
+          ]
+        },
+        {
+          "id": "g6_2",
+          "name": "Dmytro Chyzh",
+          "goalType": "English",
+          "goalName": "Reach B2 level in English",
+          "goalDescription": "Покращити англійську до B1 до наступного Performance",
+          "link": "",
+          "tags": [
+            "English"
+          ]
+        },
+        {
+          "id": "g6_3",
+          "name": "Dmytro Chyzh",
+          "goalType": "Work",
+          "goalName": "Концепти в Cursor",
+          "goalDescription": "Концепти в Cursor (розробити бот price calculator на сайт)",
+          "link": "",
+          "tags": [
+            "AI"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "fullName": "Illia Suprun",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "illia.suprun@cieden.com",
+      "cv": "",
+      "seniority": "Str. Middle",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/illia-suprun",
+      "experienceStarted": "3/9/18",
+      "joinedCieden": "13/3/23",
+      "inCieden": "",
+      "totalExperience": "7 years",
+      "englishLevel": "B2",
+      "goals": [
+        {
+          "id": "g7_0",
+          "name": "Illia Suprun",
+          "goalType": "Course",
+          "goalName": "Leading for Creativity",
+          "goalDescription": "Пройти курс \"Leading for Creativity\"",
+          "link": "https://www.ideou.com/products/leading-for-creativity",
+          "tags": [
+            "Leadership"
+          ]
+        },
+        {
+          "id": "g7_1",
+          "name": "Illia Suprun",
+          "goalType": "Work",
+          "goalName": "Master Cursor AI",
+          "goalDescription": "Вивчити як працювати з Cursor, та практично його використовувати",
+          "link": "",
+          "tags": [
+            "AI"
+          ]
+        },
+        {
+          "id": "g7_2",
+          "name": "Illia Suprun",
+          "goalType": "Book",
+          "goalName": "The Making of a Manager",
+          "goalDescription": "Прочитати книгу The Making of a Manager by Julie Zhuo",
+          "link": "https://www.britishbook.ua/ru/authors/detail/julie-zhuo/",
+          "tags": [
+            "Leadership"
+          ]
+        },
+        {
+          "id": "g7_3",
+          "name": "Illia Suprun",
+          "goalType": "Matrix",
+          "goalName": "Knowledge & Skills Evaluation Topics",
+          "goalDescription": "Вивчити 5 тем з Knowledge and Skills Evaluation: Strategy, Interviewing, Mentoring, Stakeholder Management, UX Metrics",
+          "link": "",
+          "tags": [
+            "Growth"
+          ]
+        },
+        {
+          "id": "g7_4",
+          "name": "Illia Suprun",
+          "goalType": "Work",
+          "goalName": "Conduct Candidate Interviews",
+          "goalDescription": "Провести кілька інтервʼю для потенційних кандидатів",
+          "link": "",
+          "tags": [
+            "Recruitment"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "fullName": "Iryna Mykytenko",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "iryna.mykytenko@cieden.com",
+      "cv": "https://drive.google.com/file/d/1cQRE0ZqHSsQndxfxGrlqQPT4S-2j3dIF/view?usp=drive_link",
+      "seniority": "Senior",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/iryna-mykytenko?trk=people-guest_people_search-card",
+      "experienceStarted": "1/5/19",
+      "joinedCieden": "7/4/21",
+      "inCieden": "",
+      "totalExperience": "6 years",
+      "englishLevel": "B2",
+      "goals": [
+        {
+          "id": "g8_0",
+          "name": "Iryna Mykytenko",
+          "goalType": "Book",
+          "goalName": "UX Books",
+          "goalDescription": "Прочитати кілька книг по UX (зокрема “Не змушуйте мене думати” Круга)",
+          "link": "",
+          "tags": [
+            "UX"
+          ]
+        },
+        {
+          "id": "g8_1",
+          "name": "Iryna Mykytenko",
+          "goalType": "Course",
+          "goalName": "Elements of AI",
+          "goalDescription": "Пройти курс Elements of AI",
+          "link": "https://www.elementsofai.com/",
+          "tags": [
+            "AI"
+          ]
+        },
+        {
+          "id": "g8_2",
+          "name": "Iryna Mykytenko",
+          "goalType": "Work",
+          "goalName": "Learn AI Design Patterns",
+          "goalDescription": "Вивчити AI design patterns. Проведено воркшоп, тепер — імплементація в прототипах.",
+          "link": "",
+          "tags": [
+            "AI"
+          ]
+        },
+        {
+          "id": "g8_3",
+          "name": "Iryna Mykytenko",
+          "goalType": "Work",
+          "goalName": "Start Learning Spline",
+          "goalDescription": "Почати вчити Spline. Потенційне knowledge-share на команду.",
+          "link": "",
+          "tags": [
+            "UI"
+          ]
+        },
+        {
+          "id": "g8_4",
+          "name": "Iryna Mykytenko",
+          "goalType": "Course",
+          "goalName": "Product Psychology Masterclass",
+          "goalDescription": "Пройти курс Product Psychology Masterclass",
+          "link": "https://growth.design/course",
+          "tags": [
+            "UX"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "fullName": "Iryna Tanavska",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Tetiana Bondarchuk",
+      "access": "Employee",
+      "email": "iryna.tanavska@cieden.com",
+      "cv": "",
+      "seniority": "Middle",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/iryna-tanavska/uk",
+      "experienceStarted": "2017",
+      "joinedCieden": "18/3/22",
+      "inCieden": "",
+      "totalExperience": "8 years",
+      "englishLevel": "B2",
+      "goals": [
+        {
+          "id": "g9_0",
+          "name": "Iryna Tanavska",
+          "goalType": "Course",
+          "goalName": "UX Certificate",
+          "goalDescription": "Отримати UX certificate",
+          "link": "",
+          "tags": [
+            "UX"
+          ]
+        },
+        {
+          "id": "g9_1",
+          "name": "Iryna Tanavska",
+          "goalType": "Course",
+          "goalName": "Завершити курс Фрідмана",
+          "goalDescription": "Завершити курс Фрідмана",
+          "link": "",
+          "tags": [
+            "UX"
+          ]
+        },
+        {
+          "id": "g9_2",
+          "name": "Iryna Tanavska",
+          "goalType": "Work",
+          "goalName": "Discovery Phase",
+          "goalDescription": "Провести глибоку фазу discovery: інтервʼю, тестування",
+          "link": "",
+          "tags": [
+            "UX Research"
+          ]
+        },
+        {
+          "id": "g9_3",
+          "name": "Iryna Tanavska",
+          "goalType": "Work",
+          "goalName": "AI Prototyping Trial",
+          "goalDescription": "Спробувати аішку в прототипуванні",
+          "link": "",
+          "tags": [
+            "AI"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "fullName": "Karyna Khmelyk",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "karyna.khmelyk@cieden.com",
+      "cv": "https://drive.google.com/file/d/124sQ5_wTnJY6Agke91Tdumd60_sSIlaf/view?usp=drive_link",
+      "seniority": "Senior",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/karyna-halavur",
+      "experienceStarted": "1/4/17",
+      "joinedCieden": "15/11/23",
+      "inCieden": "",
+      "totalExperience": "8 years",
+      "englishLevel": "B2",
+      "goals": [
+        {
+          "id": "g10_0",
+          "name": "Karyna Khmelyk",
+          "goalType": "Course",
+          "goalName": "Data-Driven Decision Making",
+          "goalDescription": "Complete course about Data-Driven Decision Making (Udemy, UXcel, or NN Group)",
+          "link": "",
+          "tags": [
+            "Analytics"
+          ]
+        },
+        {
+          "id": "g10_1",
+          "name": "Karyna Khmelyk",
+          "goalType": "Personal",
+          "goalName": "Develop as Lead Product Designer",
+          "goalDescription": "Проконсультуватись з менторами, обрати матеріали для розвитку як Lead Product Designer",
+          "link": "",
+          "tags": [
+            "Leadership"
+          ]
+        },
+        {
+          "id": "g10_2",
+          "name": "Karyna Khmelyk",
+          "goalType": "Course",
+          "goalName": "Business Analysis Fundamentals",
+          "goalDescription": "Пройти курс Business Analysis Fundamentals",
+          "link": "https://www.udemy.com/course/business-analysis-ba/?couponCode=24T4MT180225",
+          "tags": [
+            "Business"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "fullName": "Khrystyna Nych",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "khrystyna.nych@cieden.com",
+      "cv": "https://drive.google.com/file/d/1gS6IzdsvqAb2tGj0O-uDbUtth9Dh1CYH/view?usp=drive_link",
+      "seniority": "Middle",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/khrystyna-nych-032486190",
+      "experienceStarted": "1/3/20",
+      "joinedCieden": "6/2/23",
+      "inCieden": "",
+      "totalExperience": "5 years",
+      "englishLevel": "B2",
+      "goals": [
+        {
+          "id": "g11_0",
+          "name": "Khrystyna Nych",
+          "goalType": "Course",
+          "goalName": "Product Psychology Masterclass",
+          "goalDescription": "Пройти курс Product Psychology Masterclass",
+          "link": "https://growth.design/course",
+          "tags": [
+            "UX"
+          ]
+        },
+        {
+          "id": "g11_1",
+          "name": "Khrystyna Nych",
+          "goalType": "English",
+          "goalName": "English Group Lessons",
+          "goalDescription": "По максимуму відвідувати заняття з англійської",
+          "link": "",
+          "tags": [
+            "English"
+          ]
+        },
+        {
+          "id": "g11_2",
+          "name": "Khrystyna Nych",
+          "goalType": "Work",
+          "goalName": "Project Analytics",
+          "goalDescription": "Почати більше працювати з аналітикою на проекті: синканутись з Романом щодо метрик",
+          "link": "",
+          "tags": [
+            "Analytics"
+          ]
+        },
+        {
+          "id": "g11_3",
+          "name": "Khrystyna Nych",
+          "goalType": "Work",
+          "goalName": "AI Prototyping",
+          "goalDescription": "Зробити простенький прототип за допомогою одного з AI-інструментів",
+          "link": "",
+          "tags": [
+            "AI"
+          ]
+        },
+        {
+          "id": "g11_4",
+          "name": "Khrystyna Nych",
+          "goalType": "Course",
+          "goalName": "Design Thinking Course",
+          "goalDescription": "Пройти Design Thinking Course",
+          "link": "https://www.ibm.com/design/thinking/page/courses/Practitioner",
+          "tags": [
+            "UX"
+          ]
+        },
+        {
+          "id": "g11_5",
+          "name": "Khrystyna Nych",
+          "goalType": "Course",
+          "goalName": "Design Thinking to AI",
+          "goalDescription": "Пройти Design Thinking to AI",
+          "link": "https://www.ibm.com/design/thinking/page/courses/AI_Essentials",
+          "tags": [
+            "AI"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "fullName": "Maksym Gozhelsky",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Yuliia Mahera",
+      "access": "Employee",
+      "email": "maksym.gozhelsky@cieden.com",
+      "cv": "https://drive.google.com/file/d/1hSal3amuP7rrekjneozlPhiml0dGnxuK/view?usp=drive_link",
+      "seniority": "Str. Middle",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/maksym-gozhelsky-983410190",
+      "experienceStarted": "1/10/18",
+      "joinedCieden": "12/4/21",
+      "inCieden": "",
+      "totalExperience": "7 years",
+      "englishLevel": "Unknown",
+      "goals": [
+        {
+          "id": "g12_0",
+          "name": "Maksym Gozhelsky",
+          "goalType": "Course",
+          "goalName": "UX Research",
+          "goalDescription": "Розвиток у UX Research",
+          "link": "https://www.ibm.com/design/thinking/page/courses/Practitioner",
+          "tags": [
+            "UX Research"
+          ]
+        },
+        {
+          "id": "g12_1",
+          "name": "Maksym Gozhelsky",
+          "goalType": "Matrix",
+          "goalName": "Design Matrix (Middle level)",
+          "goalDescription": "Пройти блоки: UX audits, user research, workshops",
+          "link": "",
+          "tags": [
+            "UX"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "fullName": "Maksym Vertsanov",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Tetiana Bondarchuk",
+      "access": "Employee",
+      "email": "maksym.vertsanov@cieden.com",
+      "cv": "",
+      "seniority": "Middle",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/vertsanovmaksim",
+      "experienceStarted": "2019",
+      "joinedCieden": "15/5/23",
+      "inCieden": "",
+      "totalExperience": "6 years",
+      "englishLevel": "Unknown",
+      "goals": [
+        {
+          "id": "g13_0",
+          "name": "Maksym Vertsanov",
+          "goalType": "Work",
+          "goalName": "AI Tools for Projects",
+          "goalDescription": "Більше інтегрувати нові інструменти AI у свою роботу",
+          "link": "",
+          "tags": [
+            "AI"
+          ]
+        },
+        {
+          "id": "g13_1",
+          "name": "Maksym Vertsanov",
+          "goalType": "Course",
+          "goalName": "AI Essentials from IBM",
+          "goalDescription": "Пройти курс AI Essentials",
+          "link": "https://www.ibm.com/design/thinking/page/courses/AI_Essentials",
+          "tags": [
+            "AI"
+          ]
+        },
+        {
+          "id": "g13_2",
+          "name": "Maksym Vertsanov",
+          "goalType": "English",
+          "goalName": "English Level Assessment",
+          "goalDescription": "Пройти тестування на поточний рівень англійської",
+          "link": "",
+          "tags": [
+            "English"
+          ]
+        },
+        {
+          "id": "g13_3",
+          "name": "Maksym Vertsanov",
+          "goalType": "Work",
+          "goalName": "Presentation Skills",
+          "goalDescription": "Знайти і пройти курс по навичкам презентації дизайн-рішень",
+          "link": "",
+          "tags": [
+            "Soft Skills"
+          ]
+        },
+        {
+          "id": "g13_4",
+          "name": "Maksym Vertsanov",
+          "goalType": "Book",
+          "goalName": "Articulating Design Decisions (Optional)",
+          "goalDescription": "Книга Том Грівер “Формулювання дизайнерських рішень”",
+          "link": "https://www.amazon.com/Articulating-Design-Decisions-Communicate-Stakeholders/dp/1491921560",
+          "tags": [
+            "UX"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "13",
+      "fullName": "Marta Kacharaba",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Anastasiya Mudryk",
+      "access": "Employee",
+      "email": "marta.kacharaba@cieden.com",
+      "cv": "",
+      "seniority": "Middle",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/marta-kacharaba-715bb2162",
+      "experienceStarted": "12/1/17",
+      "joinedCieden": "1/12/21",
+      "inCieden": "",
+      "totalExperience": "8 years",
+      "englishLevel": "Unknown",
+      "goals": [
+        {
+          "id": "g14_0",
+          "name": "Marta Kacharaba",
+          "goalType": "Work",
+          "goalName": "AI in Design Process",
+          "goalDescription": "Опрацювати AI-інструменти для дизайну (Cursor, інші). Освоїти щонайменше 3 інструменти та впровадити в роботу.",
+          "link": "",
+          "tags": [
+            "AI"
+          ]
+        },
+        {
+          "id": "g14_1",
+          "name": "Marta Kacharaba",
+          "goalType": "Work",
+          "goalName": "Internal Workshop",
+          "goalDescription": "Провести 1 інтернал воркшоп",
+          "link": "",
+          "tags": [
+            "Team"
+          ]
+        },
+        {
+          "id": "g14_2",
+          "name": "Marta Kacharaba",
+          "goalType": "Work",
+          "goalName": "Тестування UX",
+          "goalDescription": "Відточити навички UX-тестування. Провести мінімум ще 3 юзер-тестування з документуванням, аналізом та імплементацією змін.",
+          "link": "",
+          "tags": [
+            "UX",
+            "Testing"
+          ]
+        },
+        {
+          "id": "g14_3",
+          "name": "Marta Kacharaba",
+          "goalType": "English",
+          "goalName": "English Study Plan",
+          "goalDescription": "Оцінити рівень з викладачем, поставити досяжну ціль, продовжити навчання, використовувати англійську в роботі",
+          "link": "",
+          "tags": [
+            "English"
+          ]
+        },
+        {
+          "id": "g14_4",
+          "name": "Marta Kacharaba",
+          "goalType": "Course",
+          "goalName": "UX Writing Course",
+          "goalDescription": "Пройти курс з UX Writing",
+          "link": "https://prjctr.com/en/course/ux-writing",
+          "tags": [
+            "UX",
+            "Writing"
+          ]
+        },
+        {
+          "id": "g14_5",
+          "name": "Marta Kacharaba",
+          "goalType": "Book",
+          "goalName": "Rocket Surgery Made Easy",
+          "goalDescription": "Прочитати книгу “Rocket Surgery Made Easy”",
+          "link": "https://www.amazon.com/Rocket-Surgery-Made-Easy-Yourself/dp/0321657292",
+          "tags": [
+            "UX"
+          ]
+        },
+        {
+          "id": "g14_6",
+          "name": "Marta Kacharaba",
+          "goalType": "Book",
+          "goalName": "Mom Test",
+          "goalDescription": "Прочитати “Mom Test”",
+          "link": "https://www.momtestbook.com/",
+          "tags": [
+            "UX Research"
+          ]
+        },
+        {
+          "id": "g14_7",
+          "name": "Marta Kacharaba",
+          "goalType": "Book",
+          "goalName": "Articulating Design Decisions (Demo)",
+          "goalDescription": "Articulating Design Decisions (optional) для дизайн демо",
+          "link": "https://www.amazon.com/Articulating-Design-Decisions-Communicate-Stakeholders/dp/1491921560",
+          "tags": [
+            "UX"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "14",
+      "fullName": "Mykola Chumak",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "mykola.chumak@cieden.com",
+      "cv": "",
+      "seniority": "Middle",
+      "industries": [],
+      "linkedin": "https://www.linkedin.com/in/m-chumak-desigr",
+      "experienceStarted": "1/10/14",
+      "joinedCieden": "19/5/25",
+      "inCieden": "",
+      "totalExperience": "11 years",
+      "englishLevel": "B2",
+      "goals": [
+        {
+          "id": "g15_0",
+          "name": "Mykola Chumak",
+          "goalType": "Course",
+          "goalName": "Animations",
+          "goalDescription": "Пройти курс “2D Animation”",
+          "link": "https://prjctr.com/course/2d-animation",
+          "tags": [
+            "Animation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "15",
+      "fullName": "Nazar Vasylyshyn",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "nazar.vasylyshyn@cieden.com",
+      "cv": "",
+      "seniority": "Senior",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "",
+      "joinedCieden": "20/5/25",
+      "inCieden": "",
+      "totalExperience": "",
+      "englishLevel": "Unknown",
+      "goals": []
+    },
+    {
+      "id": "16",
+      "fullName": "Olha Shvets",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "olha.shvets@cieden.com",
+      "cv": "",
+      "seniority": "Middle",
+      "industries": [],
+      "linkedin": "https://www.linkedin.com/in/olha-shvets/",
+      "experienceStarted": "1/1/21",
+      "joinedCieden": "9/6/25",
+      "inCieden": "",
+      "totalExperience": "4 years",
+      "englishLevel": "B2",
+      "goals": []
+    },
+    {
+      "id": "17",
+      "fullName": "Roman Kaminechny",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Yurii Mykhasyak",
+      "access": "Leader",
+      "email": "roman.kaminechny@cieden.com",
+      "cv": "",
+      "seniority": "Middle",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/kaminechny",
+      "experienceStarted": "10/1/2012",
+      "joinedCieden": "10/6/20",
+      "inCieden": "",
+      "totalExperience": "13 years",
+      "englishLevel": "Unknown",
+      "goals": [
+        {
+          "id": "g18_0",
+          "name": "Roman Kaminechny",
+          "goalType": "Work",
+          "goalName": "AI Application for Portfolio",
+          "goalDescription": "Розробити AI-додаток для кейсів сайдену, навчити дизайнерів ним користуватись",
+          "link": "",
+          "tags": [
+            "AI"
+          ]
+        },
+        {
+          "id": "g18_1",
+          "name": "Roman Kaminechny",
+          "goalType": "English",
+          "goalName": "English - Half Level Up",
+          "goalDescription": "Перевірити поточний рівень англійської і поставити ціль +0.5 рівня",
+          "link": "",
+          "tags": [
+            "English"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "18",
+      "fullName": "Tetiana Zakus",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "tetiana.zakus@cieden.com",
+      "cv": "https://drive.google.com/file/d/1WXsE1RwMzSAT2RbXHiZqh7APUFAkb-eP/view?usp=drive_link",
+      "seniority": "Str. Middle",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/tanya-zakus",
+      "experienceStarted": "9/1/17",
+      "joinedCieden": "24/9/20",
+      "inCieden": "",
+      "totalExperience": "8 years",
+      "englishLevel": "B1",
+      "goals": [
+        {
+          "id": "g19_0",
+          "name": "Tetiana Zakus",
+          "goalType": "Matrix",
+          "goalName": "Пройти матрицю",
+          "goalDescription": "Пройти матрицю компетенцій",
+          "link": "",
+          "tags": [
+            "Growth"
+          ]
+        },
+        {
+          "id": "g19_1",
+          "name": "Tetiana Zakus",
+          "goalType": "English",
+          "goalName": "English - B2",
+          "goalDescription": "30 занять з англійської для досягнення рівня B2",
+          "link": "",
+          "tags": [
+            "English"
+          ]
+        },
+        {
+          "id": "g19_2",
+          "name": "Tetiana Zakus",
+          "goalType": "Course",
+          "goalName": "UX Strategy Intensive",
+          "goalDescription": "Пройти інтенсив по UX Strategy",
+          "link": "",
+          "tags": [
+            "UX Strategy"
+          ]
+        },
+        {
+          "id": "g19_3",
+          "name": "Tetiana Zakus",
+          "goalType": "Work",
+          "goalName": "Join AI Hackathon",
+          "goalDescription": "Долучитись до хакатону по AI",
+          "link": "",
+          "tags": [
+            "AI"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "19",
+      "fullName": "Valentyn Skliarov",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "valentyn.skliarov@cieden.com",
+      "cv": "",
+      "seniority": "Senior",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/valentyn-skliarov",
+      "experienceStarted": "1/2/18",
+      "joinedCieden": "1/11/18",
+      "inCieden": "",
+      "totalExperience": "7 years",
+      "englishLevel": "B2",
+      "goals": []
+    },
+    {
+      "id": "20",
+      "fullName": "Valeria Nasikan",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "valeriia.nasikan@cieden.com",
+      "cv": "",
+      "seniority": "Str. Middle",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "1/11/16",
+      "joinedCieden": "27/12/24",
+      "inCieden": "",
+      "totalExperience": "9 years",
+      "englishLevel": "B2",
+      "goals": [
+        {
+          "id": "g21_0",
+          "name": "Valeria Nasikan",
+          "goalType": "Work",
+          "goalName": "Learn AI Tools",
+          "goalDescription": "Навчитись користуватись Cursor, GPT, іншими АІ-інструментами. Мета — створити прототип або pet-project",
+          "link": "",
+          "tags": [
+            "AI",
+            "Prototyping"
+          ]
+        },
+        {
+          "id": "g21_1",
+          "name": "Valeria Nasikan",
+          "goalType": "Work",
+          "goalName": "User Testing",
+          "goalDescription": "Провести юзер-тести на проекті",
+          "link": "",
+          "tags": [
+            "UX",
+            "Testing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "21",
+      "fullName": "Vladyslav Pianov",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "vladyslav.pianov@cieden.com",
+      "cv": "",
+      "seniority": "Str. Middle",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "2017",
+      "joinedCieden": "8/4/24",
+      "inCieden": "",
+      "totalExperience": "8 years",
+      "englishLevel": "B2",
+      "goals": [
+        {
+          "id": "g22_0",
+          "name": "Vladyslav Pianov",
+          "goalType": "Work",
+          "goalName": "Manage 2–3 Projects",
+          "goalDescription": "Менеджити 2–3 проекти одночасно (менше UI-дизайну)",
+          "link": "",
+          "tags": [
+            "Leadership"
+          ]
+        },
+        {
+          "id": "g22_1",
+          "name": "Vladyslav Pianov",
+          "goalType": "Work",
+          "goalName": "Project Analytics",
+          "goalDescription": "Посилити аналітичну складову проєктів: планування, KPI, відповідність бізнес-моделям клієнтів",
+          "link": "",
+          "tags": [
+            "Analytics"
+          ]
+        },
+        {
+          "id": "g22_2",
+          "name": "Vladyslav Pianov",
+          "goalType": "Work",
+          "goalName": "Pre-sale, MVP, Startups",
+          "goalDescription": "Більше залучення до рісерчу, MVP, роботи з стартапами",
+          "link": "",
+          "tags": [
+            "Discovery",
+            "Startups"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "22",
+      "fullName": "Volodymyr Merlenko",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Anastasiya Mudryk",
+      "access": "Employee",
+      "email": "volodymyr.merlenko@cieden.com",
+      "cv": "https://drive.google.com/file/d/1465dQJsrxcsQkUmW2NeraKfGUuTT1hEr/view?usp=drive_link",
+      "seniority": "Str. Middle",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/merlenkov",
+      "experienceStarted": "1/12/21",
+      "joinedCieden": "22/5/23",
+      "inCieden": "",
+      "totalExperience": "4 years",
+      "englishLevel": "B2",
+      "goals": [
+        {
+          "id": "g23_0",
+          "name": "Volodymyr Merlenko",
+          "goalType": "Personal",
+          "goalName": "LinkedIn Posts & Article",
+          "goalDescription": "Щотижня писати пости в LinkedIn, підготувати гайд-статтю на базі pet-проекту, податись в Smashing Magazine або DOU",
+          "link": "",
+          "tags": [
+            "Personal Brand"
+          ]
+        },
+        {
+          "id": "g23_1",
+          "name": "Volodymyr Merlenko",
+          "goalType": "Work",
+          "goalName": "Pet Project MVP",
+          "goalDescription": "Завершити дизайн, написати статтю, розробити MVP та податись в YEP",
+          "link": "",
+          "tags": [
+            "Pet Project"
+          ]
+        },
+        {
+          "id": "g23_2",
+          "name": "Volodymyr Merlenko",
+          "goalType": "Course",
+          "goalName": "AI Prototyping Playlist",
+          "goalDescription": "Переглянути плейлист про Cursor AI",
+          "link": "",
+          "tags": [
+            "AI"
+          ]
+        },
+        {
+          "id": "g23_3",
+          "name": "Volodymyr Merlenko",
+          "goalType": "Course",
+          "goalName": "AI Dev Course",
+          "goalDescription": "Пройти курс з AI програмування, розвиватись як Founding Product Designer",
+          "link": "",
+          "tags": [
+            "AI",
+            "Dev"
+          ]
+        },
+        {
+          "id": "g23_4",
+          "name": "Volodymyr Merlenko",
+          "goalType": "Initiatives",
+          "goalName": "Pet Project Initiative",
+          "goalDescription": "Підготуватись до запуску ініціативи по pet-проєктах в Cieden",
+          "link": "",
+          "tags": [
+            "Internal"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "23",
+      "fullName": "Yuliia Braslavska",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Olesia Havryshko",
+      "access": "Employee",
+      "email": "yuliia.braslavska@cieden.com",
+      "cv": "https://drive.google.com/file/d/1h-1x0QOI3s_6zChrdRgKtsGilGe2Dz9I/view?usp=drive_link",
+      "seniority": "Middle",
+      "industries": [],
+      "linkedin": "https://ua.linkedin.com/in/yuliabraslavska",
+      "experienceStarted": "9/1/18",
+      "joinedCieden": "16/11/21",
+      "inCieden": "",
+      "totalExperience": "7 years",
+      "englishLevel": "B2",
+      "goals": [
+        {
+          "id": "g24_0",
+          "name": "Yuliia Braslavska",
+          "goalType": "Course",
+          "goalName": "Discovery Course",
+          "goalDescription": "Пройти Discovery-курс із сертифікатом",
+          "link": "",
+          "tags": [
+            "UX"
+          ]
+        },
+        {
+          "id": "g24_1",
+          "name": "Yuliia Braslavska",
+          "goalType": "Work",
+          "goalName": "Conduct Workshop",
+          "goalDescription": "Провести воркшоп для команди або клієнта",
+          "link": "",
+          "tags": [
+            "Team",
+            "Facilitation"
+          ]
+        },
+        {
+          "id": "g24_2",
+          "name": "Yuliia Braslavska",
+          "goalType": "Course",
+          "goalName": "Watch Guest Lectures",
+          "goalDescription": "Переглянути 7–10 лекцій (гостьові або з Прожектора)",
+          "link": "",
+          "tags": [
+            "Learning"
+          ]
+        },
+        {
+          "id": "g24_3",
+          "name": "Yuliia Braslavska",
+          "goalType": "English",
+          "goalName": "Set English Goal with Teacher",
+          "goalDescription": "Оцінити рівень англійської та поставити ціль на наступне півріччя (наприклад, покращити усну мову до Upper)",
+          "link": "",
+          "tags": [
+            "English"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "24",
+      "fullName": "Tanya Borysenko",
+      "department": "Design",
+      "role": "UX/UI Designer",
+      "leader": "Roman Kaminechny",
+      "access": "Employee",
+      "email": "tanya.borysenko@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "",
+      "joinedCieden": "",
+      "inCieden": "",
+      "totalExperience": "",
+      "englishLevel": "Unknown",
+      "goals": []
+    },
+    {
+      "id": "25",
+      "fullName": "Anastasiya Mudryk",
+      "department": "Product",
+      "role": "Product Manager/Business Analyst",
+      "leader": "Yurii Mykhasyak",
+      "access": "Leader",
+      "email": "anastasiya.mudryk@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "1/11/18",
+      "joinedCieden": "1/11/18",
+      "inCieden": "",
+      "totalExperience": "7 years",
+      "englishLevel": "Unknown",
+      "goals": []
+    },
+    {
+      "id": "26",
+      "fullName": "Olesia Havryshko",
+      "department": "Product",
+      "role": "Product Manager/Business Analyst",
+      "leader": "Anastasiya Mudryk",
+      "access": "Leader",
+      "email": "olesia.havryshko@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "1/8/16",
+      "joinedCieden": "2/11/20",
+      "inCieden": "",
+      "totalExperience": "9 years",
+      "englishLevel": "B2",
+      "goals": []
+    },
+    {
+      "id": "27",
+      "fullName": "Tetiana Bondarchuk",
+      "department": "Product",
+      "role": "Product Manager/Business Analyst",
+      "leader": "Anastasiya Mudryk",
+      "access": "Leader",
+      "email": "tetiana.bondarchuk@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "1/11/20",
+      "joinedCieden": "2/8/22",
+      "inCieden": "",
+      "totalExperience": "5 years",
+      "englishLevel": "C1",
+      "goals": []
+    },
+    {
+      "id": "28",
+      "fullName": "Yuliia Mahera",
+      "department": "Product",
+      "role": "Product Manager/Business Analyst",
+      "leader": "Anastasiya Mudryk",
+      "access": "Leader",
+      "email": "yulia.mahera@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "1/5/21",
+      "joinedCieden": "13/1/25",
+      "inCieden": "",
+      "totalExperience": "4 years",
+      "englishLevel": "C1",
+      "goals": []
+    },
+    {
+      "id": "29",
+      "fullName": "Nataliia Levko",
+      "department": "Finance",
+      "role": "Finance Manager",
+      "leader": "Yurii Mykhasyak",
+      "access": "Leader",
+      "email": "nataliia.levko@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "1/4/12",
+      "joinedCieden": "19/5/2025",
+      "inCieden": "",
+      "totalExperience": "13 years",
+      "englishLevel": "Unknown",
+      "goals": []
+    },
+    {
+      "id": "30",
+      "fullName": "Nataliia Antonyshyn",
+      "department": "Finance",
+      "role": "Аccountant",
+      "leader": "Nataliia Levko",
+      "access": "Employee",
+      "email": "nataliia.antonyshyn@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "",
+      "joinedCieden": "27/9/21",
+      "inCieden": "",
+      "totalExperience": "",
+      "englishLevel": "Unknown",
+      "goals": []
+    },
+    {
+      "id": "31",
+      "fullName": "Kristina Shkriabina",
+      "department": "Marketing",
+      "role": "Marketing Manager",
+      "leader": "Yurii Mykhasyak",
+      "access": "Leader",
+      "email": "krystyna.shkriabina@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "1/12/21",
+      "joinedCieden": "18/9/23",
+      "inCieden": "",
+      "totalExperience": "4 years",
+      "englishLevel": "C1",
+      "goals": []
+    },
+    {
+      "id": "32",
+      "fullName": "Tetiana Korol",
+      "department": "Marketing",
+      "role": "SMM-manager",
+      "leader": "Kristina Shkriabina",
+      "access": "Employee",
+      "email": "tetiana.korol@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "1/9/20",
+      "joinedCieden": "13/3/24",
+      "inCieden": "",
+      "totalExperience": "5 years",
+      "englishLevel": "B1",
+      "goals": []
+    },
+    {
+      "id": "33",
+      "fullName": "Tamara Zhostka",
+      "department": "Marketing",
+      "role": "Content Marketing Manager",
+      "leader": "Kristina Shkriabina",
+      "access": "Employee",
+      "email": "tamara.zhostka@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "1/1/20",
+      "joinedCieden": "7/8/23",
+      "inCieden": "",
+      "totalExperience": "5 years",
+      "englishLevel": "C1",
+      "goals": []
+    },
+    {
+      "id": "34",
+      "fullName": "Diana Danyliv",
+      "department": "Marketing",
+      "role": "Graphic Designer",
+      "leader": "Kristina Shkriabina",
+      "access": "Employee",
+      "email": "diana.danyliv@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "1/12/20",
+      "joinedCieden": "4/3/24",
+      "inCieden": "",
+      "totalExperience": "5 years",
+      "englishLevel": "B1",
+      "goals": []
+    },
+    {
+      "id": "35",
+      "fullName": "Kateryna Zavertailo",
+      "department": "Sales",
+      "role": "Sales Manager",
+      "leader": "Yurii Mykhasyak",
+      "access": "Leader",
+      "email": "kateryna.zavertailo@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "1/12/21",
+      "joinedCieden": "20/1/25",
+      "inCieden": "",
+      "totalExperience": "4 years",
+      "englishLevel": "C1",
+      "goals": []
+    },
+    {
+      "id": "36",
+      "fullName": "Bohdana Levochko",
+      "department": "Sales",
+      "role": "Lead Generation/Account Manager",
+      "leader": "Kateryna Zavertailo",
+      "access": "Employee",
+      "email": "bohdana.levochko@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "24/7/23",
+      "joinedCieden": "24/7/23",
+      "inCieden": "",
+      "totalExperience": "NaN years",
+      "englishLevel": "B2",
+      "goals": []
+    },
+    {
+      "id": "37",
+      "fullName": "Viktoriia Boichuk",
+      "department": "Sales",
+      "role": "Lead Generation Manager",
+      "leader": "Kateryna Zavertailo",
+      "access": "Employee",
+      "email": "viktoriia.boichuk@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "1/6/22",
+      "joinedCieden": "27/5/24",
+      "inCieden": "",
+      "totalExperience": "3 years",
+      "englishLevel": "B2",
+      "goals": []
+    },
+    {
+      "id": "38",
+      "fullName": "Olha Kubrak",
+      "department": "Talent Management",
+      "role": "Office manager/Event manager",
+      "leader": "Unknown",
+      "access": "Employee",
+      "email": "olha.kubrak@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "12/12/22",
+      "joinedCieden": "12/12/22",
+      "inCieden": "",
+      "totalExperience": "3 years",
+      "englishLevel": "Unknown",
+      "goals": []
+    },
+    {
+      "id": "39",
+      "fullName": "Iryna Mykhasiak",
+      "department": "Talent Management",
+      "role": "Recruiter",
+      "leader": "Unknown",
+      "access": "Employee",
+      "email": "iryna.mykhasyak@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "2/2/21",
+      "joinedCieden": "5/7/21",
+      "inCieden": "",
+      "totalExperience": "4 years",
+      "englishLevel": "Unknown",
+      "goals": []
+    },
+    {
+      "id": "40",
+      "fullName": "Katya Gorodova",
+      "department": "Talent Management",
+      "role": "Head of Talent Management",
+      "leader": "Unknown",
+      "access": "Admin",
+      "email": "kateryna.gorodova@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "1/4/15",
+      "joinedCieden": "13/9/24",
+      "inCieden": "",
+      "totalExperience": "10 years",
+      "englishLevel": "B2",
+      "goals": []
+    },
+    {
+      "id": "41",
+      "fullName": "Yurii Mykhasyak",
+      "department": "CEO",
+      "role": "C-level",
+      "leader": "Unknown",
+      "access": "Admin",
+      "email": "yuriy.mykhasyak@cieden.com",
+      "cv": "",
+      "seniority": "Unknown",
+      "industries": [],
+      "linkedin": "",
+      "experienceStarted": "",
+      "joinedCieden": "",
+      "inCieden": "",
+      "totalExperience": "",
+      "englishLevel": "Unknown",
+      "goals": []
+    }
+  ]
+}

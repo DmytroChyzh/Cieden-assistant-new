@@ -1,0 +1,27 @@
+{
+    "type": "client",
+    "name": "show_document_id",
+    "description": "Use when user asks to Displays identification documents including driver's licenses, passports, and state ID cards. No properties required. ",
+    "response_timeout_secs": 20,
+    "disable_interruptions": false,
+    "force_pre_tool_speech": false,
+    "assignments": [],
+    "parameters": {
+        "type": "object",
+        "required": [],
+        "description": "",
+        "properties": {
+            "documentId": {
+                "type": "string",
+                "description": "Document ID (optional - shows default if not provided)",
+                "dynamic_variable": "",
+                "constant_value": ""
+            }
+        }
+    },
+    "expects_response": false,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    },
+    "execution_mode": "immediate"
+}

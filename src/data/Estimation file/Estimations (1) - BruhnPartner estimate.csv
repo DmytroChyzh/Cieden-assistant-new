@@ -1,0 +1,108 @@
+Solution ,,,,,,
+"Platform that will provide capabilities for BruhnPartner to create reports and share them with customers. Customers will have access to the reports, will be able to view and explore data. 
+Customers may have multiple reports over time. 
+
+At this stage reports will be created by analysts manually (no algorythms or automation of input processing). ",,,,,,
+,,,,,,
+Roles ,,,,,,
+Consultant,- Ability to create reports ,,,,,
+Admin ,"- Ability to create entities, assign role & permission (customers & invite analysts) ",,,,,
+Customer ,- View reports ,,,,,
+,,,,,,
+Overview,,,,,,
+"    - The platform shall support 3 user roles: Consultant, Customer and Admin.
+    - On Customer’s side permissions could also be granted per study or other entity (e.g. geography or department). This TBD in more detail.
+    - Dashboards (aka reports, studies) shall have standard structure with minimal flexibility - to add/remove some blocks (aka “widget”).
+    - Dashboard is prepared by the Consultant and shared with the Customer by inviting to the platform via email (the current process also covers personal/remote meeting, so probably it will be shared afterwards).
+    - Customer can have multiple studies over time to which he/she should have access.
+    - Dashboard for a customer will be created by the Consultant be selecting “widget” and uploading processed data data to the platform
+    - Dashboards can be branded by name & logo of the customer",,,,,,
+,,,,,,
+In Scope ,,,,,,
+"- Interface for the Cunsultant to create Dashboards
+- Interface for the Customer to access and preview dashboard. Ability to export pdf/png.
+- Interface for Admin (manage of the company) to manage users: employee access and customer access. (+ same capability as a Consultant).",,,,,,
+,,,,,,
+Out of scope ,,,,,,
+"- No data processing at this stage - charts and graphs will be populated by the Consultant uploading processed data.
+- No review and approval process at this stage - there will be no feature for Admin (company’s manager) to approve dashboard before submitting it to the customer.
+- Submitting of survey request is conducted via direct contact, not via the portal.",,,,,,
+,,,,,,
+,,UX/UI,,,,
+Modules ,Features/Epics,Min,Most likely,Maximum ,PERT,Comments 
+General features,,,,,,
+Registration,"Login, 
+restore password ",8,10,12,"10,0",All roles - same interface 
+Errors,Layout for error page ,4,6,8,"6,0",
+Email template ,Email with updates (new study etc) ,4,6,8,"6,0",Customer shall receive invitation with a link to get access to platform 
+Consultant features,,,,,,
+Reports / Dashboard ,List of reports,16,24,28,"23,3","- View list
+- Create new
+- Copy, make duplicate 
+- public/unpublic
+- Edit 
+- History views
+- Delete "
+,Create report,12,20,28,"20,0","- Give it a name, select customer + upload logo
+- upload data
+- Publish/Unpublish (make draft again) dashboards
+- write comments & notes"
+,The report ,12,18,24,"18,0","- view report
+- edit report
+- share it to customer
+- save as draft
+- make it public/unpublic
+- Assign dashboard to a customer"
+Notification ,,4,6,8,"6,0",
+Profile + Settings ,,8,10,12,"10,0","Name, email 
+Security (password management)"
+Customer features,,,,,,
+"Studies 
+(reports/dashboards)  ",Homescreren / list of studies (reports),16,20,24,"20,0","Initial survey + subsequent (name, date + overview) 
+Ability to filter or group (by country, date, could be by department) 
+""Would be good to have some comparison in time"" -> TBD
+Print/Export "
+,Study preview ,4,8,16,"8,7",
+,Share (invite/give access) ,6,8,12,"8,3","Note: Only ""view"" access can be shared by Customer "
+Profile & settings ,Settings ,2,4,8,"4,3","Name, company, email (if needed)
+Security (password management)
+Notification (when to receive email or text?) "
+Admin features,,,,,,
+Users (Cosultants) ,,14,18,24,"18,3","List of users 
+Add/Edit/Delete 
+Manage permission"
+Customers ,,8,12,16,"12,0","Create/Edit/Delete customer 
+List of customers "
+TOTAL,,118,170,228,"171,0",
+,,,,,,
+Design Operational,,,,,,
+Desops,Design system ,20,24,32,"24,7",Creation & maintenance 
+,UI Concept ,16,24,32,"24,0",
+TOTAL,,36,48,64,"48,7",
+BA/PM,,,,,,
+BA/PM,"Stakeholder interviews, requirements management",16,20,28,"20,7",
+Communication ,"Demo, design review, brainstorm",24,34,45,"34,0",
+TOTAL,,40,54,73,"54,7",
+,,,,,,
+,Total Product Design ,194,272,365,"274,3",
+,Total BA/PM,"38,8","54,4",73,"54,9",
+,TOTAL PROJECT (hours),263,369,495,"371,9",
+,TOTAL PROJECT COST ,$13 149,$18 436,$24 739,"18593,7",
+,,,,,,
+,,,,,,
+,,,,,,
+,Team Capacity ,Hours a week,,,,
+,UX/UI designer/s,36,(based on 6h efffective working day) ,,,
+,BA/PM ,5,,,,
+,,,,,,
+,Project Timeline (design effort) ,Min,Most likely,Maximum ,PERT,
+,Design effort (in weeks) ,5,8,10,8,
+,,,,,,
+,,,,,,
+,**Communication calculator ,Min,Most likely,Maximum ,PERT,
+,External communication ,22,30,41,"30,5",
+,Internal communication ,9,12,16,"12,2",
+,Total communication ,30,42,57,"42,7",
+,,,,,,
+,BA involvement,Min,Most likely,Maximum ,PERT,
+,Ca. 3h per week for BA activities ,"16,2","22,7","30,4","22,9",

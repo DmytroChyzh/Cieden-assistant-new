@@ -1,0 +1,20 @@
+{
+    "type": "client",
+    "name": "show_best_case",
+    "description": "Show the most impressive or flagship Cieden case study. Use when the user asks for the best, strongest, or most relevant example of work.",
+    "response_timeout_secs": 20,
+    "disable_interruptions": false,
+    "force_pre_tool_speech": false,
+    "assignments": [],
+    "parameters": {
+        "type": "object",
+        "required": [],
+        "description": "",
+        "properties": {}
+    },
+    "expects_response": false,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    },
+    "execution_mode": "immediate"
+}

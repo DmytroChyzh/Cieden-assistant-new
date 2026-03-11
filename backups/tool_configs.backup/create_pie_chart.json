@@ -1,0 +1,36 @@
+{
+    "type": "client",
+    "name": "create_pie_chart",
+    "description": "Creates and displays a pie chart visualization for financial data. Use when user asks to visualize data as a pie chart or wants to see proportional breakdowns.",
+    "response_timeout_secs": 20,
+    "disable_interruptions": false,
+    "force_pre_tool_speech": false,
+    "assignments": [],
+    "parameters": {
+        "type": "object",
+        "required": [
+            "title",
+            "data"
+        ],
+        "description": "Parameters for creating a pie chart",
+        "properties": {
+            "title": {
+                "type": "string",
+                "description": "Title of the pie chart",
+                "dynamic_variable": "",
+                "constant_value": ""
+            },
+            "data": {
+                "type": "string",
+                "description": "JSON string array of data points for the pie chart. Each item should have 'name' and 'value' properties. Values should be in USD. Example: [{\"name\":\"Groceries\",\"value\":500},{\"name\":\"Rent\",\"value\":1200}] represents $500 and $1,200 respectively.",
+                "dynamic_variable": "",
+                "constant_value": ""
+            }
+        }
+    },
+    "expects_response": false,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    },
+    "execution_mode": "immediate"
+}

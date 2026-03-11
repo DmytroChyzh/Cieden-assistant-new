@@ -1,0 +1,29 @@
+{
+    "type": "client",
+    "name": "show_loans",
+    "description": "I use this tool to show a user his loan opportunities. ",
+    "response_timeout_secs": 20,
+    "disable_interruptions": false,
+    "force_pre_tool_speech": false,
+    "assignments": [],
+    "parameters": {
+        "type": "object",
+        "required": [
+            "totalLoans"
+        ],
+        "description": "",
+        "properties": {
+            "totalLoans": {
+                "type": "number",
+                "description": "Total number of loans the user has. This is a count, not an amount (e.g., 3 loans).",
+                "dynamic_variable": "",
+                "constant_value": ""
+            }
+        }
+    },
+    "expects_response": false,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    },
+    "execution_mode": "immediate"
+}

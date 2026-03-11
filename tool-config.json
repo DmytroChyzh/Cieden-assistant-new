@@ -1,0 +1,33 @@
+{
+    "name": "API Integration",
+    "description": "API Integration webhook tool",
+    "type": "webhook",
+    "api_schema": {
+        "url": "https://api.example.com/webhook",
+        "method": "POST",
+        "path_params_schema": [],
+        "query_params_schema": [],
+        "request_body_schema": {
+            "id": "body",
+            "type": "object",
+            "value_type": "llm_prompt",
+            "description": "Request body for the webhook",
+            "dynamic_variable": "",
+            "constant_value": "",
+            "required": true,
+            "properties": []
+        },
+        "request_headers": [
+            {
+                "type": "value",
+                "name": "Content-Type",
+                "value": "application/json"
+            }
+        ],
+        "auth_connection": null
+    },
+    "response_timeout_secs": 30,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    }
+}

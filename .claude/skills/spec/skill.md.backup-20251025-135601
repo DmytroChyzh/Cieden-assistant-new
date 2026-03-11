@@ -1,0 +1,2489 @@
+---
+name: Spec Creator
+description: This skill should be used every time you are creating a plan of a new feature, or editing and bug fixing. 
+version: 1.0.0
+---
+
+## Purpose
+This DSL (Domain-Specific Language) enables clear communication of software requirements, new features, and code changes in a format that is:
+- **Readable** by non-developers (PMs, designers, stakeholders)
+- **Deterministic** for AI code generation
+- **Declarative** (describes WHAT, not HOW)
+- **Consistent** whether specifying new features or changes
+
+---
+
+## MANDATORY Controlled Vocabulary
+
+**CRITICAL: You MUST use ONLY these exact verbs when writing specifications. Using any other verbs will create inconsistency and confusion. This is NOT optional.**
+
+### Action Verbs (What to DO)
+
+**Use ONLY these verbs for describing actions:**
+
+| Verb | When to Use | Examples |
+|------|-------------|----------|
+| **Set** | Change a state value, assign a value | Set Current mode: idle<br>Set STATE.loading: yes<br>Set Error message: "Failed" |
+| **Send** | Transmit data over network or between components | Send message to AI<br>Send end signal to session<br>Send notification to user |
+| **Check** | Evaluate a condition or verify state | Check if session is active<br>Check user has permission<br>Check connection state |
+| **Wait for** | Pause until condition met or event occurs | Wait for connection confirmation<br>Wait for user input<br>Wait for timeout |
+| **Clear** | Remove or reset data to empty/default | Clear message queue<br>Clear error message<br>Clear session data |
+| **Start** | Begin a process or service | Start idle timer<br>Start voice session<br>Start monitoring updates |
+| **Stop** | End a process or service | Stop idle timer<br>Stop monitoring updates<br>Stop audio playback |
+| **Show** | Make UI element visible | Show error message<br>Show loading spinner<br>Show success notification |
+| **Hide** | Make UI element invisible | Hide modal<br>Hide error banner<br>Hide loading state |
+| **Add** | Insert item into collection | Add to message queue<br>Add todo to list<br>Add user to group |
+| **Remove** | Delete item from collection | Remove from queue<br>Remove todo from list<br>Remove user from group |
+| **Call** | Execute a specific named function, API, or mutation | Call CreateTodo mutation<br>Call Stripe API<br>Call getUserData function |
+| **Do** | Perform a general process or operation | Do authentication<br>Do validation<br>Do cleanup |
+| **Save** | Persist data to database/storage | Save form data<br>Save user preferences<br>Save to database |
+| **Read** | Retrieve data from database/storage | Read user data<br>Read conversation history<br>Read from database |
+| **Update** | Modify existing data | Update todo status<br>Update user profile<br>Update in database |
+| **Delete** | Permanently remove data | Delete todo item<br>Delete user account<br>Delete from database |
+| **Create** | Make new entity or object | Create new session<br>Create todo item<br>Create user account |
+| **Redirect** | Navigate to different page/URL | Redirect to dashboard<br>Redirect to login page |
+
+**Total: 19 core verbs** - small enough to remember, complete enough for real use
+
+**Deciding between Call vs Do:**
+- Use **Call** when you have a specific name: "Call CreateTodo mutation", "Call Stripe API"
+- Use **Do** for general processes: "Do authentication", "Do cleanup"
+
+### State/Condition Verbs (What IS)
+
+**Use ONLY these when describing state or conditions:**
+
+| Phrase | When to Use | Examples |
+|--------|-------------|----------|
+| **is** | Describe current state | Session is active<br>User is authenticated<br>Form is valid |
+| **has** | Describe possession or presence | User has permission<br>Form has changes<br>Queue has messages |
+| **contains** | Check if collection includes item | List contains item<br>String contains text<br>Array contains value |
+| **matches** | Compare for equality | Password matches confirmation<br>ID matches user ID |
+| **exceeds** | Greater than threshold | Count exceeds limit<br>Size exceeds maximum |
+
+### Technical Terms - When to Use vs Avoid
+
+**IMPORTANT: Use actual SDK/API parameter names when they exist, but translate concepts to plain language.**
+
+| Term | When to Use | When to Avoid | Use Instead |
+|------|-------------|---------------|-------------|
+| **dynamicVariables** | ✅ When it's the actual SDK parameter name | ❌ When describing the concept | "session parameters" or "configuration values" |
+| **agentId** | ✅ When it's the actual SDK parameter name | ❌ When describing the concept | "AI agent identifier" |
+| **signedUrl** | ✅ When it's the actual SDK parameter name | ❌ When describing the concept | "authenticated connection URL" |
+| **Initialize, init** | ❌ Never | Always | Use "Create" |
+| **Apply, assign** | ❌ Never | Always | Use "Set" |
+| **Mark, flag** | ❌ Never | Always | Use "Set" |
+| **Flush, drain** | ❌ Never | Always | Use "Send all" |
+| **Load, fetch, get** | ❌ Never | Always | Use "Read" |
+| **await, block until** | ❌ Never | Always | Use "Wait for" |
+| **Display, render** | ❌ Never | Always | Use "Show" |
+| **Take lock** | ❌ Never | Always | Use "Set session owner: this tab" |
+| **Release lock** | ❌ Never | Always | Use "Clear session owner" |
+| **log, trace, debug** | ❌ Never | Always | Use "Save error details" |
+| **ref** | ❌ Never | Always | Use "internal tracking variable" |
+| **BroadcastChannel** | ❌ Never | Always | Use "cross-tab messaging" |
+| **localStorage** | ❌ Never | Always | Use "browser storage" |
+| **callback** | ❌ Never | Always | Use "notification handler" |
+| **event handler** | ❌ Never | Always | Use "when [event] occurs" |
+| **unmounted component** | ❌ Never | Always | Use "component that was removed" |
+| **re-render** | ❌ Never | Always | Use "update display" |
+| **overrides** | ❌ Never | Always | Use "configuration changes" |
+
+**Rule of thumb:** If it appears in actual code/SDK documentation as a parameter name, use it. If you're describing what it does conceptually, use plain language.
+
+### Examples of Correct vs Incorrect Usage
+
+**❌ WRONG - Inconsistent verbs:**
+```toml
+Connection steps:
+  - Request signed URL from server
+  - Initialize SDK with parameters
+  - Apply conversation history
+  - Mark connection state: connected
+  - Flush pending messages
+```
+
+**✅ CORRECT - Controlled vocabulary:**
+```toml
+Connection steps:
+  - Call server API to get signedUrl
+  - Create session connection with signedUrl parameter
+  - Set dynamicVariables parameter with conversation history
+  - Set connection state: connected
+  - Send all queued messages
+```
+
+**❌ WRONG - Technical jargon for concepts:**
+```toml
+- Initialize WebRTC peer connection
+- Apply dynamicVariables via SDK
+- Register onDisconnect callback
+- Handle setState on unmounted component
+```
+
+**✅ CORRECT - Plain language for concepts (but real params when needed):**
+```toml
+- Create voice connection
+- Set dynamicVariables parameter with session data
+- Set up notification for when connection ends
+- Prevent updates to component that was removed
+```
+
+**❌ WRONG - Using arrows (→) like code:**
+```toml
+check: voice_lock(other_tabs) → exists?
+```
+
+**✅ CORRECT - Natural conditions:**
+```toml
+Check if: Other tabs have active session
+Check: Session.owner: not empty
+```
+
+### Enforcement Rules
+
+1. **EVERY action** must use a verb from the "Action Verbs" table
+2. **NO synonyms** allowed (don't use "assign" instead of "Set", or "initialize" instead of "Create")
+3. **Use actual parameter names** when they exist in SDK/API (like dynamicVariables, agentId)
+4. **Translate concepts** to plain language (don't say "WebRTC peer" - say "voice connection")
+5. **NO code-like syntax** (no arrows →, no function notation)
+6. **When in doubt**: Choose the simplest, most common English verb
+7. **Consistency is CRITICAL**: Same action = same verb EVERY time
+8. **ONE answer only**: No slash options (/) - each term maps to exactly ONE replacement
+
+**This controlled vocabulary ensures:**
+- ✅ Consistent, predictable specifications
+- ✅ Easy to read for non-developers
+- ✅ Deterministic code generation (no ambiguous choices)
+- ✅ Clear communication across all stakeholders
+- ✅ Natural English for concepts, exact names for parameters
+- ✅ No confusion about which term to use
+
+---
+
+# ═══════════════════════════════════════════════════════════════════
+# SPEC FILE ORGANIZATION
+# ═══════════════════════════════════════════════════════════════════
+
+When writing requirement specifications, use hierarchical sections for navigation and readability.
+
+## File Structure Guidelines
+
+**Use 3 levels of markdown headers plus bracketed items:**
+
+### Level 1: Major Areas (# with decorative border)
+```
+# ═══════════════════════════════════════════════════════════════════
+# DATA DEFINITIONS
+# ═══════════════════════════════════════════════════════════════════
+```
+
+Top-level architectural divisions. Typical sections:
+- DATA DEFINITIONS
+- STATE MANAGEMENT
+- CONFIGURATION
+- ACTIONS / BEHAVIORS
+- COMPONENTS
+- INTEGRATIONS
+- KEY INSIGHTS
+
+### Level 2: Functional Groups (##)
+```
+## Session Types
+```
+
+Related items grouped by function. Keeps sections under 200 lines.
+
+### Level 3: Sub-groups (### - use sparingly)
+```
+### Primary Actions
+```
+
+Further breakdowns only when Level 2 section would exceed 200 lines.
+
+### Items in Brackets ([Name])
+```
+[Define SessionMode]
+[State SessionManagement]
+[Action StartSession]
+```
+
+Individual specifications. Always use brackets for parseable structures.
+
+## Recommended Section Order
+
+Follow typical implementation flow:
+
+1. **DATA DEFINITIONS** - Types, enums, constants (vocabulary first)
+2. **STATE MANAGEMENT** - What data the system tracks
+3. **CONFIGURATION** - Settings, timeouts, environment variables
+4. **COMPONENTS** - UI structure (if applicable)
+5. **ACTIONS/BEHAVIORS** - What the system does
+6. **INTEGRATIONS** - External systems, APIs
+7. **KEY INSIGHTS** - Why/how decisions (optional but valuable)
+
+## Organization Example
+
+```toml
+# Notification System Specification
+Purpose: Send real-time notifications to users via multiple channels
+
+# ═══════════════════════════════════════════════════════════════════
+# DATA DEFINITIONS
+# ═══════════════════════════════════════════════════════════════════
+
+## Notification Types
+
+[Define NotificationType]
+Categories of notifications the system can send
+
+Options:
+  - email: Email notification
+  - sms: Text message
+  - push: Mobile push notification
+  - in_app: In-application banner
+
+[Define NotificationPriority]
+Urgency level for notification delivery
+
+Options:
+  - low: Deliver within 1 hour
+  - normal: Deliver within 5 minutes
+  - high: Deliver immediately
+  - urgent: Deliver immediately with retry
+
+## User Preferences
+
+[Define NotificationPreferences]
+User's notification channel preferences
+
+Fields:
+  Email enabled: yes/no
+  SMS enabled: yes/no
+  Push enabled: yes/no
+  Quiet hours start: time
+  Quiet hours end: time
+
+# ═══════════════════════════════════════════════════════════════════
+# STATE MANAGEMENT
+# ═══════════════════════════════════════════════════════════════════
+
+## Delivery State
+
+[State NotificationQueue]
+Tracks pending notifications for delivery
+
+Data fields:
+  Pending notifications: list of Notification
+  STATE.processing: yes/no
+  Failed deliveries: list with retry count
+  Last processed: timestamp
+
+## User State
+
+[State UserNotificationSettings]
+Tracks user preferences and opt-out status
+
+Data fields:
+  User preferences: NotificationPreferences
+  Opted out channels: list of NotificationType
+  Last updated: timestamp
+
+# ═══════════════════════════════════════════════════════════════════
+# CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════
+
+[Configuration Timeouts]
+Delivery attempt timeouts
+
+Values:
+  Email delivery timeout: 30 seconds
+  SMS delivery timeout: 10 seconds
+  Push delivery timeout: 5 seconds
+  Retry delay: 5 minutes
+  Max retry attempts: 3
+
+[Configuration Providers]
+External service configuration
+
+Email provider: SendGrid
+SMS provider: Twilio
+Push provider: Firebase Cloud Messaging
+
+# ═══════════════════════════════════════════════════════════════════
+# ACTIONS
+# ═══════════════════════════════════════════════════════════════════
+
+## Notification Creation
+
+[Action CreateNotification]
+Create new notification for delivery
+
+Input parameters:
+  userId: text
+  type: NotificationType
+  priority: NotificationPriority
+  content: text
+  metadata: object
+
+Steps:
+  - Check user preferences allow this notification type
+  - Check not within user's quiet hours
+  - Set notification priority
+  - Add to notification queue
+  - Set STATE.processing: yes
+
+## Notification Delivery
+
+[Action DeliverNotification]
+Send notification via appropriate channel
+
+Input parameters:
+  notification: Notification object
+
+Steps:
+  - Check notification priority
+  - Select appropriate provider based on type
+  - Call provider API with notification content
+  - Wait for delivery confirmation
+  - Update delivery status
+
+On success:
+  - Remove from queue
+  - Save delivery log
+
+On error:
+  - Add to failed deliveries
+  - Check retry count < max retries
+  - If can retry: Schedule retry after delay
+  - If max retries reached: Save error details
+
+# ═══════════════════════════════════════════════════════════════════
+# KEY INSIGHTS
+# ═══════════════════════════════════════════════════════════════════
+
+[Insight QuietHoursImplementation]
+Why we check quiet hours at creation, not delivery
+
+Problem: User sets quiet hours 10pm-8am, notification created at 9:55pm
+Challenge: Notification might deliver at 10:05pm during quiet hours
+
+Solution: Check quiet hours when creating notification
+  - If within quiet hours: Delay creation until quiet hours end
+  - If will enter quiet hours soon: Deliver immediately or wait
+
+Why it matters: Respects user preferences even for queued notifications
+```
+
+## Organization Best Practices
+
+**Aim for:**
+- 5-10 Level 2 sections per Level 1 section
+- Sections under 200 lines (use Level 3 to break up if needed)
+- Logical grouping - related items together
+- Clear naming - section names describe contents
+
+**Benefits:**
+- ✅ Collapsible sections for navigation
+- ✅ Outline view shows structure
+- ✅ Easy to find specific items
+- ✅ Matches implementation flow
+- ✅ Reviewable by non-developers (fold technical details)
+
+---
+
+# ═══════════════════════════════════════════════════════════════════
+# CORE SYNTAX REFERENCE
+# ═══════════════════════════════════════════════════════════════════
+
+### 1. Natural Language First
+- Avoid programmer jargon (no "boolean", "null", "function", "listeners")
+- Use business/user-friendly terms ("logged in" not "authenticated === true")
+- Write in active voice with clear subjects
+
+### 2. Deterministic Data Sources
+Every data reference must specify its exact source using dot notation:
+```
+[Source].[Path].[Field]: [Expected Value]
+```
+
+**Examples:**
+```
+DB.Users.status: active
+Session.user.role: admin
+Props.item.quantity > 0
+State.form.hasChanges: yes
+API.weather.temperature > 70
+```
+
+### 3. Readable Conditions
+Use natural language for conditions:
+- ✅ `Show if:` / `Hide if:`
+- ✅ `Execute if:` / `Skip if:`
+- ✅ `When user clicks:` / `When form submits:`
+- ❌ Avoid: `if`, `render if`, `onClick`
+
+### 4. Human-Friendly Values
+- Use `yes/no` instead of `true/false`
+- Use clear comparison operators: `> 5`, `< 100`, `>= 18`, `<= 100`
+- Use descriptive states: `active`, `pending`, `completed` not `0`, `1`, `2`
+
+---
+
+# ═══════════════════════════════════════════════════════════════════
+# CORE SYNTAX REFERENCE
+# ═══════════════════════════════════════════════════════════════════
+
+## Data Definitions
+
+```toml
+[Define EntityName]
+Description: Clear explanation of what this represents
+
+Fields:
+  fieldName: type (description)
+  status: text (Options: active, inactive, pending)
+  count: number (Default: 0)
+  enabled: yes/no (Default: no)
+
+Source: Database table name or API endpoint
+Storage: Where this data persists
+```
+
+**Example:**
+```toml
+[Define UserAccount]
+Description: Represents a registered user in the system
+
+Fields:
+  email: text (User's email address)
+  subscription: text (Options: free, premium, enterprise)
+  verified: yes/no (Email verification status)
+  lastLogin: timestamp
+
+Source: DB.Users table
+Storage: Primary database
+```
+
+## State Definitions
+
+```toml
+[State ComponentState]
+Description: Local state for component behavior
+
+Data fields:
+  STATE.loading: yes/no (Default: no)
+  STATE.submitting: yes/no (Default: no)
+  Error details: text (Default: none)
+  Selected item: reference to Item (Default: none)
+  Validation results: list of errors (Default: empty)
+
+Lifecycle: Component-scoped
+Reset when: Component unmounts
+```
+
+**Naming Conventions:**
+- Use `STATE.fieldname` for boolean status tracking (loading, submitting, validated, etc.)
+- Use descriptive names for data values (Error details, Selected item, User input, etc.)
+- Use `reference to Type` for links to other entities
+
+**For Nested State:**
+```toml
+# Option 1: Flatten boolean states with underscores
+STATE.form_has_changes: yes/no
+STATE.form_is_valid: yes/no
+
+# Option 2: Group under parent with descriptive names
+Form.has changes: yes/no
+Form.is valid: yes/no
+Form data: {...actual values...}
+
+# Option 3: Use dot notation for clarity (also acceptable)
+State.form.hasChanges: yes/no
+State.form.isValid: yes/no
+```
+Choose the pattern that's clearest for your team. The key principle: boolean state tracking should be easily distinguishable from actual data.
+
+## UI Components
+
+```toml
+[Component ButtonName]
+Type: Button / Input / Form / List / etc
+Label: Display text
+Style: Description of visual appearance
+
+Show if:
+  DB.Users.role: admin
+  State.form.hasChanges: yes
+
+When clicked:
+  - Action 1 description
+  - Action 2 description
+
+Disabled if:
+  State.form.isSubmitting: yes
+```
+
+**Example:**
+```toml
+[Component SaveButton]
+Type: Button
+Label: "Save Changes"
+Style: Primary button, blue background
+
+Show if:
+  State.form.hasChanges: yes
+  State.form.isValid: yes
+
+When clicked:
+  - Check all form fields are valid
+  - Save data to DB.Projects
+  - Show success message
+  - Clear form state
+
+Disabled if:
+  STATE.submitting: yes
+  DB.Users.permission: read-only
+```
+
+## Conditional Logic
+
+```toml
+Show if:
+  [Condition 1]
+  [Condition 2]
+  
+Execute if:
+  [Condition 1]
+  [Condition 2]
+
+Hide if:
+  [Condition]
+
+Skip if:
+  [Condition]
+```
+
+**Condition formats:**
+```
+Source.path.field: value
+Source.path.field > value
+Source.path.field < value
+Source.path.field >= value
+Source.path.field <= value
+Source.path.field: one of [option1, option2, option3]
+Source.path.field: not empty
+Source.path.field: contains "text"
+```
+
+## Actions & Behaviors
+
+```toml
+[Action ActionName]
+Description: What this action accomplishes
+
+Execute if:
+  [Conditions under which this runs]
+
+Steps:
+  - Step 1 in plain language
+  - Step 2 in plain language
+  - Step 3 in plain language
+
+On success:
+  - What happens when it succeeds
+
+On error:
+  - What happens if it fails
+
+Timeout: duration (if applicable)
+Retry: yes/no and retry logic
+```
+
+**Example:**
+```toml
+[Action SaveUserProfile]
+Description: Saves user profile changes to database
+
+Execute if:
+  State.form.hasChanges: yes
+  State.form.isValid: yes
+  DB.Users.permission: edit
+
+Steps:
+  - Collect all form field values
+  - Check email format is valid
+  - Check required fields are filled
+  - Send data to API.users.update endpoint
+  - Wait for confirmation
+
+On success:
+  - Show message "Profile updated successfully"
+  - Set State.form.hasChanges: no
+  - Read updated user data from DB.Users
+
+On error:
+  - Show error message to user
+  - Keep form in edit mode
+  - Save error details for logging
+
+Timeout: 10 seconds
+Retry: no
+```
+
+# ═══════════════════════════════════════════════════════════════════
+# STACK-SPECIFIC PATTERNS
+# ═══════════════════════════════════════════════════════════════════
+
+Patterns for Convex, React, Next.js, and Tailwind CSS development.
+
+## Data Operations (Convex)
+
+```toml
+[Query QueryName]
+Description: Fetches data from database (read-only, reactive)
+
+Input parameters:
+  paramName: type (description)
+  userId: text (User ID to filter by)
+  limit: number (Default: 10)
+
+Data source: DB.TableName
+
+Filter by:
+  DB.TableName.field: value
+  DB.TableName.field > value
+
+Sort by: field name (direction: ascending/descending)
+
+Return: List of items / Single item / Count
+
+Subscribed: yes/no (Auto-updates when data changes)
+```
+
+**Example:**
+```toml
+[Query GetUserTodos]
+Description: Fetch all todos for a specific user
+
+Input parameters:
+  userId: text (User ID)
+  status: text (Options: all, active, completed. Default: all)
+
+Data source: DB.Todos
+
+Filter by:
+  DB.Todos.userId: matches input userId
+  If status not "all": DB.Todos.status: matches input status
+
+Sort by: createdAt (direction: descending)
+
+Return: List of todos
+Subscribed: yes (UI updates when todos change)
+```
+
+```toml
+[Mutation MutationName]
+Description: Creates, updates, or deletes data (write operation)
+
+Input parameters:
+  paramName: type (description)
+
+Operation: Create / Update / Delete
+
+When Create:
+  Table: DB.TableName
+  Set fields:
+    field1: value or input parameter
+    field2: value or input parameter
+    createdAt: current timestamp
+
+When Update:
+  Table: DB.TableName
+  Find by: DB.TableName.id: matches input id
+  Update fields:
+    field1: new value
+    updatedAt: current timestamp
+
+When Delete:
+  Table: DB.TableName
+  Find by: DB.TableName.id: matches input id
+  
+Check before:
+  - Check rule 1
+  - Check rule 2
+
+On success:
+  - Return: created/updated item
+  - Trigger: any related updates
+
+On error:
+  - Return error: message
+```
+
+**Example:**
+```toml
+[Mutation CreateTodo]
+Description: Creates a new todo item for user
+
+Input parameters:
+  text: text (Todo description)
+  userId: text (User creating the todo)
+
+Operation: Create
+
+Check before:
+  - Input text: not empty
+  - Input text length < 500 characters
+  - DB.Users.id: matches input userId (user exists)
+
+When Create:
+  Table: DB.Todos
+  Set fields:
+    text: input text
+    userId: input userId
+    status: active
+    completed: no
+    createdAt: current timestamp
+
+On success:
+  - Return: created todo item
+  - Notify: user's other tabs (real-time update)
+
+On error:
+  - If user not found: Return error "User does not exist"
+  - If text empty: Return error "Todo text required"
+```
+
+```toml
+[Action ActionName]  
+Description: Server-side operation (can call external APIs, longer running)
+
+Input parameters:
+  paramName: type (description)
+
+Steps:
+  - Step 1 using Convex queries/mutations
+  - Step 2 calling external API
+  - Step 3 processing results
+
+Can access:
+  - Convex database via queries/mutations
+  - External APIs
+  - File storage
+  - Third-party services
+
+Timeout: duration
+Return: result data
+```
+
+**Example:**
+```toml
+[Action ProcessPayment]
+Description: Process payment via Stripe and update order
+
+Input parameters:
+  orderId: text (Order to process)
+  paymentMethodId: text (Stripe payment method)
+
+Steps:
+  - Get order details from DB.Orders via query
+  - Do Stripe API call to process payment
+  - If payment successful: Update DB.Orders status to "paid"
+  - If payment failed: Update DB.Orders status to "failed"
+  - Send confirmation email to user
+
+Can access:
+  - DB.Orders (via mutations)
+  - Stripe API (external)
+  - Email service (external)
+
+On success:
+  - Return: payment confirmation details
+  
+On error:
+  - Return error with specific failure reason
+  - Log error for debugging
+
+Timeout: 30 seconds
+```
+
+## React Component Patterns
+
+```toml
+[Component ComponentName]
+Type: Server / Client
+Description: Component purpose and behavior
+
+Rendering: Server-side / Client-side
+
+Props received:
+  propName: type (description, required/optional)
+
+Internal state:
+  STATE.fieldName: yes/no (Default: no)
+  Data field: type (Default: value)
+
+Data fetching:
+  Query: QueryName(parameters)
+  Subscribed: yes/no
+
+User interactions:
+  When [event]:
+    - Action description
+
+Styling: Tailwind classes or description
+
+Children: accepts/doesn't accept child components
+```
+
+**Example: Client Component**
+```toml
+[Component TodoList]
+Type: Client
+Description: Interactive list of user todos with add/edit/delete
+
+Rendering: Client-side (uses hooks and interactivity)
+
+Props received:
+  userId: text (User ID to show todos for, required)
+  initialFilter: text (Default filter, optional)
+
+Internal state:
+  STATE.adding: yes/no (Default: no)
+  New todo text: text (Default: empty)
+  Filter: text (Default: "all")
+
+Data fetching:
+  Query: GetUserTodos(userId, Filter)
+  Subscribed: yes (Real-time updates)
+
+User interactions:
+  When user clicks "Add Todo":
+    - Set STATE.adding: yes
+    - Show input field
+  
+  When user submits new todo:
+    - Run Mutation: CreateTodo(New todo text, userId)
+    - Set New todo text: empty
+    - Set STATE.adding: no
+  
+  When user clicks delete on todo:
+    - Run Mutation: DeleteTodo(todo ID)
+
+Styling: 
+  - Container: flex flex-col gap-4 p-4
+  - Todos: space-y-2
+  - Add button: bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded
+
+Children: doesn't accept
+```
+
+**Example: Server Component**
+```toml
+[Component UserDashboard]
+Type: Server
+Description: Dashboard showing user stats and recent activity
+
+Rendering: Server-side (no interactivity, faster initial load)
+
+Props received:
+  userId: text (User to show dashboard for, required)
+
+Data fetching:
+  Query: GetUserStats(userId)
+  Query: GetRecentActivity(userId, limit: 10)
+  Subscribed: no (Server components don't subscribe)
+
+Displays:
+  - User statistics summary
+  - Recent activity list
+  - Navigation to detailed pages
+
+Styling:
+  - Grid layout: grid grid-cols-3 gap-6
+  - Cards: bg-white shadow rounded-lg p-6
+
+Children: accepts child components for extensibility
+```
+
+## Next.js Routing & Pages
+
+```toml
+[Page PageName]
+Path: /path/to/page
+Type: Server / Client component
+Description: Page purpose
+
+Access control:
+  Requires: Authentication / Specific role / Public
+
+Params from URL:
+  paramName: type (dynamic route segment)
+
+Search params:
+  paramName: type (URL query parameter)
+
+Data loading:
+  - Read on server / Read on client
+  - Data source and queries
+
+SEO metadata:
+  Title: page title
+  Description: page description
+```
+
+**Example:**
+```toml
+[Page TodoDetailPage]
+Path: /todos/[todoId]
+Type: Server component (for better SEO and performance)
+Description: Shows detailed view of a single todo
+
+Access control:
+  Requires: Authentication
+  Permission: User must own the todo or be admin
+
+Params from URL:
+  todoId: text (Todo ID from URL path)
+
+Data loading:
+  - Read on server
+  - Query: GetTodoById(todoId)
+  - Query: GetTodoComments(todoId)
+
+If todo not found:
+  - Show: 404 page
+
+If user lacks permission:
+  - Redirect to: /todos
+  - Show message: "Access denied"
+
+SEO metadata:
+  Title: Todo text (from todo data)
+  Description: "View and manage todo: [todo text]"
+
+Displays:
+  - Todo details card
+  - Comments section
+  - Edit/delete buttons (if user has permission)
+```
+
+```toml
+[API Route RouteName]
+Path: /api/path
+Method: GET / POST / PUT / DELETE / PATCH
+Description: API endpoint purpose
+
+Authentication required: yes/no
+Rate limited: yes/no (requests per minute)
+
+Request body:
+  fieldName: type (description)
+
+Request validation:
+  - Validation rule 1
+  - Validation rule 2
+
+Processing:
+  - Step 1
+  - Step 2
+
+Response success:
+  Status: 200 / 201 / etc
+  Body: response structure
+
+Response error:
+  Status: 400 / 401 / 404 / 500
+  Body: error structure
+```
+
+**Example:**
+```toml
+[API Route WebhookStripe]
+Path: /api/webhooks/stripe
+Method: POST
+Description: Handle Stripe webhook events for payments
+
+Authentication required: no (uses Stripe signature verification)
+Rate limited: no (webhooks need reliability)
+
+Request headers required:
+  stripe-signature: text (Stripe webhook signature)
+
+Request body:
+  event: object (Stripe event data)
+
+Request validation:
+  - Verify Stripe signature matches
+  - Event type: one of [payment_intent.succeeded, payment_intent.failed]
+
+Processing:
+  When event type: payment_intent.succeeded
+    - Extract order ID from metadata
+    - Run Mutation: UpdateOrderStatus(orderId, status: "paid")
+    - Send confirmation email to user
+  
+  When event type: payment_intent.failed
+    - Extract order ID from metadata
+    - Run Mutation: UpdateOrderStatus(orderId, status: "failed")
+    - Send failure notification to user
+
+Response success:
+  Status: 200
+  Body: { received: yes }
+
+Response error:
+  Status: 400 (invalid signature)
+  Status: 500 (processing failed)
+  Body: { error: error message }
+```
+
+## Styling Patterns (Tailwind)
+
+```toml
+[Styling ComponentStyling]
+Component: ComponentName
+
+Base styles:
+  - Tailwind utility classes for default appearance
+
+Responsive:
+  Mobile (default): classes
+  Tablet (md:): classes  
+  Desktop (lg:): classes
+
+States:
+  Hover: hover:classes
+  Focus: focus:classes
+  Active: active:classes
+  Disabled: disabled:classes
+
+Dark mode:
+  Default: classes
+  Dark: dark:classes
+
+Custom variants:
+  When [condition]: classes
+```
+
+**Example:**
+```toml
+[Styling TodoItem]
+Component: TodoItem
+
+Base styles:
+  - Container: flex items-center gap-3 p-4 border-b
+  - Text: text-base
+  - Checkbox: w-5 h-5
+
+Responsive:
+  Mobile: flex-col items-start
+  Tablet: flex-row items-center
+  Desktop: flex-row items-center gap-4
+
+States:
+  Hover: bg-gray-50 cursor-pointer
+  Completed: text-gray-400 line-through
+  Selected: bg-blue-50 border-blue-300
+
+Dark mode:
+  Default: bg-white text-gray-900 border-gray-200
+  Dark: dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700
+
+Custom variants:
+  When urgent priority: border-l-4 border-l-red-500
+  When STATE.editing: bg-yellow-50
+```
+
+## Common UI Patterns
+
+```toml
+[Pattern Modal]
+Trigger: What opens the modal
+Content: What's displayed inside
+Close actions: How user can dismiss
+
+STATE.open: yes/no (Default: no)
+
+When opened:
+  - Set STATE.open: yes
+  - Trap keyboard focus inside modal
+  - Prevent body scroll
+  - Show backdrop overlay
+
+When closed:
+  - Set STATE.open: no
+  - Restore focus to trigger element
+  - Re-enable body scroll
+
+Close methods:
+  - Click backdrop
+  - Press Escape key
+  - Click close button
+  - Complete action (submit/cancel)
+```
+
+```toml
+[Pattern InfiniteScroll]
+Description: Load more items as user scrolls
+
+Initial load: number of items
+Load more: number of items per batch
+
+Data source: Query name
+Data tracking:
+  Current page: number (Default: 1)
+  STATE.loading_more: yes/no (Default: no)
+  Has more data: yes/no
+
+Trigger load when:
+  User scrolls to: 80% of content height
+
+Loading behavior:
+  - Set STATE.loading_more: yes
+  - Fetch next batch via query
+  - Append to existing items
+  - Increment Current page
+  - Set STATE.loading_more: no
+
+If no more data:
+  - Set Has more data: no
+  - Show message: "No more items"
+```
+
+```toml  
+[Pattern OptimisticUpdate]
+Description: Update UI immediately, then sync with server
+
+User action: Action that triggers update
+
+Immediate UI update:
+  - Update local state/UI optimistically
+  - Show as completed
+
+Server sync:
+  - Run Mutation: MutationName
+  
+On success:
+  - Replace optimistic data with server data
+  - Confirm visual feedback
+
+On error:
+  - Revert to previous state
+  - Show error message to user
+  - Optionally: offer retry
+```
+
+**Example:**
+```toml
+[Pattern OptimisticTodoToggle]
+Description: Toggle todo completed status with optimistic update
+
+User action: Click checkbox on todo item
+
+Immediate UI update:
+  - Set todo completed state locally
+  - Add visual checkmark
+  - Add strikethrough to text
+  - Show subtle animation
+
+Server sync:
+  - Do UpdateTodoStatus mutation with todoId and new completed value
+
+On success:
+  - Confirm todo status from server
+  - Keep updated UI
+
+On error:
+  - Revert checkbox state
+  - Remove strikethrough
+  - Show toast: "Failed to update todo. Please try again."
+  - Keep retry button visible for 5 seconds
+```
+
+```toml
+[Pattern FormWithValidation]
+Description: Form with field-level and submission validation
+
+Form fields:
+  fieldName: type (validation rules)
+
+Data state:
+  Form data: object with field values
+  Validation errors: object with field errors
+  STATE.validating: yes/no
+  STATE.submitting: yes/no
+
+Field validation:
+  Check on: blur / change / submit
+  
+  For each field:
+    Rule: validation condition
+    Error message: text to show if fails
+
+Form validation:
+  Triggered: On form submit attempt
+  Check: All field validations pass
+  
+On submit:
+  If validation fails:
+    - Show all error messages
+    - Focus first invalid field
+    - Don't submit
+  
+  If validation passes:
+    - Set STATE.submitting: yes
+    - Run Mutation: SubmitMutationName(Form data)
+    - On success:
+      - Reset Form data
+      - Show success message
+      - Redirect or update UI
+    - On error:
+      - Keep form data
+      - Show server error message
+      - Set STATE.submitting: no
+```
+
+**Example:**
+```toml
+[Pattern UserRegistrationForm]
+Description: User registration with email and password
+
+Form fields:
+  Email: text (required, valid email format)
+  Password: text (required, min 8 characters, contains number)
+  Confirm password: text (required, matches Password)
+  Terms accepted: yes/no (required: yes)
+
+Data state:
+  Form data: {email, password, confirmPassword, termsAccepted}
+  Validation errors: {email, password, confirmPassword, termsAccepted}
+  STATE.validating: yes/no
+  STATE.submitting: yes/no
+
+Field validation:
+  Validate on: blur and submit
+  
+  Email field:
+    Rule: not empty AND matches email pattern
+    Error message: "Valid email address required"
+  
+  Password field:
+    Rule: length >= 8 AND contains digit
+    Error message: "Password must be at least 8 characters with a number"
+  
+  Confirm password field:
+    Rule: matches Password field
+    Error message: "Passwords must match"
+  
+  Terms accepted:
+    Rule: value is yes
+    Error message: "You must accept the terms"
+
+On submit:
+  If validation passes:
+    - Set STATE.submitting: yes
+    - Run Mutation: CreateUser(email, password)
+    - On success:
+      - Show message: "Account created successfully"
+      - Redirect to: /dashboard
+    - On error:
+      - If email exists: Show "Email already registered"
+      - Else: Show "Registration failed. Please try again."
+      - Set STATE.submitting: no
+```
+
+```toml
+[Pattern Authentication]
+Description: User authentication and session management
+
+Authentication provider: Convex Auth / Clerk / Custom
+
+Auth state:
+  Current user: User object or none
+  STATE.authenticated: yes/no
+  STATE.loading: yes/no (checking auth status)
+  User role: text (admin, user, guest)
+  User permissions: list of permissions
+
+On app load:
+  - Set STATE.loading: yes
+  - Check authentication status
+  - If authenticated: Read Current user data
+  - If not authenticated: Current user: none
+  - Set STATE.loading: no
+
+Login flow:
+  User provides: credentials
+  Steps:
+    - Check credentials format
+    - Do AuthenticateUser action with credentials
+    - On success:
+      - Save session token
+      - Set Current user
+      - Set STATE.authenticated: yes
+      - Redirect to: intended page or /dashboard
+    - On error:
+      - Show error message
+      - Keep on login page
+
+Logout flow:
+  Steps:
+    - Clear session token
+    - Run Mutation: InvalidateSession()
+    - Set Current user: none
+    - Set STATE.authenticated: no
+    - Redirect to: /login
+
+Protected routes:
+  Check: STATE.authenticated: yes
+  If not authenticated:
+    - Redirect to: /login
+    - Save intended destination for after login
+
+Role-based access:
+  Check: User role: one of [allowed roles]
+  Check: User permissions: contains required permission
+  If access denied:
+    - Show: 403 error page
+    - Or redirect to: appropriate page
+```
+
+```toml
+[Pattern FileUpload]
+Description: File upload with validation and storage
+
+Accepted file types: list of extensions or MIME types
+Max file size: size in MB
+Max files: number (single or multiple)
+
+Upload state:
+  Selected files: list of files
+  Upload progress: number 0-100 for each file
+  STATE.uploading: yes/no
+  Upload errors: list of error messages
+
+File selection:
+  User selects: file(s) from device
+  Validate:
+    - File type: one of accepted types
+    - File size <= max size
+    - Number of files <= max files
+  
+  If validation fails:
+    - Show error message
+    - Don't add to Selected files
+  
+  If validation passes:
+    - Add to Selected files
+    - Show file preview if applicable
+
+Upload process:
+  Trigger: User clicks upload button
+  
+  For each file:
+    - Set STATE.uploading: yes
+    - Generate upload URL via Mutation: GenerateUploadUrl()
+    - Upload file to storage
+    - Track Upload progress per file
+    - On complete: Run Mutation: SaveFileMetadata(fileUrl, filename, size)
+  
+  When all complete:
+    - Set STATE.uploading: no
+    - Clear Selected files
+    - Show success message
+  
+  On error:
+    - Add to Upload errors
+    - Keep STATE.uploading: no
+    - Allow retry
+```
+
+**Example:**
+```toml
+[Pattern ProfilePictureUpload]
+Description: Upload and update user profile picture
+
+Accepted file types: [image/jpeg, image/png, image/webp]
+Max file size: 5 MB
+Max files: 1
+
+Upload state:
+  Selected file: file or none
+  Preview URL: text (temporary preview)
+  Upload progress: number 0-100
+  STATE.uploading: yes/no
+  Error message: text
+
+File selection:
+  User selects: image file from device
+  
+  Validate:
+    - File type: one of accepted types
+    - File size <= 5 MB
+    - Image dimensions >= 200x200 pixels
+  
+  If validation passes:
+    - Set Selected file: chosen file
+    - Generate Preview URL from file
+    - Show preview to user
+    - Enable upload button
+
+Upload process:
+  When user confirms upload:
+    - Set STATE.uploading: yes
+    - Run Mutation: GenerateUploadUrl(userId)
+    - Upload file to Convex storage
+    - Update Upload progress during upload
+    - On complete:
+      - Run Mutation: UpdateUserProfile(userId, profilePictureUrl)
+      - Set STATE.uploading: no
+      - Show success message
+      - Refresh user data
+    
+    On error:
+      - Set Error message: specific error
+      - Set STATE.uploading: no
+      - Keep Selected file for retry
+```
+
+```toml
+[Pattern RealTimeUpdates]
+Description: Real-time data synchronization across clients
+
+Data source: Convex query (with subscription)
+Update trigger: Database changes
+
+Subscription setup:
+  Subscribe to: Query name(parameters)
+  Reactive: yes (auto-updates on data changes)
+
+When data changes:
+  - Query automatically refetches
+  - Component re-renders with new data
+  - UI updates reflect changes
+
+Optimistic updates:
+  Local update: Apply immediately to UI
+  Server confirmation: Verify via subscription
+  On conflict: Server data wins
+
+Cross-tab sync:
+  Changes in one tab: visible in other tabs
+  Via: Convex real-time subscriptions
+```
+
+```toml
+[Pattern Pagination]
+Description: Paginate large lists of data
+
+Pagination type: Cursor-based / Page-based
+
+Data tracking:
+  Current page: number (for page-based)
+  Cursor: text (for cursor-based)
+  Items per page: number
+  Total items: number (if available)
+  Has next page: yes/no
+  Has previous page: yes/no
+
+Page navigation:
+  Next page:
+    - Increment Current page OR use next cursor
+    - Fetch: Query(page: Current page, limit: Items per page)
+    - Update displayed items
+  
+  Previous page:
+    - Decrement Current page OR use previous cursor
+    - Fetch data
+    - Update displayed items
+
+UI elements:
+  - Previous button (disabled if Has previous page: no)
+  - Page indicator: "Page X of Y" or "Showing X-Y of Z items"
+  - Next button (disabled if Has next page: no)
+```
+
+```toml
+[Pattern Search]
+Description: Search and filter data
+
+Search input: text field
+Search scope: Which fields to search
+Debounce delay: milliseconds (Default: 300)
+
+Search state:
+  Search query: text
+  Search results: list of items
+  STATE.searching: yes/no
+  Results count: number
+
+Search behavior:
+  When user types:
+    - Update Search query
+    - Wait for Debounce delay (no more typing)
+    - Set STATE.searching: yes
+    - Run Query: SearchItems(Search query, Search scope)
+    - Update Search results
+    - Update Results count
+    - Set STATE.searching: no
+
+Empty state:
+  If Search query: empty
+    - Show: all items (no filter)
+  
+  If Search results: empty AND Search query: not empty
+    - Show message: "No results found for '[query]'"
+
+Clear search:
+  - Reset Search query: empty
+  - Reset Search results
+  - Show all items again
+```
+
+```toml
+[Pattern Toast Notifications]
+Description: Temporary notification messages
+
+Toast types: success / error / warning / info
+
+Toast state:
+  Active toasts: list of toast objects
+  Each toast has:
+    - ID: unique identifier
+    - Type: success / error / warning / info
+    - Message: text
+    - Duration: milliseconds (Default: 3000)
+
+Show toast:
+  Input: type, message, duration (optional)
+  Steps:
+    - Generate unique ID
+    - Create toast object
+    - Add to Active toasts
+    - Start timer for duration
+    - When timer expires: Remove from Active toasts
+
+Toast positioning: top-right / top-center / bottom-right / etc
+
+Multiple toasts: Stack vertically with animation
+
+User dismissal: Click X button to close early
+```
+
+```toml
+[Pattern ErrorHandling]
+Description: Consistent error handling across the application
+
+Error types:
+  - Validation error: User input invalid
+  - Network error: Connection failed
+  - Authorization error: User lacks permission
+  - Not found error: Resource doesn't exist
+  - Server error: Backend processing failed
+
+Error state:
+  Error message: text
+  Error type: error type from above
+  Error details: object (technical details for logging)
+  STATE.hasError: yes/no
+
+Display errors:
+  For validation errors:
+    - Show: inline with form field
+    - Style: red text, red border
+  
+  For network errors:
+    - Show: toast notification
+    - Offer: retry button
+  
+  For authorization errors:
+    - Show: inline message or redirect
+    - Suggest: login or contact admin
+  
+  For not found errors:
+    - Show: 404 page or empty state
+    - Offer: navigation back
+  
+  For server errors:
+    - Show: error page or toast
+    - Log: error details for debugging
+    - Offer: retry or contact support
+
+Error recovery:
+  Retry strategy: automatic / manual
+  Retry delay: duration between attempts
+  Max retries: number
+```
+
+```toml
+[Pattern LoadingStates]
+Description: Indicate async operations in progress
+
+Loading types:
+  - Initial load: First data fetch
+  - Subsequent load: Refreshing data
+  - Action pending: Mutation in progress
+  - Partial load: Loading specific section
+
+Loading state:
+  STATE.loading: yes/no (global loading)
+  STATE.loadingSection: text (which part is loading)
+  
+UI indicators:
+  For initial load:
+    - Show: skeleton screens or full-page spinner
+    - Hide: content until loaded
+  
+  For subsequent load:
+    - Show: subtle spinner in corner
+    - Keep: existing content visible
+  
+  For action pending:
+    - Show: button spinner
+    - Disable: action button
+    - Text: "Saving..." / "Processing..."
+  
+  For partial load:
+    - Show: spinner only in affected section
+    - Keep: rest of UI interactive
+
+Timeout handling:
+  If loading exceeds: timeout duration
+  Then: Show error message
+  Offer: retry or cancel options
+```
+
+### Session & Lifecycle Management
+
+```toml
+[Session SessionName]
+Description: Manages a persistent connection or state
+
+Provider: Service name (ElevenLabs, Stripe, etc)
+Mode: Type of session (voice, text, video, etc)
+Lifecycle: How session is managed
+
+Auto start: yes/no
+Auto end: yes/no
+Idle timeout: duration
+Max duration: duration
+
+Cleanup when:
+  - Condition for cleanup
+  - Another condition
+
+Cleanup steps:
+  - Step 1 of cleanup
+  - Step 2 of cleanup
+```
+
+**Example:**
+```toml
+[Session ElevenLabsVoice]
+Description: Manages voice conversation with AI agent
+
+Provider: ElevenLabs
+Mode: voice
+Lifecycle: Manual control
+
+Auto start: no
+Auto end: no
+Idle timeout: 5 minutes
+Max duration: 30 minutes
+
+Cleanup when:
+  - User switches to text mode
+  - Session idle duration > timeout limit
+  - User closes browser tab
+
+Cleanup steps:
+  - Stop monitoring session updates
+  - End active voice session
+  - Clear session data from State
+  - Release session lock
+  - Notify other browser tabs
+```
+
+---
+
+---
+
+# ═══════════════════════════════════════════════════════════════════
+# CHANGE SYNTAX
+# ═══════════════════════════════════════════════════════════════════
+
+When expressing changes to existing specifications, use these markers:
+
+- `[+ Add]` - New section being added
+- `[- Remove]` - Section being deleted
+- `[~ Modify]` - Section being changed
+
+## Change Structure
+
+```toml
+[Change UniqueChangeName]
+Type: bug fix / feature / improvement / refactor
+Reason: Brief explanation of why this change is needed
+Affects: Component or system being changed
+
+[Existing specification that stays the same]
+...existing content...
+
+[~ Modify SectionName]
+Description: What's changing and why
+
+Old:
+  field: old value
+  
+New:
+  field: new value
+  + newField: new value added
+
+[+ Add NewSectionName]
+Description: What this new section does
+...new content...
+
+[- Remove OldSectionName]
+Reason: Why this is being removed
+```
+
+### Example: Fixing the ElevenLabs Session Cleanup Bug
+
+```toml
+[Change FixElevenLabsSessionCleanup]
+Type: bug fix
+Reason: Text sessions not ending correctly when switching to voice mode, causing timeouts
+Affects: ElevenLabs session management
+
+[~ Modify Session ElevenLabsText]
+Description: Adding explicit cleanup before mode switches
+
+Old behavior:
+  Cleanup when:
+    - User explicitly ends text session
+  
+New behavior:
+  Cleanup when:
+    - User explicitly ends text session
+    + User switches to voice mode
+    + Session times out after idle period
+
+[+ Add Action CleanupTextSession]
+Description: Explicitly cleanup text session before switching modes
+
+Execute if:
+  Session.ElevenLabsText.status: active
+  User action: switching to voice mode
+
+Steps:
+  - Check if text session is active
+  - Stop monitoring session updates
+  - Send end signal to text session
+  - Wait for session status to become closed
+  - Clear text session data from State
+  - Remove session from active sessions list
+
+On success:
+  - Set text session as: closed
+  - Allow voice session to start
+
+On error:
+  - Force close text session after 2 seconds
+  - Save timeout warning to logs
+  - Proceed with voice session start
+
+Timeout: 2 seconds
+Retry: no
+
+[~ Modify Action SwitchToVoiceMode]
+Description: Add cleanup step before starting voice
+
+Old sequence:
+  Steps:
+    - Start voice session
+    - Connect to voice provider
+    
+New sequence:
+  Steps:
+    + Run CleanupTextSession action first
+    + Wait for cleanup to complete
+    - Start voice session
+    - Connect to voice provider
+```
+
+---
+
+## Complete Example: Translating Complex Code to DSL
+
+### Original Code Context
+The 11labsProvider.tsx manages voice and text sessions with ElevenLabs AI. Key challenges:
+- Switching between text and voice modes
+- Cross-tab session coordination
+- Connection state management
+- Message queueing
+- Timeout handling
+
+### DSL Translation
+
+```toml
+[System ElevenLabsProvider]
+Description: Manages AI conversations through text and voice channels
+
+Purpose:
+  - Enable users to chat with AI via text or voice
+  - Coordinate sessions across multiple browser tabs
+  - Handle network connections reliably
+  - Queue messages when connection is unavailable
+
+[Define SessionMode]
+Description: Current mode of AI conversation
+
+Options:
+  - idle: No active session
+  - text: Text-based chat via WebSocket
+  - voice: Voice conversation via WebRTC
+
+Storage: Component state
+Default: idle
+
+[Define ConnectionState]
+Description: Status of network connection
+
+Options:
+  - idle: Not connected
+  - connecting: Connection in progress
+  - connected: Ready to send/receive
+  - disconnected: Connection ended
+
+Storage: Reference (persists during transitions)
+
+[State SessionManagement]
+Description: Tracks current session state
+
+Data fields:
+  Current mode: SessionMode (Current active mode)
+  STATE.transitioning: yes/no (Switching between modes)
+  Text connection state: ConnectionState
+  Voice connection state: ConnectionState
+  Conversation ID: text (Unique session identifier)
+  
+[State CrossTabCoordination]
+Description: Coordinates sessions across browser tabs
+
+Data fields:
+  This tab ID: text (Unique identifier for this tab)
+  Active tab ID: text (Which tab owns the session)
+  STATE.otherTabActive: yes/no (Another tab has active session)
+  Other tab mode: SessionMode (What mode other tab is using)
+
+Purpose: Prevents multiple tabs from conflicting sessions
+Storage: Browser localStorage with timestamps
+
+[Configuration Timeouts]
+Description: Time limits for various operations
+
+Values:
+  Text connection timeout: 8 seconds
+  Text disconnection timeout: 5 seconds
+  Voice connection timeout: 10 seconds
+  Text idle auto-close: 5 minutes
+
+[Action StartTextSession]
+Description: Begin text-based chat session
+
+Execute if:
+  State.SessionManagement.currentMode: idle or voice
+  Cross-tab: No other tab has active text session
+
+Steps:
+  - Set STATE.transitioning: yes
+  - Set Text connection state: connecting
+  - Request session from ElevenLabs API
+  - Provide conversation history if available
+  - Configure WebSocket connection
+  - Wait for connection confirmation
+  - Set Text connection state: connected
+  - Set Current mode: text
+  - Set STATE.transitioning: no
+  - Acquire cross-tab lock for text mode
+  - Notify other tabs of active session
+  - Start idle timer (5 minutes)
+  - Send all queued messages
+
+On success:
+  - User can send text messages
+  - Messages flow through WebSocket
+
+On error:
+  - Set Current mode: idle
+  - Set Text connection state: idle
+  - Show error message to user
+  - Log error details
+
+Timeout: 8 seconds
+Retry: yes (automatic on timeout)
+
+[Action StopTextSession]
+Description: End active text session cleanly
+
+Execute if:
+  Current mode: text
+  Text connection state: connected
+
+Steps:
+  - Cancel idle timer
+  - Set Text connection state: idle
+  - Send end signal to ElevenLabs session
+  - Stop monitoring session updates
+  - Wait for disconnection confirmation
+  - Clear Conversation ID
+  - Clear session data from State
+  - Release cross-tab lock
+  - Notify other tabs session ended
+
+On success:
+  - Session cleanly closed
+  - Resources released
+
+On error:
+  - Force close after timeout
+  - Log timeout warning
+  - Still release resources
+
+Timeout: 5 seconds
+Retry: no
+
+[Action StartVoiceSession]
+Description: Begin voice conversation session
+
+Execute if:
+  Current mode: idle or text
+  Cross-tab: No other tab has active voice session
+
+Pre-steps:
+  + Check if text session is active
+  + If text session active: Run CleanupTextSession
+  + Wait for text cleanup to complete
+
+Steps:
+  - Set STATE.transitioning: yes
+  - Set Voice connection state: connecting
+  - Request session from ElevenLabs API
+  - Provide conversation history if available
+  - Configure WebRTC connection
+  - Wait for connection confirmation
+  - Set Voice connection state: connected
+  - Set Current mode: voice
+  - Set STATE.transitioning: no
+  - Acquire cross-tab lock for voice mode
+  - Notify other tabs of active session
+  - Send all queued messages
+
+On success:
+  - User can speak with AI
+  - Audio flows through WebRTC
+
+On error:
+  - If error is: another session active
+    - Try fast cleanup of text session
+    - Retry voice session start once
+  - If still fails:
+    - Set Current mode: idle
+    - Set Voice connection state: idle
+    - Show error message to user
+
+Timeout: 10 seconds (first attempt), 5 seconds (retry)
+Retry: yes (automatic once with text cleanup)
+
+[+ Add Action CleanupTextSession]
+Description: Explicitly cleanup text session before mode switch
+
+Execute if:
+  Text connection state: connected
+  Purpose: switching to voice mode
+
+Steps:
+  - Set Text connection state: idle immediately
+  - Send end signal to text session
+  - Stop monitoring text session updates  
+  - Wait for disconnection confirmation
+  - Clear text session data
+
+On success:
+  - Text session fully closed
+  - Ready to start voice session
+
+On error:
+  - Force close after timeout
+  - Log warning
+  - Proceed anyway
+
+Timeout: 1.5 seconds
+Retry: no
+Critical: yes (must complete before voice starts)
+
+[Action SendTextMessage]
+Description: Send a text message to AI
+
+Execute if:
+  Current mode: text or voice
+
+Behavior when mode is voice:
+  - Check if voice connection is: connected
+  - If connected: Send message via voice channel
+  - If not connected: Add to message queue, ensure voice session starts
+
+Behavior when mode is text:
+  - Check if text connection is: connected
+  - If connected: Send message via text channel
+  - If not connected: Add to message queue, ensure text session starts
+
+On success:
+  - Message delivered to AI
+  - Return: success
+
+On error:
+  - Message added to queue
+  - Return: queued
+
+[Action HandleIncomingMessage]
+Description: Process messages received from AI
+
+Execute if:
+  Message received from: ElevenLabs API
+
+Steps:
+  - Determine message source: AI or user
+  - Determine transport type: WebSocket or WebRTC
+  - Extract message text content
+  - Normalize message format
+  - Notify registered message handlers
+  - Save to conversation history
+  - Update UI with new message
+
+Message type detection:
+  If event type: agent_response
+    - Source: AI
+    - Extract text from: agent_response field or message field
+  
+  If event type: user_transcript
+    - Source: user
+    - Extract text from: user_transcript field
+  
+  If unrecognized format:
+    - Attempt to parse as string
+    - Default source: AI
+
+[Behavior CrossTabSessionLock]
+Description: Prevent multiple tabs from having conflicting sessions
+
+Storage: Browser localStorage
+Key: elevenlabs_session_lock
+Data stored:
+  - conversationId: Active session ID
+  - mode: text or voice
+  - tabId: Which tab owns the lock
+  - timestamp: When lock was acquired
+
+Lock acquisition:
+  When: Starting a new session
+  Check: Is there existing lock
+  If lock exists and not stale:
+    - Deny session start
+    - Show message: another tab has active session
+  If no lock or lock is stale:
+    - Acquire lock
+    - Broadcast to other tabs
+    
+Lock release:
+  When: Session ends
+  When: Tab closes
+  When: Session idle for too long
+
+Staleness check:
+  Lock is stale if: timestamp older than 30 seconds
+  Purpose: Handle crashes or force-closed tabs
+
+[Behavior IdleTimeout]
+Description: Automatically close text sessions after inactivity
+
+Apply to: Text sessions only
+Timeout duration: 5 minutes
+
+Timer reset when:
+  - User sends message
+  - User explicitly resets timer
+  - Activity detected in session
+
+When timeout triggers:
+  - Run StopTextSession action
+  - Show notification: session closed due to inactivity
+
+[Behavior MessageQueue]
+Description: Queue messages when connection unavailable
+
+Queues:
+  - Text message queue
+  - Voice message queue
+
+Add to queue when:
+  - User sends message
+  - Connection state: not connected
+  - Connection state: connecting
+
+Flush queue when:
+  - Connection state becomes: connected
+  - Send all queued messages in order
+  - Clear queue after sending
+
+Queue limit: 50 messages
+If queue full: reject new messages with error
+```
+
+---
+
+# ═══════════════════════════════════════════════════════════════════
+# BEST PRACTICES
+# ═══════════════════════════════════════════════════════════════════
+
+## 1. Be Specific About Data Sources
+❌ Bad:
+```
+Show if:
+  user.role: admin
+```
+
+✅ Good:
+```
+Show if:
+  DB.Users.role: admin
+  Session.authenticated: yes
+```
+
+## 2. Use Natural Language for Actions
+❌ Bad:
+```
+Actions:
+  - Stop monitoring session updates
+  - Set isActive = false
+```
+
+✅ Good:
+```
+Actions:
+  - Stop monitoring session updates
+  - Set session as: inactive
+```
+
+## 3. Describe Outcomes, Not Implementation
+❌ Bad:
+```
+Steps:
+  - Create WebSocket instance
+  - Set onOpen handler
+  - Set onMessage handler
+```
+
+✅ Good:
+```
+Steps:
+  - Connect to AI service
+  - Wait for connection confirmation
+  - Begin receiving messages
+```
+
+## 4. Make Conditions Crystal Clear
+❌ Bad:
+```
+Execute if:
+  x > 0 && user?.auth
+```
+
+✅ Good:
+```
+Execute if:
+  State.counter > 0
+  Session.user.authenticated: yes
+```
+
+## 5. Use Change Markers Consistently
+```toml
+[Change FixFeatureName]
+Type: bug fix
+Reason: Clear explanation
+
+[~ Modify ExistingSection]
+Old: previous behavior
+New: new behavior
+  + Addition to new behavior
+
+[+ Add NewSection]
+Complete new specification
+
+[- Remove OldSection]
+Reason for removal
+```
+
+---
+
+# ═══════════════════════════════════════════════════════════════════
+# SUMMARY
+# ═══════════════════════════════════════════════════════════════════
+
+This DSL enables clear, deterministic communication of requirements by:
+
+1. **Using MANDATORY controlled vocabulary** - Only approved verbs, no synonyms or jargon
+2. **Separating WHAT from HOW** - Describe desired behavior, not implementation
+3. **Using natural language** - Readable by all stakeholders
+4. **Being deterministic** - Precise data sources and conditions
+5. **Supporting evolution** - Clear change syntax for modifications
+6. **Staying consistent** - Same format for specs and changes
+
+## Key Syntax Decisions
+
+**Controlled Vocabulary:** ONLY use approved action verbs
+```toml
+✅ Set connection state: connected
+❌ Mark connection state: connected
+❌ Initialize connection state: connected
+
+✅ Send message to AI
+❌ Transmit message to AI
+❌ Post message to AI
+
+✅ Create session connection
+❌ Initialize SDK
+❌ Instantiate session
+```
+
+**Comparison Operators:** Use clear mathematical symbols
+```toml
+quantity > 0
+age >= 18
+price < 100
+score <= 50
+```
+
+**State Naming:** Mixed pattern for clarity
+```toml
+STATE.loading: yes/no          # Boolean status tracking
+Error details: text            # Actual data
+Selected item: reference to Item    # References to other entities
+```
+
+**Data Sources:** Always specify exact source with dot notation
+```toml
+DB.Users.role: admin
+Session.user.authenticated: yes
+State.counter > 0
+```
+
+**Natural Actions:** Use business-friendly language from controlled vocabulary
+```toml
+✅ "Stop monitoring updates"
+❌ "Stop listening for updates"
+❌ "Unsubscribe from updates"
+
+✅ "Set session as closed"
+❌ "Mark session as closed"
+❌ "Update session status to closed"
+
+✅ "Do CreateTodo mutation"
+❌ "Call CreateTodo mutation"
+❌ "Execute CreateTodo mutation"
+
+✅ "Show error message"
+❌ "Display error message"  
+❌ "Render error message"
+
+✅ "Read user data"
+❌ "Load user data"
+❌ "Fetch user data"
+```
+
+When creating specifications or changes:
+- **ALWAYS use controlled vocabulary** - check the verb tables
+- Think about your audience (PM, designer, or developer?)
+- Be explicit about data sources
+- Describe complete behavior, not just code changes
+- Test readability: would a non-developer understand this?
+- **Consistency is mandatory** - same action = same verb EVERY time
+
+---
+
+# ═══════════════════════════════════════════════════════════════════
+# QUICK REFERENCE CHEAT SHEET
+# ═══════════════════════════════════════════════════════════════════
+
+## Approved Verbs (19 total)
+```
+Set, Send, Check, Wait for, Clear, Start, Stop
+Show, Hide, Add, Remove, Call, Do, Save, Read
+Update, Delete, Create, Redirect
+
+Call = specific named things (Call CreateTodo mutation, Call Stripe API)
+Do = general processes (Do authentication, Do cleanup)
+
+NO synonyms! Same action = same verb ALWAYS
+```
+
+## Avoid Technical Jargon - Use Plain Language
+```
+❌ Initialize, init           → ✅ Create
+❌ Apply, assign, mark, flag  → ✅ Set
+❌ Flush, drain               → ✅ Send all
+❌ Load, fetch, get           → ✅ Read
+❌ invoke, trigger, execute   → ✅ Call (for named things) or Do (for processes)
+❌ Display, render            → ✅ Show
+❌ await, block until         → ✅ Wait for
+❌ Acquire/take lock          → ✅ Set session owner: this tab
+❌ Release lock               → ✅ Clear session owner
+❌ log, trace, debug          → ✅ Save error details
+❌ ref                        → ✅ internal tracking variable
+❌ unmounted component        → ✅ component that was removed
+❌ WebRTC peer connection     → ✅ voice connection
+❌ WebSocket                  → ✅ text connection
+❌ Arrow notation (→)         → ✅ Natural conditions
+
+BUT: Use actual SDK parameter names like dynamicVariables, agentId, signedUrl
+```
+
+## Data Sources (always specify exact source)
+```
+DB.TableName.field           # Database
+Session.user.field           # User session
+State.component.field        # Component state
+Props.field                  # Component props
+API.endpoint.field           # External API
+```
+
+## Comparisons
+```
+field: value                 # Equals
+field > value               # Greater than
+field < value               # Less than
+field >= value              # Greater or equal
+field <= value              # Less or equal
+field: one of [a, b, c]     # In list
+field: not empty            # Has value
+field: contains "text"      # String contains
+```
+
+## State Naming
+```
+STATE.loading: yes/no        # Boolean status
+Error details: text          # Actual data
+Selected item: reference to Type  # References
+```
+
+## Conditions
+```
+Show if:
+  condition 1
+  condition 2
+
+Execute if:
+  condition
+
+Hide if:
+  condition
+```
+
+## Actions (using controlled vocabulary)
+```
+When user clicks:
+  - Set STATE.loading: yes
+  - Do SaveData mutation
+  - Wait for confirmation
+  - Set STATE.loading: no
+  - Show success message
+
+On success:
+  - Clear form data
+  - Redirect to dashboard
+
+On error:
+  - Show error message
+  - Stop loading state
+```
+
+## Convex Operations
+```
+[Query Name]                 # Read data (reactive)
+[Mutation Name]              # Write data
+[Action Name]                # Server operation
+```
+
+## React Components
+```
+[Component Name]
+Type: Server / Client
+Props received: ...
+Internal state: ...
+Data fetching: Query...
+```
+
+## Common Patterns
+```
+[Pattern FormWithValidation]
+[Pattern Authentication]
+[Pattern FileUpload]
+[Pattern RealTimeUpdates]
+[Pattern Pagination]
+[Pattern Search]
+[Pattern Toast Notifications]
+[Pattern ErrorHandling]
+[Pattern LoadingStates]
+[Pattern OptimisticUpdate]
+[Pattern Modal]
+[Pattern InfiniteScroll]
+```
+
+## Change Markers
+```
+[Change Name]                # Describe change
+[~ Modify Section]           # Change existing
+[+ Add Section]              # Add new
+[- Remove Section]           # Delete existing
+```
+
+## Complete Specification Template
+```toml
+[Component/Action/Query Name]
+Description: Clear purpose
+
+# Define what it does
+Input: ...
+Data: ...
+Behavior: ...
+
+# Define conditions
+Show if: ...
+Execute if: ...
+
+# Define interactions (USE CONTROLLED VOCABULARY)
+When user [action]:
+  - Set [field]: [value]
+  - Do [function/mutation]
+  - Wait for [event]
+  - Send [data]
+  - Show [message]
+
+# Define outcomes
+On success:
+  - Clear [data]
+  - Redirect to [page]
+  
+On error:
+  - Show [error]
+  - Stop [process]
+
+# Define styling (if UI)
+Styling: Tailwind classes
+```
+
+## Remember: Controlled Vocabulary is MANDATORY
+Every specification must use ONLY the approved action verbs. No exceptions.
+This ensures consistency, readability, and deterministic code generation.

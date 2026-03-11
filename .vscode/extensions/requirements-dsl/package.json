@@ -1,0 +1,35 @@
+{
+  "name": "requirements-dsl",
+  "displayName": "Requirements DSL",
+  "description": "Syntax highlighting for Requirements DSL specification files",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.50.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "requirements-dsl",
+        "aliases": [
+          "Requirements DSL",
+          "requirements-dsl",
+          "spec"
+        ],
+        "extensions": [
+          ".spec"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "requirements-dsl",
+        "scopeName": "source.requirements-dsl",
+        "path": "./syntaxes/spec.tmLanguage.json"
+      }
+    ]
+  }
+}

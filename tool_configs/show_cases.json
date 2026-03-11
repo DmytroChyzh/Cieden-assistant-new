@@ -1,0 +1,27 @@
+{
+    "type": "client",
+    "name": "show_cases",
+    "description": "Show Cieden portfolio case studies as interactive cards. Use when the user asks about examples of work, portfolio, case studies, or projects Cieden has done.",
+    "response_timeout_secs": 20,
+    "disable_interruptions": false,
+    "force_pre_tool_speech": false,
+    "assignments": [],
+    "parameters": {
+        "type": "object",
+        "required": [],
+        "description": "",
+        "properties": {
+            "filter": {
+                "type": "string",
+                "description": "Optional filter keyword (e.g. fintech, healthcare, saas) to narrow displayed cases",
+                "dynamic_variable": "",
+                "constant_value": ""
+            }
+        }
+    },
+    "expects_response": false,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    },
+    "execution_mode": "immediate"
+}

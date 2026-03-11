@@ -1,0 +1,133 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import { format } from "date-fns";
+import type { ChatbotMessage } from "./types";
+
+interface ChatMessageProps {
+  message: ChatbotMessage;
+  onQuickPrompt?: (value: string) => void;
+  userName?: string;
+}
+
+/**
+ * One message bubble — Chatbot visual style.
+ * No Theme/Language context, no VoiceSpeaker; wired for FinPilot.
+ */
+export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessageProps) {
+  const isUser = message.role === "user";
+  const [copied, setCopied] = useState(false);
+
+  const { cleanContent, fallbackAnswers } = useMemo(() => {
+    let cleanContent = message.content;
+    const fallbackAnswers: string[] = [];
+    const match = cleanContent.match(/\[([\s\S]*?)\]\s*$/);
+    if (match) {
+      try {
+        const arr = JSON.parse(match[0].replace(/'/g, '"'));
+        if (Array.isArray(arr)) {
+          fallbackAnswers.push(...arr.map((s: unknown) => String(s).trim()).filter(Boolean));
+          cleanContent = cleanContent.replace(match[0], "").trim();
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return { cleanContent, fallbackAnswers };
+  }, [message.content]);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
+
+  const date =
+    typeof message.timestamp === "number"
+      ? new Date(message.timestamp)
+      : message.timestamp;
+  const timeStr = date && !isNaN(date.getTime()) ? format(date, "HH:mm") : "";
+  const suggestions =
+    (Array.isArray(message.suggestedAnswers) && message.suggestedAnswers.length > 0
+      ? message.suggestedAnswers
+      : fallbackAnswers) || [];
+
+  return (
+    <div className="w-full py-2" style={{ display: "flex", justifyContent: "center" }}>
+      <div
+        className={`w-full flex ${isUser ? "justify-end" : "justify-start"} items-end`}
+        style={{ maxWidth: 900, margin: "0 auto" }}
+      >
+        <div className={`relative max-w-2xl ${isUser ? "items-end" : "items-start"}`}>
+          <div
+            className={`flex items-center mb-1 text-xs text-white/60 ${isUser ? "justify-end" : "justify-start"}`}
+            style={{ minHeight: 18 }}
+          >
+            {isUser ? (
+              <>
+                <span>{userName || "You"}</span>
+                <svg className="ml-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="7" r="4" />
+                  <path d="M5.5 21a7.5 7.5 0 0 1 13 0" />
+                </svg>
+              </>
+            ) : (
+              <>
+                <svg className="mr-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="10" rx="4" />
+                  <circle cx="7.5" cy="16" r="1.5" />
+                  <circle cx="16.5" cy="16" r="1.5" />
+                  <path d="M12 2v4m-6 4V6m12 4V6" />
+                </svg>
+                <span>Assistant</span>
+              </>
+            )}
+          </div>
+          <div
+            className={`rounded-3xl px-5 py-4 shadow-lg transition-colors duration-300 backdrop-blur-xl ring-1 ring-white/10 ${
+              isUser
+                ? "rounded-br-none bg-[#3C2780]/60 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]"
+                : "rounded-bl-none bg-white/5 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]"
+            }`}
+            style={{ wordBreak: "break-word" }}
+          >
+            <div className="whitespace-pre-wrap">{cleanContent}</div>
+          </div>
+          <div
+            className={`flex items-center gap-2 mt-1 text-xs text-white/50 ${isUser ? "justify-end" : "justify-start"}`}
+          >
+            <span>{timeStr}</span>
+            {!isUser && (
+              <button type="button" onClick={handleCopy} className="hover:text-white/80 transition" title="Copy">
+                {copied ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                )}
+              </button>
+            )}
+          </div>
+          {!isUser && onQuickPrompt && suggestions.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {suggestions.map((answer, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => onQuickPrompt(answer)}
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium transition-colors"
+                >
+                  {answer}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

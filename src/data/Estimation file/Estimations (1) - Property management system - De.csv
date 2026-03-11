@@ -1,0 +1,96 @@
+Miro,,,,Critical screens ,Main screens ,Full design ,,Revised
+Module ,User roles,Feature / page ,Phase (suggested) ,Min (0) ,ML,Max ,Comments ,
+Registration,All users ,"Property manager
+Tenant
+Vendor",Phase 1,8,16,24,,
+Login ,,Login + restoring password,Phase 1,12,12,16,,
+Dashboard,,Admin,Phase 1,16,16,40,Heavily based on the number of elements / modules,
+,,Tenant,Phase 1,12,14,32,,
+,,Property manager ,Phase 1,12,14,32,Possible Reuse of elements,
+User management ,Super Admin ,"List of users 
+Filtering ",Phase 1,8,16,24,Depends on the complexity of filtering,
+,,Create user ,Phase 1,8,10,16,,
+,,Import (upload file) ,Phase 1,n.a (import),,,,
+,,User profile ,Phase 1,8,16,20,"Editing, different views to view the profile (Armin view, Vendor view)?",
+,,Bulk actions ,Phase 1,6,8,12,,
+,,Chnage permissions...,??? ,,,,Admin settings only?,
+Reports / Analytics ,All roles,"Report per user (tenant, admin, PM) ",Phase 2 ,32,,56,,
+,,Customise report ,Phase 3,8,,16,Clarification needed,
+Property management ,PM admin,Property portfolio (list of properties) ,Phase 1,n.a (list) ,8,16,How many levels? (portfolio -> building -> room) ?,
+,,Create portfolio (manual) ,Phase 1,8,12,24,,
+,,Import portfolio (upload file) ,Phase 1,n.a (import),8,16,,
+Property profile ,,Details ,Phase 1,8,,,,
+,,Assignements (Jobs) ,Phase 1,2,8,12,,
+,,Appliances ,Phase 2 ,4,,,,
+,,Documents,Phase 2 ,n.a (docs) ,4,6,,
+,,Meintenance forecast ,Phase 2 ,?,?,?,,
+,,"History (log of assignements, changes etc)",Phase 2 ,4,5,8,,
+,,"Settings, Edit & Remove ",Phase 1,2,3,8,,
+Appliances ,"PM Admin
+Vendor ",???? ,??? ,??? ,??? ,??? ,,
+Assignements (Jobs) ,"PM Admin
+Vendor 
+
+
+Tenant (very limited info, history) ","List of Assignements (Jobs) 
+Filtering etc ",Phase 1,6,12,20,,
+,,Create & Edit & Submit assignement (manual) ,Phase 1,4,12,16,"Update assignement status
+Upload photos 
+Write text etc ",
+,,Create assignement (from template) ,Phase 2,2,2,4,,
+,,Post assignement (to marketplace) ,Phase 3,??? ,??? ,??? ,,
+,,"Assign, re-assign assignement (job) ",Phase 1,2,4,8,,
+,,Approve & Close assignement ,Phase 1,2,4,6,Logic of review & approve ,
+,,Create assignement rules ,Phase 3,??? ,??? ,??? ,,
+,,Post on MLS ,Phase 3,??? ,??? ,??? ,,
+,Vendor,Task management for Vendor?,,??? ,??? ,??? ,"How assigmnemtnes will be managed on Vendor's side? 
+Will they be able to split & assign task to employees (",
+, + Employee ,Assignment details (view assignment) ,Phase 1,4,8,20,- History / log,
+Vendors,PM Admin,"List of vendors 
+Filtering ect ",Phase 1,n.a (list) ,10,14,,
+,,Add vendor (manual) ,Phase 1,2,4,8,,
+,,Import (upload file) ,Phase 1,n.a (import),4,6,,
+Vendor profile ,,Details ,Phase 1,4,4,8,,
+,,Documents ,Phase 2,n.a (docs) ,2,6,,
+,,Log of assignements ,Phase 2,2,2,4,,
+Work bids (Marketplace) ,"PM Admin
+Vendor ",???? ,Phase 3,???? ,???? ,???? ,,
+Tenants ,PM Admin,"List of tenants 
+Filtering ",Phase 1,n.a (list) ,6,12,,
+,,CRUD tenant (manual) ,Phase 1,4,6,10,,
+,,Import (upload file) ,Phase 1,n.a (import),2,4,,
+Tenant Profile ,,Details ,Phase 1,2,6,8,,
+,,"Documents (contracts, IDs etc)",Phase 2,1,2,6,,
+Import (feature) ,"PM Admin
+Vendor ",,Phase 1,8,8,16,,
+Documents (feature) ,,"- View list 
+- Upload
+- Download
+- Remove 
+- Preview? ",Phase 2,8,20,24,"- Store docs
+- Support different text and image formats ",
+Payments (feature) ,,Pay invoice ,Phase 1,2,4,8,Not sure about this logis though ,
+,,Send invoice ,Phase 1,6,8,24,"Not sure about this logis though 
+
+Could be complex if there is edit of documents ",
+,,Track history of payments (invoices) ,Phase 1,,,,,
+Notifications ,All users ,"In header
+Toast 
+Banner ",Phase 1,6,16,18,,
+Settings ,,Notification settings ,Phase 1,4,6,8,,
+,,Security & other settings ,Phase 1,6,10,16,- Password,
+,,Integration settings? ,Phase 2,??? ,??? ,??? ,,
+,,Document branding / Templates,Phase 2,8,12,20,"- List 
+- CRUD ",
+,,Singature settings ,Phase 1,2,6,8,,
+,,Assignement templates ,Phase 2,2,6,8,"- List 
+- CRUD ",
+Profiles ,,User profile ,Phase 1,4,12,18,,
+,,Company profile (for PM & Vendors) ,Phase 1,8,14,20,"- Overview 
+- Users
+- Billing ",
+Knowledge base for vendors ,"PM Admin
+Vendor ",List of articles ,Phase 3,16,28,32,"- integration
+- List 
+- CRUD
+- Share ",
