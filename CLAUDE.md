@@ -26,10 +26,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current State (Verified September 17, 2025)
 
-FinPilot is a **functional, production-ready** financial AI assistant with:
+The Cieden AI Assistant is a **functional, production-ready** AI assistant for Cieden with:
 - ✅ Voice interactions via ElevenLabs ConvAI
 - ✅ Real-time data sync with Convex
-- ✅ Financial visualizations (charts, cards, insights)
+- ✅ Rich visualizations (charts, cards, insights)
 - ✅ Self-hosted CopilotKit runtime
 - ✅ Interactive quizzes and quick actions
 - ✅ User authentication and preferences
@@ -131,16 +131,16 @@ bash ~/.claude/skills/linear/scripts/linear.sh get ISSUE-ID  # Get issue details
 - Auth-related variables as needed by Convex Auth
 
 ### Project Context
-FinPilot is a mobile-first financial AI assistant that combines:
+The Cieden AI Assistant is a mobile-first assistant for Cieden that combines:
 - Voice-powered interactions via ElevenLabs
 - Visual AI capabilities through CopilotKit
 - Real-time data synchronization with Convex
-- Financial charting and insights generation
+- Advanced charting, insights generation, and domain-specific workflows
 
 ## Project Structure (Actual Implementation)
 
 ```
-FinPilot-Project/
+Cieden-Assistant-Project/
 ├── app/api/              # API routes (auth, copilotkit, elevenlabs, mcp)
 ├── src/
 │   ├── features/        # Feature modules (auth, charts, chat, voice)
@@ -156,8 +156,8 @@ FinPilot-Project/
 This project uses layered documentation for different development needs:
 
 - **CLAUDE.md** (this file): Primary context and quick reference for AI assistants
-- **FinPilot-Project/ARCHITECTURE.md**: Core patterns, tool development, and troubleshooting
-- **FinPilot-Project/TECHNICAL_REFERENCE.md**: Detailed implementation examples
+- **Cieden-Assistant-Project/ARCHITECTURE.md**: Core patterns, tool development, and troubleshooting
+- **Cieden-Assistant-Project/TECHNICAL_REFERENCE.md**: Detailed implementation examples
 - **memory/**: Extracted patterns, architecture, integrations, and decisions
 - **specs/000-existing-baseline/**: Retroactive specification of current state
 

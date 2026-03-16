@@ -1,6 +1,6 @@
-# FinPilot - AI Financial Assistant
+# Cieden AI Assistant
 
-AI-powered financial assistant with voice and text chat capabilities, built with Next.js, Convex, and ElevenLabs.
+AI-powered assistant for Cieden with voice and text chat capabilities, built with Next.js, Convex, and ElevenLabs. The current implementation includes rich financial and data-driven demos (charts, goals, loans) as part of the assistant’s capabilities.
 
 ## Quick Start
 

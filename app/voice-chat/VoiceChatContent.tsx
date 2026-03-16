@@ -257,10 +257,14 @@ export function VoiceChatContent({
           onClearHistory={handleClearHistory}
           onSignOut={async () => {
             await signOut();
-            // Keep users in the main assistant flow after sign-out
-            router.push('/voice-chat');
+            // Hard reload so auth state + onboarding reset correctly
+            if (typeof window !== "undefined") {
+              window.location.href = "/voice-chat";
+            }
           }}
           clearing={clearing}
+          userName={settings?.userName}
+          userEmail={settings?.userEmail}
         />
 
         <main className={`${isMobile ? 'min-h-0 overflow-hidden' : 'flex-1'} flex flex-col`}>

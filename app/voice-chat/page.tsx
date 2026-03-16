@@ -97,6 +97,19 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>("ask_name");
   const [onboardingMessages, setOnboardingMessages] = useState<ChatbotMessage[]>([]);
   const [onboardingName, setOnboardingName] = useState("");
+  const [onboardingEmail, setOnboardingEmail] = useState("");
+
+  // Unified display name for bubbles ("You" replacement)
+  const userDisplayName =
+    onboardingName ||
+    currentUser?.name ||
+    currentUser?.email ||
+    "You";
+
+  const userEmailDisplay =
+    onboardingEmail ||
+    currentUser?.email ||
+    "";
 
   // Seed initial onboarding assistant message when not authenticated
   useEffect(() => {
@@ -144,7 +157,25 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
       }
 
       if (onboardingStep === "ask_email") {
-        const email = value;
+        const email = value.trim();
+
+        // Basic email validation to prevent invalid formats
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailPattern.test(email)) {
+          setOnboardingMessages((prev) => [
+            ...prev,
+            {
+              id: `onb-assistant-${Date.now()}`,
+              role: "assistant",
+              content:
+                "It looks like this is not a valid email address. Please enter it in the format name@example.com so our team can reach you.",
+              timestamp: Date.now(),
+            },
+          ]);
+          return;
+        }
+
+        setOnboardingEmail(email);
         setOnboardingStep("creating");
         setOnboardingMessages((prev) => [
           ...prev,
@@ -1105,10 +1136,14 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
             onClearHistory={handleClearHistory}
             onSignOut={async () => {
               await signOut();
-              // After sign-out, keep user inside main experience (onboarding will handle identity).
-              router.push('/voice-chat');
+              // Hard reload so auth state and onboarding fully reset
+              if (typeof window !== "undefined") {
+                window.location.href = "/voice-chat";
+              }
             }}
             clearing={clearing}
+            userName={userDisplayName}
+            userEmail={userEmailDisplay}
           />
           
           {/* Chat lane wrapper: groups messages + input so input can be absolute to this lane */}
@@ -1143,7 +1178,7 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
               {(!isAuthenticated) ? (
                 <ChatWindow
                   messages={onboardingMessages}
-                  userName={onboardingName || currentUser?.name || currentUser?.email || "there"}
+                  userName={userDisplayName}
                   isLoading={onboardingStep === "creating"}
                   messagesEndRef={messagesEndRef}
                 />
@@ -1204,7 +1239,7 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
                           key={message._id}
                           message={botMsg}
                           onQuickPrompt={(text) => sendProgrammaticMessage?.(text)}
-                          userName="You"
+                          userName={userDisplayName}
                         />
                       );
                     })}

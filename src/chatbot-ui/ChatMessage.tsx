@@ -119,7 +119,7 @@ export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessagePro
                   key={idx}
                   type="button"
                   onClick={() => onQuickPrompt(answer)}
-                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium transition-colors"
+                  className="px-4 py-2 rounded-xl bg-[#4C3AE6]/40 hover:bg-[#4C3AE6]/70 text-white font-medium transition-colors"
                 >
                   {answer}
                 </button>

@@ -11,6 +11,8 @@ interface HeaderMenuProps {
   onClearHistory?: () => void;
   onSignOut?: () => void;
   clearing?: boolean;
+  userName?: string;
+  userEmail?: string;
 }
 
 interface VoiceChatHeaderProps extends HeaderMenuProps {
@@ -28,9 +30,22 @@ export function VoiceChatHeader({
   onClearHistory,
   onSignOut,
   clearing,
+  userName,
+  userEmail,
 }: VoiceChatHeaderProps) {
   const [avatarOpen, setAvatarOpen] = useState(false);
   const currentUser = useQuery(api.users.getCurrentUser);
+
+  const headerName =
+    userName ||
+    currentUser?.name ||
+    currentUser?.email ||
+    "Guest";
+
+  const headerEmail =
+    userEmail ||
+    currentUser?.email ||
+    "";
 
   return (
     <header
@@ -99,42 +114,36 @@ export function VoiceChatHeader({
             className="w-64 bg-slate-800/95 backdrop-blur-sm border-white/20 text-white p-2"
             align="end"
           >
-            {currentUser ? (
-              <>
-                <div className="px-3 pb-1">
-                  <p className="text-sm font-medium truncate">{currentUser.name}</p>
-                  <p className="text-xs text-white/60 truncate">{currentUser.email}</p>
-                </div>
-                <div className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSettingsOpen();
-                      setAvatarOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/10 rounded text-sm"
-                  >
-                    <Settings className="h-4 w-4" /> Settings
-                  </button>
-                  {onSignOut && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await onSignOut();
-                        setAvatarOpen(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/10 rounded text-sm"
-                    >
-                      <LogOut className="h-4 w-4" /> Sign Out
-                    </button>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="px-3 py-2">
-                <p className="text-sm text-white/60">Loading...</p>
-              </div>
-            )}
+            <div className="px-3 pb-2 border-b border-white/10 mb-1">
+              <p className="text-sm font-medium truncate">{headerName}</p>
+              {headerEmail && (
+                <p className="text-xs text-white/60 truncate">{headerEmail}</p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={() => {
+                  onSettingsOpen();
+                  setAvatarOpen(false);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/10 rounded text-sm"
+              >
+                <Settings className="h-4 w-4" /> Settings
+              </button>
+              {onSignOut && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await onSignOut();
+                    setAvatarOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/10 rounded text-sm"
+                >
+                  <LogOut className="h-4 w-4" /> Sign Out
+                </button>
+              )}
+            </div>
           </PopoverContent>
         </Popover>
       </div>

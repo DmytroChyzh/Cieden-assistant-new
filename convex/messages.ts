@@ -33,7 +33,10 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Not authenticated");
+      // During certain flows (e.g. onboarding or expired sessions) assistant messages
+      // might arrive before auth is fully established. In that case we simply skip
+      // persisting the message instead of throwing a visible error.
+      return null;
     }
 
     const messageId = await ctx.db.insert("messages", {
@@ -92,7 +95,9 @@ export const clearForConversation = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error("Not authenticated");
+      // If the user is not authenticated (e.g. just signed out), simply
+      // skip clearing instead of throwing an error to the UI.
+      return { deleted: 0 };
     }
 
     // Ensure conversation belongs to user
