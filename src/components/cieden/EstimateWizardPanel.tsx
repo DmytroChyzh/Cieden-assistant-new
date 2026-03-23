@@ -212,11 +212,11 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
         : `${rawUserText.slice(0, Math.floor(MAX_ANALYSIS_CHARS / 2))}\n...\n${rawUserText.slice(-Math.floor(MAX_ANALYSIS_CHARS / 2))}`;
 
     const platform =
-      /(web\s*\+\s*mobile|web\s*and\s*mobile)/.test(userText) || (/(веб)/.test(userText) && /(моб)/.test(userText))
+      /(web\s*\+\s*mobile|web\s*and\s*mobile|website\s*\+\s*app|web\s*app\s*\+\s*mobile)/.test(userText) || (/(веб|web)/.test(userText) && /(моб|mobile|app)/.test(userText))
         ? "web+mobile"
-        : /(mobile|ios|android|app|application)/.test(userText) || /(мобіль|мобиль|додаток|апка|ios|android)/.test(userText)
+        : /(mobile|ios|android|app|application|webapp|web app)/.test(userText) || /(мобіль|мобиль|додаток|апка|приложен|ios|android)/.test(userText)
           ? "mobile"
-          : /(web|website|site|landing|dashboard|admin|portal)/.test(userText) || /(веб|сайт|лендінг|лендинг|дашборд|кабінет|кабинет|адмін|админ|портал)/.test(userText)
+          : /(web|website|site|landing|dashboard|admin|portal|saas|crm|erp)/.test(userText) || /(веб|вебсайт|сайт|лендінг|лендинг|дашборд|кабінет|кабинет|адмін|админ|портал|саас|crm|erp)/.test(userText)
             ? "web"
             : null;
 
@@ -326,8 +326,8 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
 
     const checks = [
       // platform/type (EN + UA/RU)
-      /(web\s*\+\s*mobile|web\s*and\s*mobile|mobile|ios|android|website|dashboard|admin|site|app|application|platform|portal|landing)/.test(text) ||
-        /(веб|сайт|лендінг|лендинг|додаток|апка|мобіль|мобиль|ios|android|платформа|портал|адмін|админ|кабінет|личный кабинет)/.test(text),
+      /(web\s*\+\s*mobile|web\s*and\s*mobile|website\s*\+\s*app|mobile|ios|android|website|dashboard|admin|site|app|application|platform|portal|landing|saas|crm|erp)/.test(text) ||
+        /(веб|вебсайт|сайт|лендінг|лендинг|додаток|апка|приложен|мобіль|мобиль|ios|android|платформа|портал|адмін|админ|кабінет|личный кабинет|саас|crm|erp)/.test(text),
       // new vs redesign
       /(redesign|from scratch|new product|mvp|rebuild|revamp)/.test(text) ||
         /(редизайн|редesign|з нуля|знуля|новий продукт|новый продукт|мвп|mvp|перероб|переработ|оновлен)/.test(text),
@@ -425,11 +425,11 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
 
     const inferPlatform = () => {
       const hasWeb =
-        /(web|website|site|landing|dashboard|admin|portal)/.test(text) ||
-        /(веб|сайт|лендінг|лендинг|дашборд|кабінет|кабинет|адмін|админ|портал)/.test(text);
+        /(web|website|site|landing|dashboard|admin|portal|saas|crm|erp)/.test(text) ||
+        /(веб|вебсайт|сайт|лендінг|лендинг|дашборд|кабінет|кабинет|адмін|админ|портал|саас|crm|erp)/.test(text);
       const hasMobile =
-        /(mobile|ios|android|app|application)/.test(text) ||
-        /(мобіль|мобиль|додаток|апка|ios|android)/.test(text);
+        /(mobile|ios|android|app|application|webapp|web app)/.test(text) ||
+        /(мобіль|мобиль|додаток|апка|приложен|ios|android)/.test(text);
       if (hasWeb && hasMobile) return ["web", "mobile"] as const;
       if (hasMobile) return ["mobile"] as const;
       if (hasWeb) return ["web"] as const;
