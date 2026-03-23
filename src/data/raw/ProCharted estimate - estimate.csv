@@ -1,0 +1,32 @@
+Page,,"Estimate, hrs",,,
+,,Min,ML,Max,PERT
+Design,,,,,
+Platform Familiarization,,4,6,8,
+UX Audit of the platform,,14,21,28,
+Roles,roles feature + user permission adjustment,12,16,20,16
+Budget,"- new 'budget' tab
+- additionaly create redesign for 'work' tab in profile details, added new columns to the table",18,22,26,22
+"Client
+Ownership",to add a drowdown/small section of managers,1,1,1,1
+Company Settings,view and edit states,2,4,6,
+Templates,& import pop-up,2,3,4,
+Statuses,,3,5,7,
+Work Type,,4,7,10,
+Billing,"Services
+Payment method
+Tax rate
+Invoice labels
+Payment labels
+Logo
+Content",12,16,20,
+Users,,5,8,12,
+Invited Users,,2,3,4,
+Tags,,2,4,6,
+Integrations,& manage itegration settings,5,8,12,
+Profile Settings,,2,4,6,
+Design System?,,14,21,28,21
+Operational,,,,,
+PM/BA,,12,20,28,20
+Communication,,22,28,40,29
+TOTAL ,,136,197,266,109
+Total Cost ,,$6 800,$9 850,$13 300,$5 450

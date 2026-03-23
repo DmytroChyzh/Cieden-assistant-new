@@ -1,0 +1,68 @@
+Activity&Description,,"Estimate, hrs",,,
+,,Min,ML,Max,PERT
+Discovery,,68,91,118,
+Kickoff & Alignment session,"Initial call to clarify goals, success criteria, project plan",4,5,6,
+Requirements Elicitation Sessions,"Deep-dive sessions on scoring model, roles, flows, AI and verification logic",8,10,12,
+Competitive Research,Analyze similar tools and identify differentiators and gaps,10,14,16,14
+Market & Domain Research,Research admissions and visa processes for international students,8,12,16,12
+Persona Definition,"Create personas (student, agent, visa officer) and define their main pains and goals",6,8,10,8
+User Journey Mapping,Map journeys for each persona and key scenarios,8,10,14,
+Ideation Workshops,Brainstorming sessions to explore product features,8,10,12,
+Feature List & MVP Prioritization,List all features and define MVP scope with priorities,6,8,10,
+Information Architecture,"Define platform structure, modules, and navigation",6,8,10,
+Discovery Summary & Validation,Conitinuies reviews with client,4,6,12,
+Prototyping,,45,64,84,
+User Flows,Create detailed flows for all roles and main modules,8,10,12,
+MVP features documentation,Describe the main features of the app (foundation for the prototyping),5,10,12,
+Clickable Prototype (Mid-Fi),Build mid-fidelity clickable prototype for validation,20,28,40,
+Internal Review & Refinement,Review prototype internally and refine flows and layouts,4,6,8,
+Client Review Session + Iteration,Run prototype walkthrough with client and adjust,8,10,12,
+UX/UI ,,192,236,278,
+UI Direction & Style Foundation,"Define visual direction, typography, colors, and base components",14,18,22,
+Student flow,,,,,
+Onboarding & Profile Setup,"- Create account
+- Select target country/program (e.g., Medicine → USA)
+- Enter personal details
+- Upload academic history (Upload transcripts, Upload standardized test scores, Upload financial & identity documents, Upload extracurricular proofs, Upload police clearance etc)
+Document authenticity pre-check UI",24,30,34,
+AI Interview Interface,"Design UI for AI interview experience and result view
+- Interview scheduling
+- Recording UI
+- Voice/tone analysis feedback
+- Interview results preview",16,20,24,
+Score Results Module,"- Full ImageScore breakdown (Academic score, Aptitude, Language, Extracurricular, Financial readiness, Risk indicators)
+- Standard deviation visualization
+- Strengths & weaknesses analysis
+- Actionable recommendations",26,28,32,
+University/Program Recommendations,"University/Program Recommendations
+- Suggested universities
+- Acceptance likelihood tiers (Strong / Moderate / Weak fit)
+- Requirements comparison (student vs university baseline)
+- Next steps",18,22,26,
+Other Screens,"User Profile, Manage Subscription, Login etc",14,16,18,
+Agent flow,,,,,
+Dashboard,"All invited students
+Student statuses 
+Quick insights ",16,18,20,
+Student Management,"Invite students
+Approve/verify their documents
+See student scores & reports
+Compare multiple candidates
+Rank based on deviation from program ideal profile
+Highlight strongest fit",20,30,38,
+Portfolio Review,"Deep-dive into each student’s portfolio
+Score breakdown per student
+Fit recommendations
+Issues / incomplete areas
+Suggestions for improvement before submission",18,22,26,
+Score Management,"setup of metrics in score, their weightage etc",12,16,18,
+Other Screens,"Agent organization profile, Seat/subscription management",14,16,20,
+Documentation,,40,54,70,
+Documentation,"Document behaviors, UI rules, and assumptions for development",12,16,18,
+Developer Handoff,Prepare specs and support dev team with handoff,8,10,12,
+Design System,"Create core components for consistent UI (buttons, forms, tables, cards, charts, nav, AI blocks)",20,28,40,29
+Operational,,34,42,50,
+PM/BA,,10,14,18,14
+Communication,,24,28,32,28
+TOTAL ,,379,487,600,104
+Total Cost ,,$18 950,$24 350,$30 000,$5 217

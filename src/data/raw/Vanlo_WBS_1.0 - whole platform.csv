@@ -1,0 +1,62 @@
+,,,Include-?,UX/UI,,,,BA/PM,,,
+Modules ,Features/Epics,Comments ,,Min,Most likely,Maximum ,PERT,Min,Most likely,Maximum ,PERT
+Discovery phase,,,,,,,,,,,
+Flows,Process flows,,TRUE,,,,0,16,20,24,20
+Informational Architecture/ WBS,,,TRUE,,,,0,4,6,8,6
+Communication,Internal,,,0,0,0,0,1,1,1,1
+,External,,,0,0,0,0,1,1,2,1
+TOTAL,,,,0,0,0,0,22,28,35,28
+Product Design - shipments page,,,,,,,,,,,
+,Dashboard,"table, settings, drafts",TRUE,10,12,16,12,,,,0
+,Navigation,,TRUE,2,3,4,3,,,,0
+,New shipment flow,,TRUE,10,16,20,16,,,,0
+,Bulk upload flow,,TRUE,7,8,12,9,,,,0
+,UI Kit,,TRUE,6,8,10,8,,,,0
+Communication,Internal,,,1,1,2,1,0,0,0,0
+,External,,,2,2,3,2,0,0,0,0
+TOTAL,,,,38,51,67,51,0,0,0,0
+Product Design ,,,,,,,,,,,
+,Authorization page,,TRUE,2,4,6,4,,,,0
+,Shipments/ Dashboard,Shop orders,TRUE,4,6,8,6,,,,0
+,,Detailed shipment page - ?,TRUE,8,12,16,12,,,,0
+,Analytics,,TRUE,8,12,20,13,,,,0
+,Reporting,"reports, scheduled reports",,,,,,,,,
+,Manifests - ?,,TRUE,,,,0,,,,0
+,Billing,"payment methods, info",TRUE,16,20,24,20,,,,0
+,Developers,webhooks,TRUE,4,6,7,6,,,,0
+,,API keys,TRUE,1,2,4,2,,,,0
+,Settings,Tracking page,TRUE,3,5,7,5,,,,0
+,,"Carriers (list, add new)",TRUE,6,8,10,8,,,,0
+,,Shop connections,TRUE,3,5,7,5,,,,0
+,,Packing slip,TRUE,2,3,4,3,,,,0
+,,Automations,TRUE,8,10,12,10,,,,0
+,,Search presets,TRUE,4,6,8,6,,,,0
+,,User management,TRUE,4,6,8,6,,,,0
+,,Saved Packages,TRUE,6,8,10,8,,,,0
+,,Warehouses/ Locations,TRUE,2,3,4,3,,,,0
+,,Profile (password),TRUE,2,3,4,3,,,,0
+,Notifications,,TRUE,4,6,8,6,,,,0
+,,,FALSE,,,,0,,,,0
+Communication,Internal,,,3,4,5,4,0,0,0,0
+,External,,,4,6,8,6,0,0,0,0
+TOTAL,,,,94,135,180,136,0,0,0,0
+DesOps,,,,,,,,,,,
+,Moodboard,,TRUE,3,4,5,4,,,,0
+,UI Kit ,,TRUE,14,18,24,18,,,,0
+,Light/dark themes,,TRUE,10,12,14,12,,,,
+,Design documentation,developers guidelines for main features,TRUE,6,8,10,8,,,,0
+Communication,External,,,2,2,3,2,0,0,0,0
+TOTAL,,,,35,44,56,44,0,0,0,0
+,Total Product Design ,,,166,230,303,231,,,,
+,Total BA,,,55,74,95,74,,,,
+,TOTAL PROJECT (hours),,,221,304,398,306,,,,
+,TOTAL PROJECT COST ,,,"$11,065","$15,196","$19,906","$15,292",,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,Team Capacity ,,Hours a week,,,,,,,,
+,UX/UI designer/s,,36,(based on 6h efffective working day) ,,,,,,,
+,,,,,,,,,,,
+,Project Timeline (design effort) ,,Min,Most likely,Maximum ,PERT,,,,,
+,Design effort (in weeks) ,,5,6,8,6,,,,,

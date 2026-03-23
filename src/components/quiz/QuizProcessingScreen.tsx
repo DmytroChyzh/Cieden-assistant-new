@@ -56,7 +56,7 @@ export function QuizProcessingScreen({ stage, isFullScreen = false }: QuizProces
 
   // Reset on analyzing; when calculating, flip rows to completed sequentially
   useEffect(() => {
-    let timers: Array<number> = [];
+    const timers: Array<number> = [];
     if (stage === 'analyzing') {
       setCompletedCount(0);
       return () => {

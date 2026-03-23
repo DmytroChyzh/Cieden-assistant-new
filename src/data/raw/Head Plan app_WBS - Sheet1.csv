@@ -1,0 +1,81 @@
+,,,Include,UX/UI,,,,BA/PM,,,
+Modules ,Features/Epics,Comments ,,Min,Most likely,Maximum ,PERT,Min,Most likely,Maximum ,PERT
+Product discovery,,,,,,,,,,,
+Competitors analysis,,,TRUE,,,,0,6,8,12,8
+User Interviews - qualitative research (3-5 interviewees) 1.5hours/person,,"Interview recordings/transcripts, Summarized insights (user needs, expectations, recommendations).",TRUE,,,,0,5,7,9,7
+User Personas,User Personas,2-3 user personas,TRUE,,,,0,3,4,6,4
+,Use Cases,,TRUE,,,,0,4,6,8,6
+Process flows,,"Processing input information about processes, dependencies",TRUE,,,,0,4,6,8,6
+Wireframes (low-fidelity),,,TRUE,,,,0,4,6,8,6
+Informational Architecture,,,TRUE,,,,0,6,10,12,10
+Features prioritization,,,TRUE,,,,0,2,3,4,3
+Communication,Internal,,,0,0,0,0,3,5,7,5
+,External,,,0,0,0,0,7,10,13,10
+TOTAL,,,,0,0,0,0,44,65,87,65
+DesOps,,,,,,,,,,,
+,Moodboard & UI Concepts,2-3 concepts,TRUE,16,20,30,21,,,,0
+,Design system & Documentation,,TRUE,10,16,24,16,,,,0
+Communication,Internal,,,3,4,5,4,0,0,0,0
+,External,,,5,7,11,7,0,0,0,0
+TOTAL,,,,34,47,70,49,0,0,0,0
+Product Design,,,,,,,,,,,
+Authorization page,,"Sign Up, Sign in, Password recovery",TRUE,2,3,4,3,,,,0
+Onboarding,,,TRUE,3,5,6,5,,,,0
+Settings and Profile,Profile,Personal info,TRUE,4,6,7,6,,,,0
+,Notifications,,TRUE,1,2,2,2,,,,0
+,Other settings (optional),,TRUE,2,3,4,3,,,,0
+Home Screen,Daily overview,"schedule, focus block, affirmation, calendar view",TRUE,16,20,24,20,,,,0
+,Navigation,,TRUE,4,5,6,5,,,,0
+Goals,List of Goals,,TRUE,24,32,40,32,,,,0
+,Create new Goal,,,,,,,,,,0
+,Goal detailed info,linking and progress,,,,,,,,,0
+Vision Board,Vision Boards view,"details, edit",TRUE,10,12,16,12,,,,0
+,Create new Vision Board,,,,,,,,,,0
+Planner,Add new Task,,TRUE,3,4,5,4,,,,0
+,Task view,,TRUE,6,8,10,8,,,,0
+Habits,Add new Habit ,,FALSE,,,,0,,,,0
+,List of Habits,,FALSE,,,,0,,,,0
+,Habit page,"details, streak tracking, progress",FALSE,,,,0,,,,0
+Affirmation,Affirmation message,,TRUE,6,10,16,10,,,,0
+,Previous affirmations,,,,,,,,,,0
+,Gratitude recording,,,,,,,,,,0
+Time Budgeting,Add new activity log,,FALSE,,,,0,,,,0
+,Activity logs history,,FALSE,,,,0,,,,0
+,Activity log page,,FALSE,,,,0,,,,0
+,Visual reporting,,FALSE,,,,0,,,,0
+Gamification,Achievements,,TRUE,6,10,12,10,,,,0
+,Streak Dashboard,,TRUE,8,12,16,12,,,,0
+Monetization screens (optional),,,TRUE,8,12,16,12,,,,
+AI Agent,,,TRUE,10,16,20,16,,,,
+Notifications,,,TRUE,6,8,10,8,,,,0
+Communication,Internal,,,12,17,21,17,0,0,0,0
+,External,,,30,42,54,42,0,0,0,0
+TOTAL,,,,161,202,271,204,0,0,0,0
+User Testing (optional),,,,,,,,,,,
+,Test script creation,"tasks+questions, success criteria",TRUE,,,,0,4,6,8,6
+,User testing sessions (2h per user),4-6 users (recordings+notes),TRUE,4,6,8,6,4,6,8,6
+,Usability testing report,"findings, quotes",TRUE,,,,0,4,6,8,6
+,Design Refinements,if necessary (depends on feedback),FALSE,12,16,24,17,,,,0
+Communication,,,,1,1,1,1,1,2,2,2
+TOTAL,,,,5,7,9,7,13,20,26,20
+Handoff and Documentation,,,,,,,,,,,
+,Specification document,"user stories, acceptance criteria, flows",TRUE,,,,0,40,60,80,60
+Communication,,,,0,0,0,0,8,12,16,12
+TOTAL,,,,0,0,0,0,48,72,96,72
+,Total Product Design ,,,199,256,351,260,,,,
+,Total BA,,,105,157,210,157,,,,
+,Total BA/PM,,,50,64,88,65,,,,
+,TOTAL PROJECT (hours),,,354,477,648,482,,,,
+,TOTAL PROJECT COST ,,,"$17,711","$23,846","$32,394","$24,088",,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,Team Capacity ,,Hours a week,,,,,,,,
+,UX/UI designer/s,,36,(based on 6h efffective working day) ,,,,,,,
+,BA,,20,,,,,,,,
+,BA/PM ,,5,,,,,,,,
+,,,,,,,,,,,
+,Project Timeline (design effort) ,,Min,Most likely,Maximum ,PERT,,,,,
+,Design effort (in weeks) ,,6,7,10,7,,,,,
+,BA effort (in weeks),,5,8,10,8,,,,,

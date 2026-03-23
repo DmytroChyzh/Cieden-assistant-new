@@ -1,0 +1,107 @@
+Activity&Description,,"Estimate, hrs",,
+,,Min,ML,Max
+Discovery,,28,39,55
+Kickoff & Alignment session,"Initial call to clarify goals, success criteria, project plan",4,6,9
+Requirements Elicitation Sessions,Deep-dive sessions on all MVP features,8,12,16
+Persona Definition,Create personas and define their main pains and goals,2,3,4
+User Journey Mapping,Map journeys for each persona and key scenarios,8,10,14
+Information Architecture,"Define platform structure, modules, and navigation",6,8,12
+UX/UI ,,268,393,514
+UI Direction & Style Foundation,"Moodboard, define visual direction, typography, colors, and base components",16,20,24
+Generic for all user types,,,,
+Authentication,"Login, password setup, reset password",3,5,7
+Basic Layout,"Navigation (Admin sidebar / Employee bottom nav)
+Error states, empty states, loading states",16,20,24
+Profile & Settings,"Personal info, logout",3,4,5
+Notifications,"Email invitations, reminders, survey-complete messages",3,5,7
+Thrive Admin Modules,,,,
+Company Management,"Companies list
+Create new company
+Company details (subscription, contacts)",7,12,16
+Benchmark Data,"Upload benchmark data (JSON/CSV)
+Preview/validate upload
+Version history",8,10,14
+Survey Campaigns (for pilot companies),"Create campaign (annual/quarterly)
+Configure audience & scheduling
+Download links CSV",7,12,16
+HR Admin Modules,,,,
+Onboarding ,"Welcome screen
+Guided onboarding wizard",8,10,14
+Hallway (Access Selection),"My personal results
+My team results
+Company Results",7,12,16
+Employee Management,"Employee list
+Upload CSV
+Error review
+Import summary",4,6,9
+Surveys,"Create survey campaign
+Email template preview
+Send test email
+Delivery method (CSV vs system email)",7,12,16
+Survey Monitoring,"Survey overview (status, dates)
+Completion progress bar
+Completion by department breakdown
+Non-responder CSV download
+Extend deadline modal",16,24,32
+Company Results Analytics,"Synthesia results video
+Company LEI gauge
+5-dimension breakdown
+Demographic comparisons (department, tenure, job level)
+Risk indicators
+Recommended actions
+PDF export",16,24,32
+Certification,"Certification dashboard (status, requirements)
+LWI assessment (68 questions)
+Document upload center (5 categories)
+Submit for review",24,32,40
+Employee Modules,,,,
+Account Setup,"Create password (from survey link)
+Accept Terms
+Auto-redirect to survey",2,4,6
+LEI Surveys,"Survey intro
+Annual survey (100 questions)
+Quarterly pulse (25 questions)
+    Question screens (Likert, multiple choice, importance pairing)
+Skip-logic behaviors
+Progress bar
+Save & resume
+Completion screen",24,32,40
+Personal Results Dashboard,"Personalized Synthesia video
+LEI gauge
+5-dimension breakdown
+Benchmark comparison
+Recommended modules",20,28,36
+Academy,"Recommended learning list
+Browse by dimension
+Module detail page (7Taps embed)",10,16,20
+Mobile Responsive,,14,20,28
+Manager Modules,,,,
+Hallway (Access Selection),"My personal results
+My team results",7,12,16
+Team Dashboard,"Team survey completion
+Team LEI gauge
+Dimension comparison vs company
+Anonymous score distribution
+Insights & recommendations
+Privacy guardrail messaging",16,24,32
+Mobile Responsive,,6,9,12
+Auditor Modules,,,,
+Application Queue,"List of pending applications
+Filters/sorting",7,12,16
+Application Detail,"Requirements checklist
+LWI score viewer
+LEI participation check
+Document viewer (PDF, images, zip)",7,12,16
+Decision Workflow,"Add internal notes
+Approve / Request Info / Deny
+Feedback to company
+Certificate generation",10,16,20
+Documentation,,40,52,68
+Design System,"Create core components for consistent UI (buttons, forms, tables, cards, charts, nav, AI blocks)",28,36,48
+Developer Handoff,Prepare specs and support dev team with handoff,4,6,8
+Documentation,"Document behaviors, UI rules, and assumptions for development",8,10,12
+Operational,,160,190,220
+Product Management,,80,90,100
+"Communication  (weekly syncs, dev support)",,80,100,120
+TOTAL ,,496,674,857
+Total Cost ,,$24 800,$33 700,$42 850

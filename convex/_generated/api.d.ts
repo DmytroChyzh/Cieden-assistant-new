@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as adminCleanup from "../adminCleanup.js";
 import type * as auth from "../auth.js";
 import type * as charts from "../charts.js";
 import type * as context from "../context.js";
@@ -31,6 +32,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  adminCleanup: typeof adminCleanup;
   auth: typeof auth;
   charts: typeof charts;
   context: typeof context;

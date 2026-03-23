@@ -1,0 +1,54 @@
+Page,,"Estimate, hrs",,,
+,,Min hours,ML (most likely),Max hours,PERT
+UI Design,,,,,
+Wireframes ,main sttucture of all pages,10,14,20,14
+Dashboard,,12,18,22,18
+Trips List,"list of all trips, with search, filters
+Action to create a trip",4,7,10,7
+Trip Builder/details,"-Create New Trip
+    - Option 1: Start from scratch.
+    - Option 2: Use a saved template.
+    - Option 3: Copy existing trip.
+- Trip Setup
+    - Trip title (Spain & Scotland – Mitchell).
+    - Cover images (upload/select).
+    - Trip description / overview.
+    - Duration, dates, group size.
+    - customer (dropdown)
+- Trip Sections (must mirror proposal structure) - add as tabs?
+    - Trip Overview.
+    - Daily Journey (day-by-day itinerary).
+    - Championship Golf Courses.
+    - Luxury Accommodations.
+    - Map of journey.
+    - Additional Information (expandable sections).
+    - Pricing & Payment.
+    - FAQs.
+- Flexible Content Blocks
+    - Ability to hide/reorder sections.
+    - Rich text editor for descriptions.
+    - Media gallery (images, videos).
+    - Ability to preview proposal
+- to publish (copy link) - 
+- to convert to a trip documentation (need provide extra details such as exact days, to-do list (assign task to trip manager/client), emergency contacts)",75,98,124,99
+Clients List,"list of all clients, with search, filters",2,4,6,4
+Client details ,"- Customer profile:
+    - Contact details (name, email, phone).
+    - Preferences (destinations, hotel type, budget).
+    - Trip history (all past and current proposals).
+    - Notes & tags?",4,7,10,7
+Libraries/templates,"- Hotels Library.
+- Golf Courses Library.
+- Additional info (TBD)
+- FAQ
+- CRUD operations for each item",8,12,16,12
+Settings,"- User Management
+- My Profile
+my default contact info (user can change it on proposal)",10,16,20,16
+Notifications,,4,6,8,6
+Design System,,12,18,24,18
+Operational,,,,,
+Communication,,8,12,16,12
+BA/PM,,4,8,12,8
+Total (hours),,153,220,288,220
+Total (budget),,"$7,650","$11,000","$14,400","$11,008"

@@ -1,0 +1,51 @@
+,,,Include,UX/UI,,,,PM,,,
+Modules ,Features/Epics,Comments ,,Min,Most likely,Maximum ,PERT,Min,Most likely,Maximum ,PERT
+Product discovery,,,,,,,,,,,
+Product discovery and audit,Product and flow audit,review and assess flows to improve UX,TRUE,6,8,16,9,,,,0
+,Audit summary report,,TRUE,3,4,6,4,,,,0
+,Flows,,TRUE,,,,0,4,5,6,5
+,,,TRUE,,,,0,,,,0
+Communication,Internal,,,1,1,2,1,0,0,0,0
+,External,,,2,2,4,3,0,1,1,1
+TOTAL,,,,12,16,29,17,5,6,7,6
+DesOps,,,,,,,,,,,
+,Design system,"foundations, components",TRUE,22,30,41,31,,,,0
+,Moodboard,,TRUE,2,4,6,4,,,,0
+,UI Conceps ,2-3 options,TRUE,6,8,10,8,,,,0
+Communication,Internal,,,1,1,1,1,0,0,0,0
+,External,,,1,1,2,1,0,0,0,0
+TOTAL,,,,32,44,60,45,0,0,0,0
+Product Design - web (depends on audit results),,,,,,,,,,,
+Advertiser,Advertiser workspace,,TRUE,100,136,178,137,,,,0
+,Responsive ,,TRUE,17,23,30,23,,,,0
+Creator,Creator workspace,,TRUE,25,37,53,38,,,,0
+,Responsive ,,TRUE,4,6,9,6,,,,0
+,,,TRUE,,,,0,,,,0
+Communication,Internal,,,4,5,7,5,0,0,0,0
+,External,,,7,10,14,10,0,0,0,0
+TOTAL,,,,157,217,290,219,0,0,0,0
+Branding,,,,,,,,,,,
+,Logo,refinement or new,TRUE,12,16,18,16,,,,0
+,Moodboard,,TRUE,4,5,6,5,,,,0
+,Concepts,2-3 options (optional),TRUE,8,10,12,10,,,,0
+,Iconography,,TRUE,8,10,12,10,,,,0
+,Motion guidance,,TRUE,4,5,6,5,,,,0
+,Brand Guidelines,,TRUE,32,36,40,36,,,,0
+,,,TRUE,,,,0,,,,0
+Communication,,,,3,4,5,4,0,0,0,0
+TOTAL,,,,71,86,99,86,0,0,0,0
+Handoff and Documentation,,,,,,,,,,,
+,Handoff and accessibility,"specs, accessibility checklist, and notes, changelogs",TRUE,8,16,24,16,,,,0
+TOTAL,,,,8,16,24,16,0,0,0,0
+,Total Product Design ,,,280,379,502,383,,,,
+,Total PM,,,74,100,132,101,,,,
+,TOTAL PROJECT (hours),,,354,480,634,484,,,,
+,TOTAL PROJECT COST ,,,"$17,700","$23,975","$31,686","$24,214",,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,Team Capacity ,,Hours a week,,,,,,,
+,,UX/UI designer/s,,30,(based on 6h efffective working day) ,,,,,,
+,,PM,,5,,,,,,,
+,,,,,,,,,,,
+,,Project Timeline (design effort) ,,Min,Most likely,Maximum ,PERT,,,,
+,,Design effort (in weeks) ,,9,13,17,13,,,,

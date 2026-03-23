@@ -366,7 +366,7 @@ export function MobileUnifiedChatInput({
             className="bg-transparent text-white placeholder-opacity-100 outline-none w-full"
             style={{
               color: '#A3A1A1',
-              fontFamily: 'Inter, -apple-system, Roboto, Helvetica, sans-serif',
+              fontFamily: 'Gilroy',
               fontSize: '16px',
               fontWeight: 400,
               lineHeight: 'normal',

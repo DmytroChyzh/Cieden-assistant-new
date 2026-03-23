@@ -43,7 +43,7 @@ export function QuickActionCard({
             style={{
               color: '#FFF',
               textAlign: 'left',
-              fontFamily: 'Inter, -apple-system, Roboto, Helvetica, sans-serif',
+              fontFamily: 'Gilroy',
               fontSize: '16px',
               fontStyle: 'normal',
               fontWeight: 400,

@@ -20,6 +20,13 @@ export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessagePro
 
   const { cleanContent, fallbackAnswers } = useMemo(() => {
     let cleanContent = message.content;
+    // Hide internal estimate control payloads from users
+    cleanContent = cleanContent
+      .replace(/ESTIMATE_PANEL_RESULT:\s*\{[\s\S]*?\}(?=\s|$)/g, "")
+      .replace(/\[ESTIMATE\s+(?:MODE|PANEL)\][^\n]*\n?/gi, "")
+      .replace(/(?:^|\n)\s*(?:ENTER\s+)?ESTIMATE\s+MODE[^\n]*\n?/gi, "\n")
+      .replace(/(?:^|\n)\s*EXIT\s+ESTIMATE\s+MODE[^\n]*\n?/gi, "\n")
+      .trim();
     const fallbackAnswers: string[] = [];
     const match = cleanContent.match(/\[([\s\S]*?)\]\s*$/);
     if (match) {
@@ -35,6 +42,8 @@ export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessagePro
     }
     return { cleanContent, fallbackAnswers };
   }, [message.content]);
+
+  const isTypingBubble = !isUser && cleanContent === "__TYPING__";
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
@@ -91,13 +100,30 @@ export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessagePro
             }`}
             style={{ wordBreak: "break-word" }}
           >
-            <div className="whitespace-pre-wrap">{cleanContent}</div>
+            {isTypingBubble ? (
+              <div className="flex items-center gap-1.5 py-1">
+                <span
+                  className="inline-block h-2 w-2 rounded-full bg-white/70 animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <span
+                  className="inline-block h-2 w-2 rounded-full bg-white/70 animate-bounce"
+                  style={{ animationDelay: "160ms" }}
+                />
+                <span
+                  className="inline-block h-2 w-2 rounded-full bg-white/70 animate-bounce"
+                  style={{ animationDelay: "320ms" }}
+                />
+              </div>
+            ) : (
+              <div className="whitespace-pre-wrap">{cleanContent}</div>
+            )}
           </div>
           <div
             className={`flex items-center gap-2 mt-1 text-xs text-white/50 ${isUser ? "justify-end" : "justify-start"}`}
           >
             <span>{timeStr}</span>
-            {!isUser && (
+            {!isUser && !isTypingBubble && (
               <button type="button" onClick={handleCopy} className="hover:text-white/80 transition" title="Copy">
                 {copied ? (
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

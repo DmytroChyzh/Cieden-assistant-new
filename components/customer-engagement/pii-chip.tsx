@@ -9,7 +9,6 @@ import {
   FileText, 
   DollarSign, 
   MapPin,
-  Eye,
   EyeOff
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -124,6 +123,10 @@ export function MessageContentWithPII({ content, isCustomerMessage }: {
   content: string; 
   isCustomerMessage: boolean;
 }) {
+  type ParsedPart =
+    | { type: "text"; content: string }
+    | { type: "chip"; chipType: PIIChipProps["type"]; chipLabel: string };
+
   // For agent messages, show content as-is
   if (!isCustomerMessage) {
     return <span>{content}</span>;
@@ -131,7 +134,7 @@ export function MessageContentWithPII({ content, isCustomerMessage }: {
   
   // Parse PII chips from customer messages
   const chipPattern = /<PII_CHIP type="([^"]+)" label="([^"]+)" \/>/g;
-  const parts = [];
+  const parts: ParsedPart[] = [];
   let lastIndex = 0;
   let match;
   
@@ -145,11 +148,11 @@ export function MessageContentWithPII({ content, isCustomerMessage }: {
     }
     
     // Add chip
-    parts.push({ 
-      type: 'chip', 
-      chipType: match[1] as PIIChipProps['type'],
-      chipLabel: match[2]
-    });
+    const chipType = match[1] as PIIChipProps["type"];
+    const chipLabel = match[2];
+    if (chipLabel) {
+      parts.push({ type: "chip", chipType, chipLabel });
+    }
     
     lastIndex = match.index + match[0].length;
   }

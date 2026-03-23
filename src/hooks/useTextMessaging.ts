@@ -96,7 +96,7 @@ export function useTextMessaging({ conversationId, actionHandlers }: UseTextMess
       });
 
       console.log('✅ User text message saved:', userMessageId);
-      lastUserMessageIdRef.current = userMessageId;
+      lastUserMessageIdRef.current = userMessageId ? String(userMessageId) : undefined;
 
       // Ensure text session is active
       if (sessionMode !== 'voice') {

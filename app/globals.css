@@ -194,7 +194,7 @@
 }
 
 @theme {
-  --font-sans: var(--font-geist-sans);
+  --font-sans: "Gilroy";
   --font-mono: var(--font-geist-mono);
 }
 
@@ -211,7 +211,7 @@
   --background-chips-buttons-white-10: rgba(255, 255, 255, 0.10);
   --Background-Gradient-dark-Dark-blue: #262531;
   --Background-Gradient-dark-Black: #000;
-  --Font-family-Font-Sans-Serif: Inter;
+  --Font-family-Font-Sans-Serif: Gilroy;
   --Gradient-Dark: linear-gradient(170deg, var(--Background-Gradient-dark-Dark-blue, #262531) -9.44%, var(--Background-Gradient-dark-Black, #000) 100%);
   --background: oklch(1 0 0);
   --foreground: oklch(0.147 0.004 49.25);
@@ -335,6 +335,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
   }
   /* Ensure the root html element also has a dark background so that
      any sub-pixel gaps (e.g. from 100vh rounding or fixed elements)

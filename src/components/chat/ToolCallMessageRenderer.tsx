@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from "react";
 import { RegularMessage } from "./RegularMessage";
 import {
   BestCaseCard,
@@ -8,6 +9,7 @@ import {
   ProcessTimelineCard,
   GettingStartedCard,
   SupportCard,
+  CASES,
 } from "@/src/components/cieden/SalesUi";
 import { ProjectBriefCard } from "@/src/components/cieden/ProjectBriefCard";
 import { NextStepsCard } from "@/src/components/cieden/NextStepsCard";
@@ -28,143 +30,258 @@ export function ToolCallMessageRenderer({
   messageId
 }: ToolCallMessageRendererProps) {
   const toolCall = parseToolCall(content);
+  const toolName = toolCall?.toolName ?? null;
+  const data = toolCall?.data;
 
-  if (toolCall?.mode === 'update') {
-    return null;
+  const findDomainFromFilter = (filter: unknown): string | null => {
+    if (!filter || typeof filter !== "string") return null;
+    const needle = filter.trim().toLowerCase();
+    if (!needle) return null;
+
+    const allDomains = Array.from(new Set(CASES.flatMap((c) => c.domain)));
+    const exact = allDomains.find((d) => d.toLowerCase() === needle);
+    if (exact) return exact;
+
+    const includes = allDomains
+      .filter((d) => {
+        const hay = d.toLowerCase();
+        return hay.includes(needle) || needle.includes(hay);
+      })
+      .sort((a, b) => a.length - b.length);
+
+    return includes[0] ?? null;
+  };
+
+  const desiredDomain =
+    toolName === "show_cases" ? findDomainFromFilter((data as any)?.filter) : null;
+
+  // Auto-open cases panel only once per tool message.
+  // IMPORTANT: never dispatch in render, otherwise the user can't close the panel.
+  useEffect(() => {
+    if (!toolCall) return;
+    if (toolName !== "show_cases") return;
+    if (!desiredDomain) return;
+    if (typeof window === "undefined") return;
+
+    const isOpen = !!(window as any).__ciedenCasesPanelOpen;
+    if (isOpen) return;
+
+    const userClosed = (window as any).__ciedenCasesPanelUserClosed;
+    const lastDismissed = (window as any).__ciedenCasesPanelLastDismissedDomain;
+    const closedAt = (window as any).__ciedenCasesPanelClosedAt as number | undefined;
+
+    // Cooldown: prevents instant reopen right after user closes the panel.
+    if (userClosed && typeof closedAt === "number" && Date.now() - closedAt < 10000) {
+      return;
+    }
+    if (userClosed && lastDismissed === desiredDomain) return;
+
+    window.dispatchEvent(
+      new CustomEvent("open-cases-panel", { detail: { domain: desiredDomain } }),
+    );
+  }, [toolCall, toolName, desiredDomain]);
+
+  if (toolCall?.mode === "update") return null;
+  if (!toolCall) return <RegularMessage content={content} />;
+
+  // Anti-spam: prevent rendering the same tool card twice from *different* messages.
+  // But do NOT break React StrictMode double-render for the same `messageId`.
+  //
+  // Also: don't apply suppression to "raw tool name" inputs like `show_getting_started`,
+  // because those are often used by debugging / manual triggering and we want them to
+  // always render.
+  const isFullProtocolToolCall =
+    typeof content === "string" && content.trim().startsWith("TOOL_CALL:");
+
+  if (typeof window !== "undefined" && isFullProtocolToolCall) {
+    const dedupStore =
+      ((window as any).__ciedenToolCardDedup ??
+        ((window as any).__ciedenToolCardDedup = {})) as Record<
+        string,
+        { messageId?: string | number; ts: number }
+      >;
+
+    const keyBase = toolName ?? "unknown_tool";
+    const key =
+      toolName === "show_cases" ? `${keyBase}:${desiredDomain ?? "all"}` : keyBase;
+
+    const now = Date.now();
+    const last = dedupStore[key];
+    const COOLDOWN_MS = 2500;
+    const currentId = messageId ? String(messageId) : undefined;
+
+    // If this is the same message being rendered again (e.g. StrictMode),
+    // never suppress it.
+    if (currentId && last?.messageId === currentId) {
+      // Keep going, render card normally.
+    } else if (
+      last &&
+      typeof last.ts === "number" &&
+      now - last.ts < COOLDOWN_MS
+    ) {
+      // Different message within cooldown: treat as duplicate.
+      return null;
+    }
+
+    dedupStore[key] = { messageId: currentId, ts: now };
   }
 
-  if (toolCall) {
-    const { toolName, data } = toolCall;
-
-    switch (toolName) {
-      case 'show_cases':
-        return (
-          <div className="w-full max-w-4xl mx-auto">
-            <CasesGrid />
-          </div>
-        );
-
-      case 'show_best_case':
-        return (
-          <div className="w-full max-w-4xl mx-auto">
-            <BestCaseCard />
-          </div>
-        );
-
-      case 'show_engagement_models':
-        return (
-          <div className="w-full max-w-4xl mx-auto">
-            <EngagementModelsCard />
-          </div>
-        );
-
-      case 'generate_estimate':
-      case 'open_calculator':
-        return (
-          <div className="w-full max-w-4xl mx-auto">
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent("open-estimate-panel"))}
-              className="group w-full text-left rounded-2xl border border-violet-400/30 bg-gradient-to-br from-violet-500/15 via-purple-500/10 to-transparent p-5 hover:border-violet-400/50 hover:from-violet-500/25 transition-all duration-300 ring-1 ring-inset ring-white/[0.06] cursor-pointer"
-            >
-              <div className="flex items-start gap-4">
-                <div className="shrink-0 rounded-xl bg-violet-500/25 p-3 text-violet-300 group-hover:bg-violet-500/35 transition-colors">
-                  <ClipboardList className="h-6 w-6" aria-hidden />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-base font-semibold text-white/95">
-                    Preliminary estimate — short questionnaire
-                  </h4>
-                  <p className="mt-1 text-sm text-white/60 leading-relaxed">
-                    Answer 3–4 quick questions (project type, complexity) and get an approximate price range. Opens in the side panel.
-                  </p>
-                  <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-violet-300 group-hover:text-violet-200 transition-colors">
-                    Open questionnaire
-                    <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" aria-hidden />
-                  </span>
-                </div>
+  switch (toolName) {
+    case "show_cases":
+      return desiredDomain ? (
+        <div className="w-full max-w-[900px] mx-auto font-[Gilroy]">
+          <div className="text-sm text-white/70">Showing {desiredDomain} case studies...</div>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window === "undefined") return;
+              (window as any).__ciedenCasesPanelUserClosed = false;
+              (window as any).__ciedenCasesPanelOpen = true;
+              (window as any).__ciedenCasesPanelOpenDomain = desiredDomain;
+              window.dispatchEvent(
+                new CustomEvent("open-cases-panel", { detail: { domain: desiredDomain } }),
+              );
+            }}
+            className="mt-3 w-full group text-left rounded-2xl border border-violet-400/30 bg-gradient-to-br from-violet-500/15 via-purple-500/10 to-transparent backdrop-blur-sm px-5 py-4 text-sm font-medium text-white/90 hover:border-violet-400/50 hover:from-violet-500/25 transition-all cursor-pointer shadow-[0_0_24px_rgba(139,92,246,0.12),inset_0_1px_0_rgba(255,255,255,0.06)]"
+            aria-label={`Open ${desiredDomain} cases`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="shrink-0 rounded-xl bg-violet-500/20 p-2 text-violet-200/90 group-hover:bg-violet-500/30 transition-colors">
+                  <ClipboardList className="h-5 w-5" aria-hidden />
+                </span>
+                <span className="min-w-0 truncate">Open {desiredDomain} cases</span>
               </div>
-            </button>
-          </div>
-        );
-
-      case 'show_about':
-        return (
-          <div className="w-full max-w-4xl mx-auto">
-            <AboutCiedenCard />
-          </div>
-        );
-
-      case 'show_process':
-        return (
-          <div className="w-full max-w-4xl mx-auto">
-            <ProcessTimelineCard />
-          </div>
-        );
-
-      case 'show_getting_started':
-        return (
-          <div className="w-full max-w-4xl mx-auto">
-            <GettingStartedCard />
-          </div>
-        );
-
-      case 'show_support':
-        return (
-          <div className="w-full max-w-4xl mx-auto">
-            <SupportCard />
-          </div>
-        );
-
-      // New Cieden assistant utilities
-      case 'show_project_brief':
-        return (
-          <div className="w-full max-w-4xl mx-auto">
-            <ProjectBriefCard data={data} />
-          </div>
-        );
-
-      case 'show_next_steps':
-        return (
-          <div className="w-full max-w-3xl mx-auto">
-            <NextStepsCard data={data} />
-          </div>
-        );
-
-      case 'show_session_summary': {
-        const hasData =
-          data &&
-          (data.projectName ||
-            (Array.isArray(data.keyPoints) && data.keyPoints.length > 0) ||
-            (Array.isArray(data.decisions) && data.decisions.length > 0) ||
-            (Array.isArray(data.openQuestions) && data.openQuestions.length > 0) ||
-            data.recommendedNextStep);
-
-        if (!hasData) {
-          // No structured summary yet – show a lightweight helper text instead of an empty card.
-          return (
-            <div className="text-sm text-white/60 italic">
-              I’m not ready to show a session summary yet — I need a bit more information about your
-              project and decisions before I can create it.
+              <span className="shrink-0 inline-flex items-center gap-1 text-violet-200/90 group-hover:text-violet-100 transition-colors">
+                <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" aria-hidden />
+              </span>
             </div>
-          );
-        }
+          </button>
+        </div>
+      ) : (
+        <div className="w-full max-w-[900px] mx-auto font-[Gilroy]">
+          <CasesGrid />
+        </div>
+      );
 
+    case "show_best_case":
+      return (
+        <div className="w-full max-w-4xl mx-auto">
+          <BestCaseCard />
+        </div>
+      );
+
+    case "show_engagement_models":
+      return (
+        <div className="w-full max-w-4xl mx-auto">
+          <EngagementModelsCard />
+        </div>
+      );
+
+    case "generate_estimate":
+    case "open_calculator":
+      // If the estimate panel is already open, don't spam another "open panel" card.
+      if (typeof window !== "undefined" && (window as any).__ciedenEstimatePanelOpen) return null;
+      return (
+        <div className="w-full max-w-4xl mx-auto">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("open-estimate-panel"))}
+            className="group w-full text-left rounded-2xl border border-violet-400/30 bg-gradient-to-br from-violet-500/15 via-purple-500/10 to-transparent p-5 hover:border-violet-400/50 hover:from-violet-500/25 transition-all duration-300 ring-1 ring-inset ring-white/[0.06] cursor-pointer"
+          >
+            <div className="flex items-start gap-4">
+              <div className="shrink-0 rounded-xl bg-violet-500/25 p-3 text-violet-300 group-hover:bg-violet-500/35 transition-colors">
+                <ClipboardList className="h-6 w-6" aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-base font-semibold text-white/95">
+                  Preliminary estimate — short questionnaire
+                </h4>
+                <p className="mt-1 text-sm text-white/60 leading-relaxed">
+                  Answer 3–4 quick questions (project type, complexity) and get an approximate price range. Opens in the side panel.
+                </p>
+                <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-violet-300 group-hover:text-violet-200 transition-colors">
+                  Open questionnaire
+                  <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" aria-hidden />
+                </span>
+              </div>
+            </div>
+          </button>
+        </div>
+      );
+
+    case "show_about":
+      return (
+        <div className="w-full max-w-4xl mx-auto">
+          <AboutCiedenCard />
+        </div>
+      );
+
+    case "show_process":
+      return (
+        <div className="w-full max-w-4xl mx-auto">
+          <ProcessTimelineCard />
+        </div>
+      );
+
+    case "show_getting_started":
+      return (
+        <div className="w-full max-w-[900px] mx-auto">
+          <GettingStartedCard />
+        </div>
+      );
+
+    case "show_support":
+      return (
+        <div className="w-full max-w-[900px] mx-auto">
+          <SupportCard />
+        </div>
+      );
+
+    case "show_project_brief":
+      return (
+        <div className="w-full max-w-[900px] mx-auto">
+          <ProjectBriefCard data={data} />
+        </div>
+      );
+
+    case "show_next_steps":
+      return (
+        <div className="w-full max-w-[900px] mx-auto">
+          <NextStepsCard data={data} />
+        </div>
+      );
+
+    case "show_session_summary": {
+      const hasData =
+        data &&
+        (data.projectName ||
+          (Array.isArray(data.keyPoints) && data.keyPoints.length > 0) ||
+          (Array.isArray(data.decisions) && data.decisions.length > 0) ||
+          (Array.isArray(data.openQuestions) && data.openQuestions.length > 0) ||
+          data.recommendedNextStep);
+
+      if (!hasData) {
         return (
-          <div className="w-full max-w-4xl mx-auto">
-            <SessionSummaryCard data={data} />
+          <div className="text-sm text-white/60 italic">
+            I’m not ready to show a session summary yet — I need a bit more information about your
+            project and decisions before I can create it.
           </div>
         );
       }
 
-      default:
-        return (
-          <div className="text-sm text-white/50 italic">
-            This action is no longer available.
-          </div>
-        );
+      return (
+        <div className="w-full max-w-4xl mx-auto">
+          <SessionSummaryCard data={data} />
+        </div>
+      );
     }
-  }
 
-  return <RegularMessage content={content} />;
+    default:
+      return (
+        <div className="text-sm text-white/50 italic">
+          This action is no longer available.
+        </div>
+      );
+  }
 }

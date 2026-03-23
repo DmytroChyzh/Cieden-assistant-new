@@ -1,0 +1,38 @@
+Activity&Description,,"Estimate, hrs",,,
+,,Min,ML,Max,
+Discovery,,25,32,39,
+Kickoff & Alignment session,"Initial call to clarify goals, success criteria, project plan",2,3,4,
+Requirements Elicitation Sessions,"- Review existing dashboards (Tableau/Metabase examples)
+- Understand personas & their data needs (Corporate, Plant, Purchasing)
+- Map key use cases (Open Orders, Repair Status, Lead Time components, Cost Savings basics etc)
+- Data field analysis: what data is available / what user needs
+- Define drill-down flows & export expectations
+- Early technical feasibility sync with engineering",10,12,14,
+User interviews,"Conduct 30–45 min interviews:
+- How they currently view data
+- Pain points with Tableau/Metabase
+- What KPIs matter
+- How often they check dashboards
+- Preferred format (charts, tables, exports)
+- Drill-down expectations",5,7,9,if possible
+Information Architecture,"- Define dashboard structure & widget layout
+- Select core MVP widgets (KPIs, charts, tables)
+- Define role-based dashboard variations
+- Define drill-down flows (widget → detail → export)
+- Validation with team",8,10,12,
+Technical Discovery,,15,18,20,
+Data Structure & Technical Architecture,"- Analyze the existing order management system and how repair data is stored.
+- Review existing backend logic to understand constraints and integration points.
+- Access and explore the client’s database and backend to inspect the real schema and data flows.
+- Define the data model, relationships, and required transformations for analytics.
+- Determine which services will handle data processing at the database and API level.
+- Establish the approach for multi-tenancy and secure data separation.",15,18,20,
+UX/UI design	,,30,35,40,
+UX/UI design,"- Build visual dashboard concepts (3–4 key screens)
+- Apply accessible, modern UI (enterprise SaaS style)
+- Design chart styles, color coding, status indicators
+- Create plant/corporate/purchasing dashboard variations
+- Add sample data for realism
+- Prepare “demo-ready” version to show pilot customer",30,35,40,
+TOTAL ,,70,85,99,
+Total Cost ,,$3 500,$4 250,$4 950,

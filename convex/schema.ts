@@ -7,16 +7,21 @@ export default defineSchema({
   
   conversations: defineTable({
     userId: v.string(),
+    guestId: v.optional(v.string()),
+    guestEmail: v.optional(v.string()),
+    guestName: v.optional(v.string()),
     title: v.string(),
     lastMessageAt: v.number(),
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
+    .index("by_guest", ["guestId"])
     .index("by_last_message", ["lastMessageAt"]),
   
   messages: defineTable({
     conversationId: v.id("conversations"),
     userId: v.string(),
+    guestId: v.optional(v.string()),
     role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
     content: v.string(),
     source: v.union(v.literal("voice"), v.literal("text"), v.literal("contextual"), v.literal("websocket"), v.literal("webrtc")),

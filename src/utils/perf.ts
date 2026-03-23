@@ -32,7 +32,7 @@ export function startPerfTimer(label: string, context: Context = {}): PerfTimer 
     const now = hasPerf ? performance.now() : Date.now();
     const dtMs = now - t0;
     if (isDiagnosticsEnabled()) {
-      // eslint-disable-next-line no-console
+       
       console.log('[perf]', {
         label,
         phase,
@@ -57,7 +57,7 @@ export function startPerfTimer(label: string, context: Context = {}): PerfTimer 
 // Simple one-off gated log for events that don't need a timer
 export function perfLog(label: string, data: Context = {}): void {
   if (!isDiagnosticsEnabled()) return;
-  // eslint-disable-next-line no-console
+   
   console.log('[perf]', { label, t: Date.now(), ...data });
 }
 

@@ -41,9 +41,9 @@ export function ProjectBriefCard({
       initial={{ opacity: 0, y: 24, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: "spring", stiffness: 210, damping: 22 }}
-      className={cn("max-w-5xl w-full mx-auto", className)}
+      className={cn("w-full max-w-none mx-auto", className)}
     >
-      <Card className="relative overflow-hidden bg-black/85 border border-white/10 rounded-[36px] backdrop-blur-2xl shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]">
+      <Card className="relative overflow-hidden bg-black/85 border border-white/10 rounded-[36px] backdrop-blur-2xl shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)] font-[Gilroy]">
         <div className="absolute inset-0 bg-gradient-to-tr from-violet-500/18 via-transparent to-sky-400/14 pointer-events-none" />
 
         <CardHeader className="relative flex flex-row items-start gap-4 pb-4 pt-7 px-7">

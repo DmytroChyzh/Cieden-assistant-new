@@ -308,7 +308,7 @@ export function useVoiceRecording({
       const waitStart = performance.now();
       let tries = 0;
       while (typeof messages === 'undefined' && tries < 10) {
-        // eslint-disable-next-line no-await-in-loop
+         
         await new Promise(r => setTimeout(r, 50));
         tries++;
       }

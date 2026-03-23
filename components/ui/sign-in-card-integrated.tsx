@@ -405,7 +405,7 @@ export function SignInCardIntegrated() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5 }}
               >
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <Link 
                   href="/signup" 
                   className="relative inline-block group/signup"

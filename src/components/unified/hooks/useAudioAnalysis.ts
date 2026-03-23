@@ -81,7 +81,7 @@ export function useAudioAnalysis({
           const { analyser, dataArray } = micAnalyzerRef.current;
           
           // Get frequency data
-          analyser.getByteFrequencyData(dataArray as Uint8Array);
+          analyser.getByteFrequencyData(dataArray as unknown as Uint8Array<ArrayBuffer>);
           
           // Calculate average amplitude
           let sum = 0;
@@ -188,7 +188,7 @@ export function useAudioAnalysis({
               
               const { analyser, dataArray } = speakerAnalyzerRef.current;
               
-              analyser.getByteFrequencyData(dataArray as Uint8Array);
+              analyser.getByteFrequencyData(dataArray as unknown as Uint8Array<ArrayBuffer>);
               
               let sum = 0;
               for (let i = 0; i < dataArray.length; i++) {

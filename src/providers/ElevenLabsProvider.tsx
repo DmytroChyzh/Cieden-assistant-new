@@ -66,7 +66,7 @@ interface ElevenLabsContextValue {
   stopVoice: () => Promise<void>;
   sendTextMessage: (message: string) => Promise<boolean>;
   sendVoiceMessage: (message: string) => Promise<void>;
-  queueToolMessage: (content: string, metadata?: Record<string, any>) => void;
+  queueToolMessage: (content: string, metadata?: Record<string, unknown>) => void;
   registerTextHandler: (
     handler: (event: NormalizedMessageEvent) => Promise<void> | void
   ) => () => void;
@@ -89,6 +89,17 @@ interface Waiter {
   timeoutId: NodeJS.Timeout;
 }
 
+interface ToolResponseLike {
+  tool_name?: string;
+  tool_type?: string;
+  is_error?: boolean;
+}
+
+type ConversationLike = ReturnType<typeof useConversation> & {
+  sendContextualUpdate?: (text: string) => void;
+  sendUserMessage?: (text: string) => void;
+};
+
 const ElevenLabsContext = createContext<ElevenLabsContextValue | null>(null);
 
 const TEXT_CONNECT_TIMEOUT_MS = 8000;
@@ -96,6 +107,16 @@ const TEXT_DISCONNECT_TIMEOUT_MS = 5000;
 const VOICE_CONNECT_TIMEOUT_MS = 10000;
 const TEXT_IDLE_CLOSE_MS = 5 * 60 * 1000;
 const TEXT_WS_AUTOSTART = process.env.NEXT_PUBLIC_TEXT_WS_AUTOSTART !== 'false';
+
+// ElevenLabs/ConvAI can hard-fail on very large payloads.
+// Keep full text in Convex/UI; only truncate what we send over transport.
+const MAX_TRANSPORT_CHARS = 12000;
+const truncateForTransport = (text: string) => {
+  if (text.length <= MAX_TRANSPORT_CHARS) return text;
+  const head = Math.floor(MAX_TRANSPORT_CHARS / 2);
+  const tail = MAX_TRANSPORT_CHARS - head;
+  return `${text.slice(0, head)}\n...\n${text.slice(-tail)}`;
+};
 
 const resolveWaiters = (waitersRef: MutableRefObject<Waiter[]>) => {
   const waiters = waitersRef.current.splice(0, waitersRef.current.length);
@@ -447,9 +468,9 @@ export function ElevenLabsProvider({
               timestamp: Date.now()
             }
           } as SessionMessage);
-        } catch (e) {
+        } catch (error) {
           if (process.env.NODE_ENV !== 'development') {
-            console.warn('BroadcastChannel heartbeat post failed:', e);
+            console.warn('BroadcastChannel heartbeat post failed:', error);
           }
         }
       }
@@ -518,7 +539,7 @@ export function ElevenLabsProvider({
     return () => {
       try {
         channel.onmessage = null;
-      } catch (_) {
+      } catch {
         // ignore
       }
     };
@@ -555,7 +576,7 @@ export function ElevenLabsProvider({
               type: 'SESSION_ENDED',
               payload: { tabId, conversationId: conversationIdRef.current || '', mode: null, timestamp: Date.now() }
             } as SessionMessage);
-          } catch (e) {
+          } catch {
             // Ignore if channel is already closed
           }
         }
@@ -564,7 +585,7 @@ export function ElevenLabsProvider({
       if (channel) {
         try {
           channel.close();
-        } catch (_) {}
+        } catch {}
       }
     };
   }, [tabId]);
@@ -599,7 +620,7 @@ export function ElevenLabsProvider({
         } else if (isDiagnosticsEnabled()) {
           perfLog('voice.connected_event', {});
         }
-      } catch (_) {}
+      } catch {}
 
       if (conversationId && startStream && !voiceStreamInitializedRef.current) {
         const streamId = `voice-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
@@ -624,7 +645,7 @@ export function ElevenLabsProvider({
         while (pendingVoiceQueueRef.current.length && voiceRef.current?.getStatus() === 'connected') {
           const msg = pendingVoiceQueueRef.current.shift()!;
           try {
-            voiceRef.current?.sendUserMessage(msg);
+            voiceRef.current?.sendUserMessage(truncateForTransport(msg));
           } catch (e) {
             console.error('Failed to flush queued voice message', e);
           }
@@ -655,7 +676,7 @@ export function ElevenLabsProvider({
       } else if (isDiagnosticsEnabled()) {
         perfLog('voice.disconnected_event', { reason: details.reason });
       }
-    } catch (_) {}
+    } catch {}
 
     if (sessionModeRef.current === 'voice') {
       setSessionMode('idle');
@@ -671,7 +692,7 @@ export function ElevenLabsProvider({
               type: 'SESSION_ENDED',
               payload: { tabId, conversationId: conversationIdRef.current || '', mode: null, timestamp: Date.now() }
             } as SessionMessage);
-          } catch (_) {
+          } catch {
             // ignore if channel is closed
           }
         }
@@ -703,12 +724,22 @@ export function ElevenLabsProvider({
     // "Cannot read properties of undefined" style crashes.
     console.error('❌ ElevenLabs voice error', error);
 
-    const err = (error ?? {}) as any;
+    const err = (typeof error === 'object' && error !== null)
+      ? (error as Record<string, unknown>)
+      : {};
     const errorType: string | undefined =
-      err.error_type || err.type || err.name || (typeof err === 'string' ? 'STRING_ERROR' : undefined);
-    const errorCode: number | string | undefined = err.code ?? err.error_code ?? err.status;
+      (typeof err.error_type === 'string' ? err.error_type : undefined) ||
+      (typeof err.type === 'string' ? err.type : undefined) ||
+      (typeof err.name === 'string' ? err.name : undefined) ||
+      (typeof error === 'string' ? 'STRING_ERROR' : undefined);
+    const errorCode =
+      (typeof err.code === 'number' || typeof err.code === 'string' ? err.code : undefined) ??
+      (typeof err.error_code === 'number' || typeof err.error_code === 'string' ? err.error_code : undefined) ??
+      (typeof err.status === 'number' || typeof err.status === 'string' ? err.status : undefined);
     const reason: string | undefined =
-      err.reason || err.message || (typeof err === 'string' ? err : undefined);
+      (typeof err.reason === 'string' ? err.reason : undefined) ||
+      (typeof err.message === 'string' ? err.message : undefined) ||
+      (typeof error === 'string' ? error : undefined);
 
     // Log a normalized summary so we can understand what's going on from console only.
     if (errorType || errorCode || reason) {
@@ -748,9 +779,12 @@ export function ElevenLabsProvider({
     }
   }, []);
 
-  const handleVoiceAgentTool = useCallback((toolResponse: any) => {
+  const handleVoiceAgentTool = useCallback((toolResponse: unknown) => {
+    const tool = (typeof toolResponse === 'object' && toolResponse !== null)
+      ? (toolResponse as ToolResponseLike)
+      : {};
     console.log('🔧 Agent tool executed:', toolResponse);
-    if (toolResponse.tool_name === 'end_call' && toolResponse.tool_type === 'system' && !toolResponse.is_error) {
+    if (tool.tool_name === 'end_call' && tool.tool_type === 'system' && !tool.is_error) {
       console.log('📞 Agent called end_call - waiting for natural disconnect');
       setTimeout(() => {
         if (sessionModeRef.current === 'voice') {
@@ -784,7 +818,7 @@ export function ElevenLabsProvider({
         try {
           const fmt = (n: number) => Math.max(0, Math.min(1, n)).toFixed(3);
           console.log('[telemetry] vad', { score: fmt(score), isSpeaking });
-        } catch (_) {}
+        } catch {}
         vadLogLastRef.current = now;
       }
     }
@@ -795,7 +829,7 @@ export function ElevenLabsProvider({
     console.log('⚠️ User interrupted agent (voice mode)');
   }, []);
 
-  const handleVoiceDebug = useCallback((message: any) => {
+  const handleVoiceDebug = useCallback((message: unknown) => {
     console.log('🐛 Voice mode debug:', message);
   }, []);
 
@@ -827,13 +861,13 @@ export function ElevenLabsProvider({
         while (pendingTextQueueRef.current.length && textConversation.status === 'connected') {
           const msg = pendingTextQueueRef.current.shift()!;
           try {
-            textConversation.sendUserMessage(msg);
-          } catch (e) {
-            console.error('Failed to flush queued text message', e);
+            textConversation.sendUserMessage(truncateForTransport(msg));
+          } catch (error) {
+            console.error('Failed to flush queued text message', error);
           }
         }
-      } catch (e) {
-        console.error('Text queue flush failed', e);
+      } catch (error) {
+        console.error('Text queue flush failed', error);
       }
     },
 
@@ -893,7 +927,9 @@ export function ElevenLabsProvider({
       console.error('❌ Text mode error:', error);
 
       // Check for daily limit error
-      const errorObj = error as any;
+      const errorObj = (typeof error === 'object' && error !== null)
+        ? (error as { code?: number; reason?: string })
+        : undefined;
       if (errorObj?.code === 1008 || errorObj?.reason?.includes('daily limit')) {
         emitErrorToHandlers(textErrorHandlersRef, {
           code: errorObj.code || 1008,
@@ -902,13 +938,16 @@ export function ElevenLabsProvider({
       }
     },
 
-    onDebug: (message: any) => {
+    onDebug: (message: unknown) => {
       console.log('🐛 Text mode debug:', message);
     },
-    onAgentToolResponse: (toolResponse: any) => {
+    onAgentToolResponse: (toolResponse: unknown) => {
+      const tool = (typeof toolResponse === 'object' && toolResponse !== null)
+        ? (toolResponse as ToolResponseLike)
+        : {};
       console.log('🔧 Agent tool executed (text):', toolResponse);
 
-      if (toolResponse.tool_name === 'end_call' && toolResponse.tool_type === 'system' && !toolResponse.is_error) {
+      if (tool.tool_name === 'end_call' && tool.tool_type === 'system' && !tool.is_error) {
         console.log('📞 Agent called end_call in text mode - waiting for natural disconnect');
         // Server doesn't auto-disconnect, we need to trigger cleanup
         // Wait briefly for final messages, then force disconnect
@@ -947,7 +986,7 @@ export function ElevenLabsProvider({
       // Always try to end the session to force internal cleanup, even if status shows disconnected
       try {
         await voiceRef.current?.endSession();
-      } catch (_) {}
+      } catch {}
 
       // Wait briefly for onDisconnect/teardown to settle
       await new Promise(resolve => setTimeout(resolve, 250));
@@ -969,7 +1008,7 @@ export function ElevenLabsProvider({
                 type: 'SESSION_ENDED',
                 payload: { tabId, conversationId: conversationIdRef.current || '', mode: null, timestamp: Date.now() }
               } as SessionMessage);
-            } catch (_) {}
+            } catch {}
           }
         }
       }
@@ -1054,15 +1093,15 @@ export function ElevenLabsProvider({
   // Cleanup on unmount and pagehide
   useEffect(() => {
     const onPageHide = () => {
-      try { stopAllAudioStreams(); } catch (_) {}
+      try { stopAllAudioStreams(); } catch {}
     };
     if (typeof window !== 'undefined') {
-      window.addEventListener('pagehide', onPageHide, { once: true } as any);
+      window.addEventListener('pagehide', onPageHide, { once: true });
     }
     return () => {
-      try { stopAllAudioStreams(); } catch (_) {}
+      try { stopAllAudioStreams(); } catch {}
       if (typeof window !== 'undefined') {
-        window.removeEventListener('pagehide', onPageHide as any);
+        window.removeEventListener('pagehide', onPageHide);
       }
     };
   }, []);
@@ -1120,7 +1159,7 @@ export function ElevenLabsProvider({
 
           await textConversation.endSession();
           await disconnectPromise;
-        } catch (_) {}
+        } catch {}
         // fall through to start a fresh session with dynamic variables
       } else {
         console.log('[ElevenLabsProvider] Text mode already active and connected');
@@ -1220,7 +1259,7 @@ export function ElevenLabsProvider({
               if (details.code != null || details.reason != null || typeof details.wasClean === 'boolean') {
                 console.warn('[ElevenLabsProvider] WebSocket close details:', details);
               }
-            } catch (_) {
+            } catch {
               // ignore
             }
           }
@@ -1268,7 +1307,6 @@ export function ElevenLabsProvider({
       const start = Date.now();
       try {
         while (!pendingTextHistoryRef.current && (Date.now() - start) < MAX_WAIT_MS) {
-          // eslint-disable-next-line no-await-in-loop
           await new Promise(r => setTimeout(r, STEP_MS));
         }
         await startText(pendingTextHistoryRef.current ?? undefined);
@@ -1290,7 +1328,7 @@ export function ElevenLabsProvider({
     const appliedVoicePreferences = { ...voicePreferences };
     try {
       console.log('[startVoice] Applied voice preferences', appliedVoicePreferences);
-    } catch (_) {}
+    } catch {}
 
     // Force takeover if another non-stale voice session exists in a different tab
     const existingLock = SessionLock.get();
@@ -1302,7 +1340,7 @@ export function ElevenLabsProvider({
             type: 'FORCE_STOP_VOICE',
             payload: { newOwner: tabId }
           } as SessionMessage);
-        } catch (_) {
+        } catch {
           // ignore
         }
       }
@@ -1315,7 +1353,7 @@ export function ElevenLabsProvider({
         if (isDiagnosticsEnabled()) {
           perfLog('voice.force_stop_previous_tab_wait', { waitedMs: Math.round(waited) });
         }
-      } catch (_) {}
+      } catch {}
     }
 
     if (sessionModeRef.current === 'voice' && voiceRef.current?.getStatus() === 'connected') {
@@ -1332,7 +1370,7 @@ export function ElevenLabsProvider({
       textConnectionStateRef.current = 'idle';
       try {
         void textConversation.endSession();
-      } catch (_) {}
+      } catch {}
     }
 
     await runTransition(async () => {
@@ -1389,7 +1427,7 @@ export function ElevenLabsProvider({
         const readyPromise = new Promise<void>(resolve => { voiceMountReadyCallback.current = resolve; });
         setVoiceAttemptId(attemptId);
         // Perf: create timer and mark enter as soon as attemptId is known
-        let timer1 = startPerfTimer('voice.start', { attemptId, attempt: 1 });
+        const timer1 = startPerfTimer('voice.start', { attemptId, attempt: 1 });
         attemptTimersRef.current.set(attemptId, timer1);
         timer1.mark('enter', { prefs: appliedVoicePreferences });
         await readyPromise;
@@ -1398,7 +1436,7 @@ export function ElevenLabsProvider({
         const overrides1 = buildVoiceOverrides();
         try {
           console.log('[startVoice] Attempt 1 overrides payload', overrides1);
-        } catch (_) {}
+        } catch {}
 
         timer1.mark('startSession_call');
         voiceConversationId = await voiceRef.current!.startSession({
@@ -1423,10 +1461,10 @@ export function ElevenLabsProvider({
           const id = voiceAttemptIdRef.current || undefined;
           if (id) {
             attemptTimersRef.current.get(id)?.mark('attempt1_failed', {
-              reason: (err as any)?.message || String(err)
+              reason: err instanceof Error ? err.message : String(err)
             });
           }
-        } catch (_) {}
+        } catch {}
         try {
           // Fast-stop text if connected
           const fastStopStart = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
@@ -1441,7 +1479,7 @@ export function ElevenLabsProvider({
             } else if (isDiagnosticsEnabled()) {
               perfLog('voice.fast_stop_text_done', { ms: Math.round(waited) });
             }
-          } catch (_) {}
+          } catch {}
 
           // Clear any stale voice connect waiters before retrying
           rejectWaiters(voiceConnectWaitersRef, new Error('Clearing stale waiters - retrying voice session'));
@@ -1463,7 +1501,7 @@ export function ElevenLabsProvider({
           const attemptId2 = crypto.randomUUID();
           const readyPromise2 = new Promise<void>(resolve => { voiceMountReadyCallback.current = resolve; });
           setVoiceAttemptId(attemptId2);
-          let timer2 = startPerfTimer('voice.start', { attemptId: attemptId2, attempt: 2 });
+          const timer2 = startPerfTimer('voice.start', { attemptId: attemptId2, attempt: 2 });
           attemptTimersRef.current.set(attemptId2, timer2);
           timer2.mark('enter', { prefs: appliedVoicePreferences });
           await readyPromise2;
@@ -1472,7 +1510,7 @@ export function ElevenLabsProvider({
           const overrides2 = buildVoiceOverrides();
           try {
             console.log('[startVoice] Attempt 2 overrides payload', overrides2);
-          } catch (_) {}
+          } catch {}
 
           timer2.mark('startSession_call');
           voiceConversationId = await voiceRef.current!.startSession({
@@ -1521,7 +1559,7 @@ export function ElevenLabsProvider({
         } else if (isDiagnosticsEnabled()) {
           perfLog('voice.lock_acquired', {});
         }
-      } catch (_) {}
+      } catch {}
 
       // Broadcast to other tabs
       if (sessionChannel) {
@@ -1530,7 +1568,7 @@ export function ElevenLabsProvider({
             type: 'SESSION_STARTED',
             payload: sessionState
           } as SessionMessage);
-        } catch (e) {
+        } catch {
           // Ignore if channel is closed
         }
       }
@@ -1574,7 +1612,7 @@ export function ElevenLabsProvider({
 
     console.log('📤 Sending voice message:', message);
     try {
-      voiceRef.current?.sendUserMessage(message);
+      voiceRef.current?.sendUserMessage(truncateForTransport(message));
     } catch (error) {
       console.error('Failed to send voice message:', error);
     }
@@ -1598,7 +1636,7 @@ export function ElevenLabsProvider({
     if (sessionModeRef.current === 'voice') {
       if (voiceRef.current?.getStatus() === 'connected') {
         try {
-          voiceRef.current?.sendUserMessage(message);
+          voiceRef.current?.sendUserMessage(truncateForTransport(message));
           return true;
         } catch (error) {
           console.error('Failed to send text message via WebRTC:', error);
@@ -1606,10 +1644,11 @@ export function ElevenLabsProvider({
         }
       }
       // Queue and ensure connection attempt is underway
-      enqueueMessage(pendingVoiceQueueRef.current, message);
+      // IMPORTANT: queue must also be truncated, because flush later sends the queued raw msg.
+      enqueueMessage(pendingVoiceQueueRef.current, truncateForTransport(message));
       try {
         await startVoice();
-      } catch (_) {}
+      } catch {}
       return true; // queued successfully
     }
 
@@ -1617,7 +1656,7 @@ export function ElevenLabsProvider({
     // Check both SDK status and our ref for reliability
     if (textConversation.status === 'connected' || (sessionModeRef.current === 'text' && textConnectionStateRef.current === 'connected')) {
       try {
-        textConversation.sendUserMessage(message);
+        textConversation.sendUserMessage(truncateForTransport(message));
         return true;
       } catch (error) {
         console.error('Failed to send text message via WebSocket:', error);
@@ -1626,10 +1665,11 @@ export function ElevenLabsProvider({
     }
 
     // Queue and ensure connection attempt is underway
-    enqueueMessage(pendingTextQueueRef.current, message);
+    // Ensure queued payload is also truncated.
+    enqueueMessage(pendingTextQueueRef.current, truncateForTransport(message));
     try {
       await startText();
-    } catch (_) {}
+    } catch {}
     return true; // queued successfully
   }, [actionHandlers, enqueueMessage, startText, startVoice, textConversation]);
 
@@ -1657,7 +1697,7 @@ export function ElevenLabsProvider({
     };
   }, []);
 
-  const queueToolMessage = useCallback((content: string, metadata?: Record<string, any>) => {
+  const queueToolMessage = useCallback((content: string, metadata?: Record<string, unknown>) => {
     // Use buffered persistence hook - automatically queues if conversationId is null
     // and flushes when it becomes available
     handleAgentMessage(content, {
@@ -1674,7 +1714,7 @@ export function ElevenLabsProvider({
       value={{
         // Expose the active conversation based on mode
         conversation: (sessionModeRef.current === 'voice'
-          ? (voiceRef.current?.getConversation() as any)
+          ? (voiceRef.current?.getConversation() ?? textConversation)
           : textConversation),
         sessionMode,
         isTransitioning,
@@ -1709,17 +1749,17 @@ export function ElevenLabsProvider({
             return false;
           }
           const isText = sessionModeRef.current === 'text';
-          const activeConv = isText ? textConversation : (voiceRef.current?.getConversation() as any);
+          const activeConv = (isText ? textConversation : (voiceRef.current?.getConversation() ?? textConversation)) as ConversationLike;
           if (activeConv.status === 'connected') {
-            if (typeof (activeConv as any).sendContextualUpdate === 'function') {
-              (activeConv as any).sendContextualUpdate(text);
+            if (typeof activeConv.sendContextualUpdate === 'function') {
+              activeConv.sendContextualUpdate(truncateForTransport(text));
               return true;
             }
-            if (isText && typeof (textConversation as any).sendUserMessage === 'function') {
+            if (isText && typeof activeConv.sendUserMessage === 'function') {
               try {
-                (textConversation as any).sendUserMessage(`[CONTEXT_UPDATE]: ${text}`);
+                activeConv.sendUserMessage(`[CONTEXT_UPDATE]: ${truncateForTransport(text)}`);
                 return true;
-              } catch (_) {}
+              } catch {}
             }
           }
           return false;
@@ -1741,12 +1781,12 @@ export function ElevenLabsProvider({
           clientTools={clientToolsMemo}
           onStatusChange={handleVoiceStatus}
           onDisconnect={handleVoiceDisconnect}
-          onMessage={handleVoiceMessage as any}
+          onMessage={handleVoiceMessage}
           onError={handleVoiceError}
-          onAgentToolResponse={handleVoiceAgentTool as any}
-          onVadScore={handleVoiceVad as any}
-          onInterruption={handleVoiceInterruption as any}
-          onDebug={handleVoiceDebug as any}
+          onAgentToolResponse={handleVoiceAgentTool}
+          onVadScore={handleVoiceVad}
+          onInterruption={handleVoiceInterruption}
+          onDebug={handleVoiceDebug}
         />
       )}
       {children}

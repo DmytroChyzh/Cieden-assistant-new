@@ -1,7 +1,7 @@
 'use client';
 
 import { useConversation } from '@elevenlabs/react';
-import { useEffect, useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 
 export function TextModeComparison() {
   const [testResults, setTestResults] = useState<{
@@ -28,7 +28,7 @@ export function TextModeComparison() {
       }
     },
     onMessage: (message) => {
-      if (message.type === 'agent_response' && messageSentTimeRef.current > 0) {
+      if (message.source === 'ai' && messageSentTimeRef.current > 0) {
         const latency = Date.now() - messageSentTimeRef.current;
         console.log('📊 SDK Response Latency:', latency, 'ms');
         setTestResults(prev => ({
@@ -43,7 +43,7 @@ export function TextModeComparison() {
       setTestStatus('SDK Connected');
 
       // Try to detect connection type
-      const connectionInfo = (sdkConversation as any);
+      const connectionInfo = sdkConversation as unknown;
       console.log('SDK Connection Details:', {
         status: sdkConversation.status,
         internalState: connectionInfo,
@@ -54,7 +54,7 @@ export function TextModeComparison() {
     },
     onError: (error) => {
       console.error('❌ SDK Error:', error);
-      setTestStatus(`SDK Error: ${error.message}`);
+      setTestStatus(`SDK Error: ${String(error)}`);
     },
     onDebug: (message) => {
       console.log('🐛 SDK Debug:', message);
@@ -187,7 +187,7 @@ export function TextModeComparison() {
         <div className="p-4 bg-yellow-50 rounded-lg">
           <h3 className="font-semibold mb-2">What to Check:</h3>
           <ul className="list-disc list-inside text-sm space-y-1">
-            <li>Open DevTools Network tab and filter by "WS"</li>
+            <li>Open DevTools Network tab and filter by &quot;WS&quot;</li>
             <li>Look for WebSocket connections to api.elevenlabs.io</li>
             <li>Check Console for detailed connection logs</li>
             <li>Latency should be under 200ms for WebSocket</li>

@@ -97,7 +97,14 @@ export function NormalMode({
   const handleSend = () => {
     if (!interactionStarted) setInteractionStarted(true);
     if (canSend && hasText) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log("🟣 NormalMode send triggered", { hasText, canSend });
+      }
       onSendText();
+      return;
+    }
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🟡 NormalMode send blocked", { hasText, canSend });
     }
   };
 
@@ -218,7 +225,7 @@ export function NormalMode({
                 aria-label="Chat input"
                 className="bg-transparent text-white outline-none w-full placeholder:text-white/60 dark:placeholder:text-white/40 font-medium resize-none"
                 style={{
-                  fontFamily: 'Inter, -apple-system, Roboto, Helvetica, sans-serif',
+                  fontFamily: 'Gilroy',
                   fontSize: '16px',
                   fontWeight: '400',
                   letterSpacing: '-0.32px',

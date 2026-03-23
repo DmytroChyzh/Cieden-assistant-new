@@ -4,12 +4,15 @@ import { mutation, query } from "./_generated/server";
 export const list = query({
   args: {
     conversationId: v.id("conversations"),
+    guestId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      // Return empty array instead of throwing error during sign out
-      return [];
+      // Guest mode: allow listing if conversation belongs to guestId.
+      if (!args.guestId) return [];
+      const conversation = await ctx.db.get(args.conversationId);
+      if (!conversation || conversation.userId !== args.guestId) return [];
     }
 
     return await ctx.db
@@ -29,19 +32,26 @@ export const create = mutation({
     role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
     source: v.union(v.literal("voice"), v.literal("text"), v.literal("contextual")),
     metadata: v.optional(v.any()),
+    guestId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
+    let userId: string;
+
     if (!identity) {
-      // During certain flows (e.g. onboarding or expired sessions) assistant messages
-      // might arrive before auth is fully established. In that case we simply skip
-      // persisting the message instead of throwing a visible error.
-      return null;
+      // Guest mode: persist if conversation belongs to this guest.
+      if (!args.guestId) return null;
+      const conversation = await ctx.db.get(args.conversationId);
+      if (!conversation || conversation.userId !== args.guestId) return null;
+      userId = args.guestId;
+    } else {
+      userId = identity.subject;
     }
 
     const messageId = await ctx.db.insert("messages", {
       conversationId: args.conversationId,
-      userId: identity.subject,
+      userId,
+      guestId: args.guestId,
       role: args.role,
       content: args.content,
       source: args.source,
@@ -91,13 +101,14 @@ export const send = mutation({
 export const clearForConversation = mutation({
   args: {
     conversationId: v.id("conversations"),
+    limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       // If the user is not authenticated (e.g. just signed out), simply
       // skip clearing instead of throwing an error to the UI.
-      return { deleted: 0 };
+      return { deleted: 0, reason: "not_authenticated" as const };
     }
 
     // Ensure conversation belongs to user
@@ -106,14 +117,15 @@ export const clearForConversation = mutation({
       throw new Error("Conversation not found or not owned by user");
     }
 
-    // Fetch all messages for the conversation and delete them
+    // Batch delete to avoid Convex per-function read limits.
+    const batchLimit = Math.max(1, Math.min(500, Math.floor(args.limit ?? 200)));
     const toDelete = await ctx.db
       .query("messages")
-      .withIndex("by_conversation_and_time", (q) =>
-        q.eq("conversationId", args.conversationId)
-      )
-      .collect();
+      .withIndex("by_conversation_and_time", (q) => q.eq("conversationId", args.conversationId))
+      .order("asc")
+      .take(batchLimit);
 
+    // Delete in a small loop (only <= batchLimit reads).
     let deleted = 0;
     for (const msg of toDelete) {
       await ctx.db.delete(msg._id);
@@ -125,6 +137,6 @@ export const clearForConversation = mutation({
       lastMessageAt: Date.now(),
     });
 
-    return { deleted };
+    return { deleted, reason: "ok" as const };
   },
 });

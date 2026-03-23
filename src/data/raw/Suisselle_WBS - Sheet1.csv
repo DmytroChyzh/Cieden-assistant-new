@@ -1,0 +1,63 @@
+,,,Include,UX/UI,,,,BA/PM,,,
+Modules ,Features/Epics,Comments ,,Min,Most likely,Maximum ,PERT,Min,Most likely,Maximum ,PERT
+Product discovery,,,,,,,,,,,
+Sitemap and IA,,,TRUE,,,,0,4,6,8,6
+User roles definition,,,TRUE,,,,0,3,4,5,4
+Communication,Internal,,,0,0,0,0,0,0,0,0
+,External,,,0,0,0,0,1,1,1,1
+TOTAL,,,,0,0,0,0,8,11,15,11
+DesOps,,,,,,,,,,,
+,UI Concepts,,TRUE,4,6,8,6,,,,0
+,Moodboard,,TRUE,2,3,4,3,,,,0
+,Design System,we can reuse one of the existing,TRUE,4,6,9,6,,,,0
+,Responsive,,TRUE,2,4,6,4,,,,0
+,Handoff and documentation,,TRUE,8,12,16,12,,,,0
+Communication,Internal,,,1,1,1,1,0,0,0,0
+,External,,,1,2,2,2,0,0,0,0
+TOTAL,,,,21,34,46,34,0,0,0,0
+Product Design (Distributor portal),,,,,,,,,,,
+Authorization page,,"sign in, password recovery",TRUE,2,3,5,3,,,,0
+Profile,,,TRUE,2,4,6,4,,,,0
+Main page,,,TRUE,2,6,10,6,,,,0
+Materials,"List, Search and filtering",,TRUE,3,6,10,6,,,,0
+,Detailed material page,2-3 options of structure,TRUE,8,12,16,12,,,,0
+Notifications,,email,TRUE,1,2,2,2,,,,0
+Communication,Internal,,,0,1,1,1,0,0,0,0
+,External,,,1,2,2,2,0,0,0,0
+TOTAL,,,,19,35,53,36,0,0,0,0
+Product Design (Admin),,,,,,,,,,,
+Authorization page,,"sign in, passwerd recovery",TRUE,1,2,3,2,,,,0
+Profile,,,TRUE,1,2,3,2,,,,0
+User management,Admins management,list,TRUE,2,4,6,4,,,,0
+,,add new,TRUE,1,2,2,2,,,,0
+,,detailed page,TRUE,1,2,2,2,,,,0
+,Visitors management,list,TRUE,1,2,3,2,,,,0
+,,add new,TRUE,1,1,1,1,,,,0
+,,detailed page,TRUE,1,1,2,1,,,,0
+,,visitors statistics (optional),TRUE,2,4,6,4,,,,0
+"Materials (webinars, training materials, downloading materials)","List, search and filtering",,TRUE,2,5,8,5,,,,0
+,Detailed page,details and statistics (opt),TRUE,4,5,6,5,,,,0
+,Add new material,,TRUE,2,4,6,4,,,,0
+News and Updates,List,,TRUE,2,4,6,4,,,,0
+,Add new post,,TRUE,3,4,6,4,,,,0
+,Detailed page,optional,TRUE,1,2,3,2,,,,0
+Dashboard,,,TRUE,8,12,16,12,,,,0
+Communication,Internal,,,1,2,2,2,0,0,0,0
+,External,,,2,3,4,3,0,0,0,0
+TOTAL,,,,36,60,85,60,0,0,0,0
+Handoff and Documentation,,,,,,,,,,,
+,Specification document,"user stories, acceptance criteria, flows",TRUE,,,,0,,,,0
+Communication,,,,0,0,0,0,0,0,0,0
+TOTAL,,,,0,0,0,0,0,0,0,0
+,Total Product Design ,,,76,130,184,130,,,,
+,Total BA,,,27,44,61,44,,,,
+,TOTAL PROJECT (hours),,,103,173,245,174,,,,
+,TOTAL PROJECT COST ,,,"$5,140","$8,670","$12,259","$8,680",,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,Team Capacity ,,Hours a week,,,,,,,
+,,UX/UI designer/s,,35,(based on 6h efffective working day) ,,,,,,
+,,PM,,8,,,,,,,
+,,,,,,,,,,,
+,,Project Timeline (design effort) ,,Min,Most likely,Maximum ,PERT,,,,
+,,Design effort (in weeks) ,,2,4,5,4,,,,

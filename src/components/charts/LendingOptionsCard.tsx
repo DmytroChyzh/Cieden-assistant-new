@@ -330,13 +330,13 @@ const getCardVisuals = (option: LendingOption) => {
                   {/* Loan Summary */}
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-                      <div className="text-white/60 text-sm mb-1">We'll lend you</div>
+                      <div className="text-white/60 text-sm mb-1">We&apos;ll lend you</div>
                       <div className="text-white font-bold text-2xl">
                         {formatCurrency(expandedOptionData.loanAmount)}
                       </div>
                     </div>
                     <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-                      <div className="text-white/60 text-sm mb-1">You'll pay monthly</div>
+                      <div className="text-white/60 text-sm mb-1">You&apos;ll pay monthly</div>
                       <div className="text-white font-bold text-2xl">
                         {formatCurrency(expandedOptionData.monthlyPayment)}
                       </div>
@@ -523,7 +523,7 @@ const getCardVisuals = (option: LendingOption) => {
                         {/* Loan Details */}
                         <div className="space-y-3 mb-6">
                           <div className="flex justify-between text-sm">
-                            <span className="text-white/70">We'll lend you:</span>
+                            <span className="text-white/70">We&apos;ll lend you:</span>
                             <span className="text-white font-semibold">{formatCurrency(option.loanAmount)}</span>
                           </div>
                           {typeof option.processingFee === 'number' && (

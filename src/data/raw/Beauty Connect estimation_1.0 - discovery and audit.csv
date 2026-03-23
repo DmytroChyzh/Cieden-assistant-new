@@ -1,0 +1,25 @@
+,,,,UI/UX,BA/PM
+Modules ,Features/Epics,Comments ,,,
+Discovery phase,,,,,
+,Competitors and Market research,similar platforms in Turkey/Dubai,TRUE,10,8
+Flows,Process flows,"booking, consultation submission, product sale and checkout",TRUE,,6
+,User Flow mapping,,TRUE,,4
+,Compliance and Risk review,GDPR+encryption,TRUE,,4
+,Business model,monetization model,TRUE,,4
+,Exploratory interview (optional),2-3 potential users (2 hours per user),TRUE,,6
+,Interviews report,,TRUE,,3
+Communication,Internal ,,,1,4
+,External,,,2,7
+TOTAL,,,,13,46
+Design Audit,,,,,
+Design Audit,Web page,"identify usability issues and pain points, evaluate current visual design consistency",TRUE,12,
+,Clinics workspace,,TRUE,16,
+,Audit results presentation,Presentation of findings ,TRUE,4,
+,,,FALSE,,
+Communication,,,,6,0
+TOTAL,,,,38,0
+,,Total Product Design ,,51,
+,,Total BA,,46,
+,,Total BA/PM,,8,
+,,TOTAL PROJECT (hours),,105,
+,,TOTAL PROJECT COST ,,"$5,231",

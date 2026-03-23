@@ -83,7 +83,7 @@ export function ChartMessage({ chartId, chart: chartProp, compact = false }: Cha
         </CardTitle>
         {!compact && (
           <CardDescription>
-            Created {new Date(chart._creationTime || chart.createdAt).toLocaleString()}
+            Created {new Date(chart._creationTime ?? chart.createdAt ?? Date.now()).toLocaleString()}
           </CardDescription>
         )}
       </CardHeader>

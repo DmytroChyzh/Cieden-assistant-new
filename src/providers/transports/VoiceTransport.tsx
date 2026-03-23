@@ -62,7 +62,7 @@ export const VoiceTransport = forwardRef<VoiceTransportHandle, VoiceTransportPro
     return () => {
       try {
         // Helpful diagnostic
-        // eslint-disable-next-line no-console
+         
         console.log(`[VoiceTransport] Unmount cleanup for attempt ${attemptId}`);
       } catch (_) {}
       // Note: We intentionally avoid forcing endSession() here because the hook

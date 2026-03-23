@@ -11,7 +11,6 @@ import { SpeakingHUD } from "@/src/components/voice/SpeakingHUD";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { Authenticated, Unauthenticated, useConvexAuth } from "convex/react";
 import { useChatMessages } from "@/src/hooks/useChatMessages";
 import { useConvexMessageSync } from "@/src/hooks/useConvexMessageSync";
 import { useCopilotAction, useCopilotReadable, useCopilotContext } from "@copilotkit/react-core";
@@ -32,6 +31,7 @@ import { QuizProvider } from "@/src/components/quiz/QuizProvider";
 import { ElevenLabsProvider, useElevenLabsConversation } from '@/src/providers/ElevenLabsProvider';
 import { SessionResetter } from '@/src/components/voice/SessionResetter';
 import { parseToolCall } from '@/src/utils/parseToolCall';
+import { ensureGuestIdentityInCookie, getGuestIdentityFromCookie } from '@/src/utils/guestIdentity';
 import LuminaGradientBackground from "@/components/LuminaGradientBackground";
 // Legacy onboarding chat kept for reference; inline onboarding is now handled directly in this page.
 // import { OnboardingChat } from "@/src/components/onboarding/OnboardingChat";
@@ -41,19 +41,15 @@ import {
   EngagementModelsCard,
   CaseStudyPanel,
   AboutPanel,
+  EstimateSummaryCard,
 } from "@/src/components/cieden/SalesUi";
 import { EstimateWizardPanel } from "@/src/components/cieden/EstimateWizardPanel";
 
-interface VoiceChatPageProps {
-  isMobile?: boolean;
-}
-
-export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
+export default function VoiceChatPage() {
   // Session resetter moved to dedicated component
-  const { isMobile = false } = props;
+  const isMobile = false;
   const router = useRouter();
   const { signOut, signIn } = useAuthActions();
-  const { isAuthenticated, isLoading } = useConvexAuth();
   const [conversationId, setConversationId] = useState<Id<"conversations"> | null>(null);
   const [voiceStatus, setVoiceStatus] = useState<'idle' | 'connecting' | 'listening' | 'speaking'>('idle');
   const [lastMessage, setLastMessage] = useState<{ text: string; source: 'voice' | 'text' } | null>(null);
@@ -61,9 +57,26 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
   const [showSettings, setShowSettings] = useState(false);
   const [mounted, setMounted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pendingQuizContextsRef = useRef<string[]>([]);
   const [sendContextualUpdate, setSendContextualUpdate] = useState<((text: string) => void) | null>(null);
   const [sendProgrammaticMessage, setSendProgrammaticMessage] = useState<((text: string) => Promise<void>) | null>(null);
+  const [estimateTyping, setEstimateTyping] = useState<{ active: boolean; label: string }>({ active: false, label: "" });
+  const typingHoldUntilRef = useRef<number>(0);
+  const typingHoldTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [pendingAssistantBubble, setPendingAssistantBubble] = useState(false);
+  const [pendingOnboardingKickoff, setPendingOnboardingKickoff] = useState(false);
+
+  const markOnboardingDoneCookie = useCallback(() => {
+    // Used by middleware gating to avoid auth discovery until onboarding is done.
+    if (typeof document === "undefined") return;
+    document.cookie = "cieden_onboarding_done=1; path=/; max-age=3600";
+  }, []);
+
+  const clearOnboardingDoneCookie = useCallback(() => {
+    if (typeof document === "undefined") return;
+    document.cookie = "cieden_onboarding_done=; path=/; max-age=0";
+  }, []);
   
   // Voice audio states for background animations
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
@@ -83,14 +96,63 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     { title: "Do you do development too?", valueEn: "Do you do development as well, or design only?" },
     { title: "How do I start a project?", valueEn: "How can I start a project with Cieden? What's the first step?" },
   ];
+  const ONBOARDING_WELCOME_PROMPTS_TOKEN = "__ONBOARDING_WELCOME_PROMPTS__";
   
   const conversations = useQuery(api.conversations.list);
   const currentUser = useQuery(api.users.getCurrentUser);
+  const hasCurrentUser = currentUser !== null && currentUser !== undefined;
+  // Convex Auth discovery can fail (middleware logs), but `currentUser`
+  // still tells us whether we can actually use auth-backed mutations.
+  const canUseChat = hasCurrentUser;
   const createConversation = useMutation(api.conversations.create);
   const createMessage = useMutation(api.messages.create);
   const clearHistory = useMutation(api.messages.clearForConversation);
+  const guestId = getGuestIdentityFromCookie()?.guestId;
   // Custom hook for Convex message integration
   const { convexMessages } = useChatMessages({ conversationId });
+
+  // Listen to messages coming from the estimate side panel
+  useEffect(() => {
+    const handler = async (event: Event) => {
+      if (!('detail' in event)) return;
+      const anyEvent = event as CustomEvent<{ text: string; inputKind?: string; visibility?: "contextual" | "user" }>;
+      const payload = anyEvent.detail;
+      if (!payload?.text) return;
+
+      const prefix =
+        payload.inputKind === "file"
+          ? "[ESTIMATE MODE] The user may attach a brief/spec. Focus ONLY on gathering missing inputs for estimation and producing a preliminary design estimate."
+          : "[ESTIMATE MODE] Focus ONLY on gathering missing inputs for estimation and producing a preliminary design estimate.";
+
+      const composed = `${prefix}\n\n${payload.text}`;
+
+      try {
+        if (payload.visibility === "contextual") {
+          // Hidden guidance to the agent (no UI bubble)
+          sendContextualUpdate?.(composed);
+          if (conversationId) {
+            await createMessage({
+              conversationId,
+              content: composed,
+              role: "system",
+              source: "contextual",
+                guestId: guestId ?? undefined,
+            });
+          }
+          return;
+        }
+
+        // Visible user message: drives the dialogue
+        if (!sendProgrammaticMessage) return;
+        await sendProgrammaticMessage(composed);
+      } catch (error) {
+        console.error("Failed to send estimate panel message to assistant:", error);
+      }
+    };
+
+    window.addEventListener("estimate-assistant-message", handler as EventListener);
+    return () => window.removeEventListener("estimate-assistant-message", handler as EventListener);
+  }, [sendProgrammaticMessage, sendContextualUpdate, conversationId, createMessage]);
 
   // Onboarding state for unauthenticated users (collect name + email via main chat input)
   type OnboardingStep = "ask_name" | "ask_email" | "creating" | "done";
@@ -98,6 +160,11 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
   const [onboardingMessages, setOnboardingMessages] = useState<ChatbotMessage[]>([]);
   const [onboardingName, setOnboardingName] = useState("");
   const [onboardingEmail, setOnboardingEmail] = useState("");
+
+  // `isAuthenticated()` discovery can fail, but for message sending we must
+  // have a real authenticated Convex identity (`currentUser`).
+  // Otherwise conversation creation / message persistence won't work.
+  const chatReady = canUseChat;
 
   // Unified display name for bubbles ("You" replacement)
   const userDisplayName =
@@ -111,9 +178,9 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     currentUser?.email ||
     "";
 
-  // Seed initial onboarding assistant message when not authenticated
+  // Seed initial onboarding assistant message when user is not authenticated
   useEffect(() => {
-    if (!isAuthenticated && onboardingMessages.length === 0) {
+    if (!canUseChat && onboardingMessages.length === 0) {
       setOnboardingMessages([
         {
           id: `onb-${Date.now()}`,
@@ -125,13 +192,23 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
       ]);
       setOnboardingStep("ask_name");
     }
-  }, [isAuthenticated, onboardingMessages.length]);
+  }, [canUseChat, onboardingMessages.length]);
+
+  // If auth discovery fails but Convex still recognizes an existing session,
+  // `isAuthenticated` can temporarily stay false. In that case, prefer
+  // `currentUser` to decide whether to show onboarding.
+  // We show the onboarding UI only until we finish name+email input.
+  // After that, we render the main chat UI even if Convex Auth is temporarily
+  // broken (guest persistence will take over).
+  const shouldShowOnboarding = onboardingStep !== "done";
 
   // Handle pre-auth messages (name + email) coming from the main chat input
   const handlePreAuthMessage = useCallback(
     async (text: string) => {
       const value = text.trim();
       if (!value) return;
+
+      console.log("🔐 [preAuth] input:", { step: onboardingStep, valuePreview: value.slice(0, 60) });
 
       const userMessage: ChatbotMessage = {
         id: `onb-user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -162,6 +239,7 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
         // Basic email validation to prevent invalid formats
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailPattern.test(email)) {
+          console.warn("🔐 [preAuth] invalid email format:", email);
           setOnboardingMessages((prev) => [
             ...prev,
             {
@@ -188,63 +266,214 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
         ]);
 
         try {
+          // Always create a guest identity upfront so we can persist the chat
+          // even if Convex Auth discovery fails.
+          const guestIdentity = ensureGuestIdentityInCookie({
+            email,
+            name: onboardingName || "Guest",
+          });
+
+          const authBroken =
+            typeof window !== "undefined" &&
+            window.sessionStorage.getItem("cieden_convex_auth_broken") === "1";
+
+          if (authBroken) {
+            const displayName = onboardingName || "Guest";
+            const id = await createConversation({
+              title: "Voice Chat",
+              guestId: guestIdentity.guestId,
+              guestEmail: email,
+              guestName: displayName,
+            });
+
+            setConversationId(id);
+            setOnboardingStep("done");
+            setOnboardingMessages((prev) => [
+              ...prev,
+              {
+                id: `onb-welcome-${Date.now()}`,
+                role: "assistant",
+                content: ONBOARDING_WELCOME_PROMPTS_TOKEN,
+                timestamp: Date.now(),
+              },
+            ]);
+            setPendingOnboardingKickoff(true);
+            return;
+          }
+
+          // Use password signUp for onboarding so authAccounts contains the expected secret.
+          // This avoids missing fields after Convex migrations.
           const generatedPassword = `cieden_guest_${Date.now()}_${Math.random()
             .toString(36)
             .slice(2, 10)}`;
 
+          const displayName = onboardingName || "Guest";
+          console.log("🔐 [preAuth] signIn attempt (password signUp):", {
+            email,
+            name: displayName,
+          });
+
           await signIn("password", {
             email,
             password: generatedPassword,
-            name: onboardingName || "Guest",
+            name: displayName,
             flow: "signUp",
-          });
+          } as any);
 
           setOnboardingStep("done");
-        } catch (err: unknown) {
-          const errorMsg = err instanceof Error ? err.message : String(err);
-          if (errorMsg.includes("already exists") || errorMsg.includes("Could not create")) {
-            const parts = email.split("@");
-            const local = parts[0] || "guest";
-            const domain = parts[1] || "cieden.guest";
-            const fallbackEmail = `${local}+${Date.now()}@${domain}`;
-            const fallbackPassword = `cieden_${Date.now()}`;
-            try {
-              await signIn("password", {
-                email: fallbackEmail,
-                password: fallbackPassword,
-                name: onboardingName || "Guest",
-                flow: "signUp",
-              });
-              setOnboardingStep("done");
-              return;
-            } catch {
-              // fall through to error message
-            }
-          }
-
-          setOnboardingStep("ask_email");
           setOnboardingMessages((prev) => [
             ...prev,
             {
-              id: `onb-assistant-${Date.now()}`,
+              id: `onb-welcome-${Date.now()}`,
               role: "assistant",
-              content: "Hmm, something went wrong. Could you try a different email address?",
+              content: ONBOARDING_WELCOME_PROMPTS_TOKEN,
               timestamp: Date.now(),
             },
           ]);
+          setPendingOnboardingKickoff(true);
+        } catch (err: unknown) {
+          const errorPayload: any = err as any;
+          console.error("❌ [preAuth] anonymous signIn failed:", {
+            email,
+            name: onboardingName || "Guest",
+            error: errorPayload,
+          });
+
+          const errorMsg = errorPayload?.message || String(errorPayload);
+
+          const guestIdentity = ensureGuestIdentityInCookie({
+            email,
+            name: onboardingName || "Guest",
+          });
+
+          if (typeof window !== "undefined") {
+            const isDiscoveryFailed =
+              errorPayload?.code === "AuthProviderDiscoveryFailed" ||
+              /AuthProviderDiscoveryFailed/i.test(errorMsg);
+            if (isDiscoveryFailed) {
+              window.sessionStorage.setItem("cieden_convex_auth_broken", "1");
+            }
+          }
+
+          // If this email already exists or create fails, retry with a unique fallback email.
+          // This mirrors the robustness used in `OnboardingChat.tsx`.
+          if (
+            /already exists|Could not create/i.test(errorMsg)
+          ) {
+            try {
+              const parts = email.split("@");
+              const local = parts[0] || "guest";
+              const domain = parts[1] || "cieden.guest";
+              const fallbackEmail = `${local}+${Date.now()}@${domain}`;
+              const fallbackPassword = `cieden_${Date.now()}`;
+              const displayName = onboardingName || "Guest";
+
+              console.log("🔁 [preAuth] password signUp fallback:", {
+                fallbackEmail,
+                name: displayName,
+              });
+
+              await signIn("password", {
+                email: fallbackEmail,
+                password: fallbackPassword,
+                name: displayName,
+                flow: "signUp",
+              } as any);
+
+              setOnboardingStep("done");
+              setOnboardingMessages((prev) => [
+                ...prev,
+                {
+                  id: `onb-welcome-${Date.now()}`,
+                  role: "assistant",
+                  content: ONBOARDING_WELCOME_PROMPTS_TOKEN,
+                  timestamp: Date.now(),
+                },
+              ]);
+              setPendingOnboardingKickoff(true);
+              return;
+            } catch (fallbackErr) {
+              console.error("❌ [preAuth] password signUp fallback failed:", fallbackErr);
+            }
+          }
+
+          // Robust solution:
+          // If Convex Auth still isn't usable, we switch to guest persistence.
+          // This guarantees messages + email visibility in Convex even when
+          // auth provider discovery fails.
+          try {
+            const displayName = onboardingName || "Guest";
+            const id = await createConversation({
+              title: "Voice Chat",
+              guestId: guestIdentity.guestId,
+              guestEmail: email,
+              guestName: displayName,
+            });
+
+            setConversationId(id);
+            setOnboardingStep("done");
+            setOnboardingMessages((prev) => [
+              ...prev,
+              {
+                id: `onb-welcome-${Date.now()}`,
+                role: "assistant",
+                content: ONBOARDING_WELCOME_PROMPTS_TOKEN,
+                timestamp: Date.now(),
+              },
+            ]);
+            setPendingOnboardingKickoff(true);
+          } catch (guestErr) {
+            console.error("❌ [preAuth] guest persistence failed:", guestErr);
+            setOnboardingStep("ask_email");
+            setOnboardingMessages((prev) => [
+              ...prev,
+              {
+                id: `onb-auth-failed-${Date.now()}`,
+                role: "assistant",
+                content:
+                  "Auth setup failed and guest persistence failed. Please try again with a different email (or refresh the page).",
+                timestamp: Date.now(),
+              },
+            ]);
+            setPendingOnboardingKickoff(false);
+          }
         }
       }
     },
-    [onboardingStep, onboardingName, signIn],
+    [onboardingStep, onboardingName, signIn, createConversation],
   );
 
-  // Простий авто‑скрол: тримаємо повзунок у самому низу,
-  // без додаткового "хвоста" після останнього повідомлення
+  // After successful client-side auth (name+email), start the actual chat immediately.
   useEffect(() => {
-    if (!messagesEndRef.current) return;
-    if (!convexMessages || convexMessages.length === 0) return;
-    messagesEndRef.current.scrollIntoView({ block: "end" });
-  }, [convexMessages?.length]);
+    if (!pendingOnboardingKickoff) return;
+    if (!sendProgrammaticMessage) return;
+
+    setPendingOnboardingKickoff(false);
+
+    void (async () => {
+      const safeName = (onboardingName || "Guest").trim();
+      markOnboardingDoneCookie();
+      // Kickoff message should include identity so agent "sees" who signed in.
+      try {
+        console.log("🚀 [onboarding] kickoff sendProgrammaticMessage...");
+        await sendProgrammaticMessage(
+          `Onboarding complete. The client signed in as "${safeName}". Email: "${onboardingEmail || "unknown"}". Start the conversation now and ask what they need for their project.`
+        );
+        console.log("✅ [onboarding] kickoff sent");
+      } catch (e) {
+        console.error("❌ [onboarding] kickoff send failed:", e);
+      }
+    })();
+  }, [pendingOnboardingKickoff, sendProgrammaticMessage, onboardingName, onboardingEmail, onboardingStep, markOnboardingDoneCookie]);
+
+  // Once Convex conversation is available, tool calls that were temporarily
+  // queued into onboardingMessages must be removed to prevent duplicates.
+  useEffect(() => {
+    if (!conversationId) return;
+    setOnboardingMessages((prev) => prev.filter((m) => !parseToolCall(m.content)));
+  }, [conversationId]);
+
+  // (scroll is handled via scrollContainerRef in scrollToBottom / forceScrollToBottom)
 
   // Sync Convex messages to CopilotKit for chart actions only
   useConvexMessageSync({ conversationId });
@@ -300,11 +529,10 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     handler: async () => {
       return "Showing main collaboration models we use with clients.";
     },
-    render: () => (
-      <div className="w-full max-w-4xl mx-auto">
-        <EngagementModelsCard />
-      </div>
-    ),
+    // IMPORTANT: do not render the card inline here.
+    // The tool bridge queues a TOOL_CALL message which is then rendered by
+    // `ToolCallMessageRenderer`. Rendering here too causes a duplicate card.
+    render: () => <></>,
   });
 
   // 5) Generate preliminary estimate card
@@ -405,11 +633,10 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     handler: async () => {
       return "Opened a simple estimator card; you can now ask the assistant to adjust assumptions.";
     },
-    render: () => (
-      <div className="w-full max-w-4xl mx-auto">
-        <EngagementModelsCard />
-      </div>
-    ),
+    // IMPORTANT: do not render EngagementModelsCard inline here.
+    // Bridge handler queues `TOOL_CALL:open_calculator` which is rendered by
+    // `ToolCallMessageRenderer`. Rendering here too causes duplicates.
+    render: () => <></>,
   });
 
   // CopilotKit action for creating pie charts
@@ -587,14 +814,117 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
   // Cases side panel (domain filter → case detail; or open specific case from card)
   const [activePanelDomain, setActivePanelDomain] = useState<string | null>(null);
   const [initialPanelCaseId, setInitialPanelCaseId] = useState<string | null>(null);
+  // Remember scroll position when opening cases panel so we can restore it on close.
+  const casesScrollTopRef = useRef<number>(0);
 
   // About Cieden side panel
   const [showAboutPanel, setShowAboutPanel] = useState(false);
 
   // Estimate wizard side panel (unified for generate_estimate / open_calculator)
   const [showEstimatePanel, setShowEstimatePanel] = useState(false);
+  const [estimatePanelKey, setEstimatePanelKey] = useState(0);
+
+  // Let message renderers know whether estimate panel is open (to avoid spam cards)
   useEffect(() => {
-    const handleOpenEstimatePanel = () => setShowEstimatePanel(true);
+    if (typeof window === "undefined") return;
+    (window as unknown as { __ciedenEstimatePanelOpen?: boolean }).__ciedenEstimatePanelOpen = showEstimatePanel;
+  }, [showEstimatePanel]);
+
+  // Let message renderers know whether cases panel is open.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    (window as any).__ciedenCasesPanelOpen = !!activePanelDomain;
+    (window as any).__ciedenCasesPanelOpenDomain = activePanelDomain;
+  }, [activePanelDomain]);
+
+  // Universal typing bubble (like ChatGPT):
+  // If the latest non-contextual message is from the user → show bubble.
+  // Once an assistant reply arrives → hide bubble.
+  const lastUserTypingMessageIdRef = useRef<string | null>(null);
+
+  // During onboarding (ask_name / ask_email / creating) we render pre-auth prompts
+  // from `onboardingMessages`. So we must force-hide the universal typing bubble,
+  // otherwise it can get "stuck" because convexMessages isn't updated yet.
+  useEffect(() => {
+    if (onboardingStep === "done") return;
+    lastUserTypingMessageIdRef.current = null;
+    setEstimateTyping({ active: false, label: "" });
+    setPendingAssistantBubble(false);
+  }, [onboardingStep]);
+
+  useEffect(() => {
+    const visible = (convexMessages || []).filter(
+      (m) => !(m.role === "system" && m.source === "contextual"),
+    );
+    const last = visible.at(-1);
+    const lastContent = (last as any)?.content;
+    const isLastToolCall = !!(typeof lastContent === "string" && parseToolCall(lastContent));
+
+    // If the latest visible message is a TOOL_CALL card, we should not show
+    // a typing indicator after it (tool cards can appear before the assistant
+    // "final" reply text is persisted).
+    if (isLastToolCall) {
+      lastUserTypingMessageIdRef.current = null;
+      if (typingHoldTimeoutRef.current) clearTimeout(typingHoldTimeoutRef.current);
+      typingHoldTimeoutRef.current = null;
+      setEstimateTyping((prev) => (prev.active ? { active: false, label: "" } : prev));
+      setPendingAssistantBubble(false);
+      return;
+    }
+
+    if (last?.role === "user") {
+      const lastId = (last as any)?._id as string | undefined;
+      // Only show the typing bubble when we actually transitioned into a *new* user message.
+      // This prevents flicker when Convex re-renders without adding a new user message.
+      if (lastId && lastId === lastUserTypingMessageIdRef.current) return;
+      lastUserTypingMessageIdRef.current = lastId ?? null;
+      setEstimateTyping({ active: true, label: "Assistant is typing…" });
+      setPendingAssistantBubble(true);
+    } else if (last?.role === "assistant") {
+      lastUserTypingMessageIdRef.current = null;
+      // Small anti-flicker hold: keep bubble briefly if reply is extremely fast.
+      const remaining = typingHoldUntilRef.current - Date.now();
+      if (remaining > 0) {
+        if (typingHoldTimeoutRef.current) clearTimeout(typingHoldTimeoutRef.current);
+        typingHoldTimeoutRef.current = setTimeout(() => {
+          setEstimateTyping((prev) => (prev.active ? { active: false, label: "" } : prev));
+          setPendingAssistantBubble(false);
+        }, remaining);
+        return;
+      }
+      if (typingHoldTimeoutRef.current) clearTimeout(typingHoldTimeoutRef.current);
+      typingHoldTimeoutRef.current = null;
+      setEstimateTyping((prev) => (prev.active ? { active: false, label: "" } : prev));
+      setPendingAssistantBubble(false);
+    }
+  }, [convexMessages]);
+
+  // Fallback typing indicator: if panel is open and last visible message is from user,
+  // show "thinking" bubble above input even if events are missed.
+  useEffect(() => {
+    if (!showEstimatePanel) {
+      setEstimateTyping((prev) => (prev.active ? { active: false, label: "" } : prev));
+      return;
+    }
+    const visible = (convexMessages || []).filter(
+      (m) => !(m.role === "system" && m.source === "contextual"),
+    );
+    const last = visible.at(-1);
+    if (last?.role === "user") {
+      setEstimateTyping({ active: true, label: "Generating estimate…" });
+    } else if (last?.role === "assistant") {
+      setEstimateTyping((prev) => (prev.active ? { active: false, label: "" } : prev));
+    }
+  }, [convexMessages, showEstimatePanel]);
+  useEffect(() => {
+    const handleOpenEstimatePanel = () => {
+      // Only reset panel state when opening from closed state
+      setShowEstimatePanel((isOpen) => {
+        if (isOpen) return true;
+        setEstimatePanelKey((prev) => prev + 1);
+        return true;
+      });
+    };
     window.addEventListener("open-estimate-panel", handleOpenEstimatePanel);
     return () => window.removeEventListener("open-estimate-panel", handleOpenEstimatePanel);
   }, []);
@@ -604,6 +934,14 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
       const detail = (e as CustomEvent).detail;
       const domain = detail?.domain;
       if (domain) {
+        if (typeof window !== "undefined") {
+          // When opening from tool call, allow auto-open again unless the user manually closes.
+          (window as any).__ciedenCasesPanelUserClosed = false;
+          (window as any).__ciedenCasesPanelOpen = true;
+          (window as any).__ciedenCasesPanelOpenDomain = domain;
+        }
+        const el = scrollContainerRef.current;
+        if (el) casesScrollTopRef.current = el.scrollTop;
         setActivePanelDomain(domain);
         setInitialPanelCaseId(detail?.caseId ?? null);
       }
@@ -613,6 +951,13 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
       const domain = detail?.domain;
       const caseId = detail?.caseId;
       if (domain && caseId) {
+        if (typeof window !== "undefined") {
+          (window as any).__ciedenCasesPanelUserClosed = false;
+          (window as any).__ciedenCasesPanelOpen = true;
+          (window as any).__ciedenCasesPanelOpenDomain = domain;
+        }
+        const el = scrollContainerRef.current;
+        if (el) casesScrollTopRef.current = el.scrollTop;
         setActivePanelDomain(domain);
         setInitialPanelCaseId(caseId);
       }
@@ -633,23 +978,77 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
   }, []);
 
   const closeCasesPanel = useCallback(() => {
+    if (typeof window !== "undefined") {
+      (window as any).__ciedenCasesPanelUserClosed = true;
+      (window as any).__ciedenCasesPanelOpen = false;
+      (window as any).__ciedenCasesPanelLastDismissedDomain = activePanelDomain;
+      (window as any).__ciedenCasesPanelClosedAt = Date.now();
+    }
     setActivePanelDomain(null);
     setInitialPanelCaseId(null);
-  }, []);
+    // Restore chat scroll position so user can continue from where they left.
+    requestAnimationFrame(() => {
+      const el = scrollContainerRef.current;
+      if (!el) return;
+      el.scrollTop = casesScrollTopRef.current;
+    });
+  }, [activePanelDomain]);
 
   // Get queueToolMessage from provider context - must be called inside provider tree
   // We'll use a ref to make it accessible to actionHandlers defined outside the provider
   const queueToolMessageRef = useRef<((content: string, metadata?: Record<string, any>) => void) | null>(null);
 
+  // Some tool parameters can contain unserializable values (e.g. BigInt, circular refs).
+  // We still want to render the tool cards, so we always produce valid JSON payloads.
+  const safeJSONStringify = useCallback((value: unknown) => {
+    try {
+      return JSON.stringify(value ?? {});
+    } catch (e) {
+      console.warn("⚠️ [tool] Failed to JSON.stringify tool params, fallback to {}.", e);
+      return "{}";
+    }
+  }, []);
+
   // Action Handlers – Cieden sales tools only (must match ElevenLabs Agent Tools)
   const actionHandlers: ActionHandlers = {
+    // When the estimate panel is open, do NOT divert the agent to sales/case-study tools.
+    // This prevents "cases" cards popping up during estimate workflow.
     show_cases: async (params) => {
       console.log('🎨 Bridge Handler - show_cases called:', params);
       try {
-        const toolCallMessage = `TOOL_CALL:show_cases:${JSON.stringify(params || {})}`;
-        queueToolMessageRef.current?.(toolCallMessage, {
-          toolCall: true, toolName: 'show_cases', timestamp: Date.now()
-        });
+        if (typeof window !== "undefined") {
+          const isEstimateOpen = (window as unknown as { __ciedenEstimatePanelOpen?: boolean })
+            .__ciedenEstimatePanelOpen;
+          if (isEstimateOpen) {
+            return 'Staying in estimate mode. I will continue asking only what is needed to calculate your preliminary estimate.';
+          }
+        }
+        // If the agent sends toolCall with mode="update", our renderer hides it.
+        // For visible cards (cases), always force default render.
+        const safeParams =
+          params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
+        const toolCallMessage = `TOOL_CALL:show_cases:${safeJSONStringify(safeParams)}`;
+        // If conversationId is not ready yet, render tool card in onboarding UI immediately.
+        if (!conversationId) {
+          setOnboardingMessages((prev) => {
+            if (prev.some((m) => m.content === toolCallMessage)) return prev;
+            return [
+              ...prev,
+              {
+                id: `onb-tool-${toolCallMessage}-${Date.now()}`,
+                role: "assistant",
+                content: toolCallMessage,
+                timestamp: Date.now(),
+              },
+            ];
+          });
+        } else {
+          queueToolMessageRef.current?.(toolCallMessage, {
+            toolCall: true,
+            toolName: "show_cases",
+            timestamp: Date.now(),
+          });
+        }
       } catch (error) {
         console.error('❌ Failed to queue show_cases:', error);
       }
@@ -659,10 +1058,37 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     show_best_case: async (params) => {
       console.log('⭐ Bridge Handler - show_best_case called:', params);
       try {
-        const toolCallMessage = `TOOL_CALL:show_best_case:${JSON.stringify(params || {})}`;
-        queueToolMessageRef.current?.(toolCallMessage, {
-          toolCall: true, toolName: 'show_best_case', timestamp: Date.now()
-        });
+        if (typeof window !== "undefined") {
+          const isEstimateOpen = (window as unknown as { __ciedenEstimatePanelOpen?: boolean })
+            .__ciedenEstimatePanelOpen;
+          if (isEstimateOpen) {
+            return 'Staying in estimate mode. I will continue collecting estimate inputs instead of showing cases.';
+          }
+        }
+        // Force default render for the card.
+        const safeParams =
+          params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
+        const toolCallMessage = `TOOL_CALL:show_best_case:${safeJSONStringify(safeParams)}`;
+        if (!conversationId) {
+          setOnboardingMessages((prev) => {
+            if (prev.some((m) => m.content === toolCallMessage)) return prev;
+            return [
+              ...prev,
+              {
+                id: `onb-tool-${toolCallMessage}-${Date.now()}`,
+                role: "assistant",
+                content: toolCallMessage,
+                timestamp: Date.now(),
+              },
+            ];
+          });
+        } else {
+          queueToolMessageRef.current?.(toolCallMessage, {
+            toolCall: true,
+            toolName: "show_best_case",
+            timestamp: Date.now(),
+          });
+        }
       } catch (error) {
         console.error('❌ Failed to queue show_best_case:', error);
       }
@@ -672,10 +1098,66 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     show_engagement_models: async (params) => {
       console.log('🤝 Bridge Handler - show_engagement_models called:', params);
       try {
-        const toolCallMessage = `TOOL_CALL:show_engagement_models:${JSON.stringify(params || {})}`;
-        queueToolMessageRef.current?.(toolCallMessage, {
-          toolCall: true, toolName: 'show_engagement_models', timestamp: Date.now()
-        });
+        const safeParams =
+          params && typeof params === "object"
+            ? { ...(params as any), mode: "default" }
+            : { mode: "default" };
+        const toolCallMessage = `TOOL_CALL:show_engagement_models:${safeJSONStringify(
+          safeParams,
+        )}`;
+
+        if (typeof window !== "undefined") {
+          // Dedupe: sometimes the tool is triggered twice in a row
+          // which would render 2 identical "Collaboration models" cards.
+          const dedupeKey = "__ciedenEngagementModelsLastQueuedAt";
+          const lastMessageKey = "__ciedenEngagementModelsLastToolCallMessage";
+          const now = Date.now();
+          const lastQueuedAt = (window as any)[dedupeKey] as number | undefined;
+          const lastToolCallMessage = (window as any)[lastMessageKey] as
+            | string
+            | undefined;
+
+          const dedupeWindowMs = 2500;
+
+          if (lastToolCallMessage === toolCallMessage) {
+            return "Collaboration models are already queued.";
+          }
+
+          if (typeof lastQueuedAt === "number" && now - lastQueuedAt < dedupeWindowMs) {
+            return 'Collaboration models are already shown on screen.';
+          }
+
+          (window as any)[dedupeKey] = now;
+          (window as any)[lastMessageKey] = toolCallMessage;
+
+          const isEstimateOpen = (window as unknown as { __ciedenEstimatePanelOpen?: boolean })
+            .__ciedenEstimatePanelOpen;
+          if (isEstimateOpen) {
+            return 'Staying in estimate mode. I will continue asking estimate questions and updating the draft range.';
+          }
+        }
+
+        if (!conversationId) {
+          // onboarding UI path
+          setOnboardingMessages((prev) => {
+            if (prev.some((m) => m.content === toolCallMessage)) return prev;
+            return [
+              ...prev,
+              {
+                id: `onb-tool-${toolCallMessage}-${Date.now()}`,
+                role: "assistant",
+                content: toolCallMessage,
+                timestamp: Date.now(),
+              },
+            ];
+          });
+        } else {
+          queueToolMessageRef.current?.(toolCallMessage, {
+            toolCall: true,
+            toolName: "show_engagement_models",
+            timestamp: Date.now(),
+          });
+        }
       } catch (error) {
         console.error('❌ Failed to queue show_engagement_models:', error);
       }
@@ -686,7 +1168,9 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
       console.log('💰 Bridge Handler - generate_estimate called:', params);
       window.dispatchEvent(new CustomEvent("open-estimate-panel"));
       try {
-        const toolCallMessage = `TOOL_CALL:generate_estimate:${JSON.stringify(params || {})}`;
+        const safeParams =
+          params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
+        const toolCallMessage = `TOOL_CALL:generate_estimate:${safeJSONStringify(safeParams)}`;
         queueToolMessageRef.current?.(toolCallMessage, {
           toolCall: true, toolName: 'generate_estimate', timestamp: Date.now()
         });
@@ -700,7 +1184,9 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
       console.log('🧮 Bridge Handler - open_calculator called:', params);
       window.dispatchEvent(new CustomEvent("open-estimate-panel"));
       try {
-        const toolCallMessage = `TOOL_CALL:open_calculator:${JSON.stringify(params || {})}`;
+        const safeParams =
+          params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
+        const toolCallMessage = `TOOL_CALL:open_calculator:${safeJSONStringify(safeParams)}`;
         queueToolMessageRef.current?.(toolCallMessage, {
           toolCall: true, toolName: 'open_calculator', timestamp: Date.now()
         });
@@ -713,7 +1199,35 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     show_about: async (params) => {
       console.log('🏢 Bridge Handler - show_about called:', params);
       try {
-        const toolCallMessage = `TOOL_CALL:show_about:${JSON.stringify(params || {})}`;
+        const safeParams =
+          params && typeof params === "object"
+            ? { ...(params as any), mode: "default" }
+            : { mode: "default" };
+        const toolCallMessage = `TOOL_CALL:show_about:${safeJSONStringify(safeParams)}`;
+
+        if (typeof window !== "undefined") {
+          const dedupeKey = "__ciedenAboutLastQueuedAt";
+          const lastMessageKey = "__ciedenAboutLastToolCallMessage";
+          const now = Date.now();
+          const lastQueuedAt = (window as any)[dedupeKey] as number | undefined;
+          const lastToolCallMessage = (window as any)[lastMessageKey] as
+            | string
+            | undefined;
+
+          const dedupeWindowMs = 2500;
+
+          if (lastToolCallMessage === toolCallMessage) {
+            return "About card is already queued.";
+          }
+
+          if (typeof lastQueuedAt === "number" && now - lastQueuedAt < dedupeWindowMs) {
+            return "About card is already shown on screen.";
+          }
+
+          (window as any)[dedupeKey] = now;
+          (window as any)[lastMessageKey] = toolCallMessage;
+        }
+
         queueToolMessageRef.current?.(toolCallMessage, {
           toolCall: true, toolName: 'show_about', timestamp: Date.now()
         });
@@ -726,10 +1240,53 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     show_process: async (params) => {
       console.log('📋 Bridge Handler - show_process called:', params);
       try {
-        const toolCallMessage = `TOOL_CALL:show_process:${JSON.stringify(params || {})}`;
-        queueToolMessageRef.current?.(toolCallMessage, {
-          toolCall: true, toolName: 'show_process', timestamp: Date.now()
-        });
+        const safeParams =
+          params && typeof params === "object"
+            ? { ...(params as any), mode: "default" }
+            : { mode: "default" };
+        const toolCallMessage = `TOOL_CALL:show_process:${safeJSONStringify(safeParams)}`;
+
+        if (typeof window !== "undefined") {
+          const dedupeKey = "__ciedenProcessLastQueuedAt";
+          const lastMessageKey = "__ciedenProcessLastToolCallMessage";
+          const now = Date.now();
+          const lastQueuedAt = (window as any)[dedupeKey] as number | undefined;
+          const lastToolCallMessage = (window as any)[lastMessageKey] as
+            | string
+            | undefined;
+
+          const dedupeWindowMs = 2500;
+
+          if (lastToolCallMessage === toolCallMessage) {
+            return "Process card is already queued.";
+          }
+
+          if (typeof lastQueuedAt === "number" && now - lastQueuedAt < dedupeWindowMs) {
+            return "Process card is already shown on screen.";
+          }
+
+          (window as any)[dedupeKey] = now;
+          (window as any)[lastMessageKey] = toolCallMessage;
+        }
+
+        if (!conversationId) {
+          setOnboardingMessages((prev) => {
+            if (prev.some((m) => m.content === toolCallMessage)) return prev;
+            return [
+              ...prev,
+              {
+                id: `onb-tool-${toolCallMessage}-${Date.now()}`,
+                role: "assistant",
+                content: toolCallMessage,
+                timestamp: Date.now(),
+              },
+            ];
+          });
+        } else {
+          queueToolMessageRef.current?.(toolCallMessage, {
+            toolCall: true, toolName: 'show_process', timestamp: Date.now()
+          });
+        }
       } catch (error) {
         console.error('❌ Failed to queue show_process:', error);
       }
@@ -739,7 +1296,9 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     show_getting_started: async (params) => {
       console.log('🚀 Bridge Handler - show_getting_started called:', params);
       try {
-        const toolCallMessage = `TOOL_CALL:show_getting_started:${JSON.stringify(params || {})}`;
+        const safeParams =
+          params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
+        const toolCallMessage = `TOOL_CALL:show_getting_started:${safeJSONStringify(safeParams)}`;
         queueToolMessageRef.current?.(toolCallMessage, {
           toolCall: true, toolName: 'show_getting_started', timestamp: Date.now()
         });
@@ -752,10 +1311,49 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     show_support: async (params) => {
       console.log('🛟 Bridge Handler - show_support called:', params);
       try {
-        const toolCallMessage = `TOOL_CALL:show_support:${JSON.stringify(params || {})}`;
-        queueToolMessageRef.current?.(toolCallMessage, {
-          toolCall: true, toolName: 'show_support', timestamp: Date.now()
-        });
+        const safeParams =
+          params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
+        const toolCallMessage = `TOOL_CALL:show_support:${safeJSONStringify(safeParams)}`;
+
+        if (typeof window !== "undefined") {
+          const dedupeKey = "__ciedenSupportLastQueuedAt";
+          const lastMessageKey = "__ciedenSupportLastToolCallMessage";
+          const now = Date.now();
+          const lastQueuedAt = (window as any)[dedupeKey] as number | undefined;
+          const lastToolCallMessage = (window as any)[lastMessageKey] as string | undefined;
+
+          const dedupeWindowMs = 2500;
+
+          if (lastToolCallMessage === toolCallMessage) {
+            return "Support card is already queued.";
+          }
+
+          if (typeof lastQueuedAt === "number" && now - lastQueuedAt < dedupeWindowMs) {
+            return "Support card is already shown on screen.";
+          }
+
+          (window as any)[dedupeKey] = now;
+          (window as any)[lastMessageKey] = toolCallMessage;
+        }
+
+        if (!conversationId) {
+          setOnboardingMessages((prev) => {
+            if (prev.some((m) => m.content === toolCallMessage)) return prev;
+            return [
+              ...prev,
+              {
+                id: `onb-tool-${toolCallMessage}-${Date.now()}`,
+                role: "assistant",
+                content: toolCallMessage,
+                timestamp: Date.now(),
+              },
+            ];
+          });
+        } else {
+          queueToolMessageRef.current?.(toolCallMessage, {
+            toolCall: true, toolName: 'show_support', timestamp: Date.now()
+          });
+        }
       } catch (error) {
         console.error('❌ Failed to queue show_support:', error);
       }
@@ -765,10 +1363,53 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     show_project_brief: async (params) => {
       console.log('📝 Bridge Handler - show_project_brief called:', params);
       try {
-        const toolCallMessage = `TOOL_CALL:show_project_brief:${JSON.stringify(params || {})}`;
-        queueToolMessageRef.current?.(toolCallMessage, {
-          toolCall: true, toolName: 'show_project_brief', timestamp: Date.now()
-        });
+        const safeParams =
+          params && typeof params === "object"
+            ? { ...(params as any), mode: "default" }
+            : { mode: "default" };
+        const toolCallMessage = `TOOL_CALL:show_project_brief:${safeJSONStringify(safeParams)}`;
+
+        if (typeof window !== "undefined") {
+          const dedupeKey = "__ciedenProjectBriefLastQueuedAt";
+          const lastMessageKey = "__ciedenProjectBriefLastToolCallMessage";
+          const now = Date.now();
+          const lastQueuedAt = (window as any)[dedupeKey] as number | undefined;
+          const lastToolCallMessage = (window as any)[lastMessageKey] as
+            | string
+            | undefined;
+
+          const dedupeWindowMs = 2500;
+
+          if (lastToolCallMessage === toolCallMessage) {
+            return "Project brief card is already queued.";
+          }
+
+          if (typeof lastQueuedAt === "number" && now - lastQueuedAt < dedupeWindowMs) {
+            return "Project brief card is already shown on screen.";
+          }
+
+          (window as any)[dedupeKey] = now;
+          (window as any)[lastMessageKey] = toolCallMessage;
+        }
+
+        if (!conversationId) {
+          setOnboardingMessages((prev) => {
+            if (prev.some((m) => m.content === toolCallMessage)) return prev;
+            return [
+              ...prev,
+              {
+                id: `onb-tool-${toolCallMessage}-${Date.now()}`,
+                role: "assistant",
+                content: toolCallMessage,
+                timestamp: Date.now(),
+              },
+            ];
+          });
+        } else {
+          queueToolMessageRef.current?.(toolCallMessage, {
+            toolCall: true, toolName: 'show_project_brief', timestamp: Date.now()
+          });
+        }
       } catch (error) {
         console.error('❌ Failed to queue show_project_brief:', error);
       }
@@ -778,10 +1419,49 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     show_next_steps: async (params) => {
       console.log('➡️ Bridge Handler - show_next_steps called:', params);
       try {
-        const toolCallMessage = `TOOL_CALL:show_next_steps:${JSON.stringify(params || {})}`;
-        queueToolMessageRef.current?.(toolCallMessage, {
-          toolCall: true, toolName: 'show_next_steps', timestamp: Date.now()
-        });
+        const safeParams =
+          params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
+        const toolCallMessage = `TOOL_CALL:show_next_steps:${safeJSONStringify(safeParams)}`;
+
+        if (typeof window !== "undefined") {
+          const dedupeKey = "__ciedenNextStepsLastQueuedAt";
+          const lastMessageKey = "__ciedenNextStepsLastToolCallMessage";
+          const now = Date.now();
+          const lastQueuedAt = (window as any)[dedupeKey] as number | undefined;
+          const lastToolCallMessage = (window as any)[lastMessageKey] as string | undefined;
+
+          const dedupeWindowMs = 2500;
+
+          if (lastToolCallMessage === toolCallMessage) {
+            return "Next steps card is already queued.";
+          }
+
+          if (typeof lastQueuedAt === "number" && now - lastQueuedAt < dedupeWindowMs) {
+            return "Next steps card is already shown on screen.";
+          }
+
+          (window as any)[dedupeKey] = now;
+          (window as any)[lastMessageKey] = toolCallMessage;
+        }
+
+        if (!conversationId) {
+          setOnboardingMessages((prev) => {
+            if (prev.some((m) => m.content === toolCallMessage)) return prev;
+            return [
+              ...prev,
+              {
+                id: `onb-tool-${toolCallMessage}-${Date.now()}`,
+                role: "assistant",
+                content: toolCallMessage,
+                timestamp: Date.now(),
+              },
+            ];
+          });
+        } else {
+          queueToolMessageRef.current?.(toolCallMessage, {
+            toolCall: true, toolName: 'show_next_steps', timestamp: Date.now()
+          });
+        }
       } catch (error) {
         console.error('❌ Failed to queue show_next_steps:', error);
       }
@@ -791,7 +1471,9 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     show_session_summary: async (params) => {
       console.log('📄 Bridge Handler - show_session_summary called:', params);
       try {
-        const toolCallMessage = `TOOL_CALL:show_session_summary:${JSON.stringify(params || {})}`;
+        const safeParams =
+          params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
+        const toolCallMessage = `TOOL_CALL:show_session_summary:${safeJSONStringify(safeParams)}`;
         queueToolMessageRef.current?.(toolCallMessage, {
           toolCall: true, toolName: 'show_session_summary', timestamp: Date.now()
         });
@@ -847,6 +1529,7 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
           }).format(balance)}`,
           role: 'assistant',
           source: 'contextual',
+              guestId: guestId ?? undefined,
           metadata: {
             toolName: 'showAccountBalance',
             toolType: 'frontend_action',
@@ -885,7 +1568,7 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
   useEffect(() => {
     // Create or get conversation - only when authenticated and conversations are loaded
     async function initConversation() {
-      if (!isAuthenticated || conversations === undefined) return;
+      if (!canUseChat || conversations === undefined) return;
 
       if (conversations.length > 0) {
         setConversationId(conversations[0]._id);
@@ -899,16 +1582,105 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
       }
     }
     initConversation();
-  }, [isAuthenticated, conversations, createConversation]);
+  }, [canUseChat, conversations, createConversation]);
 
   // Handle messages from unified input
   const handleMessage = useCallback(async (text: string, source: 'voice' | 'text') => {
     setLastMessage({ text, source });
     console.log(`📝 Message received from ${source}:`, text);
 
-    // When unauthenticated, text input is used only for onboarding;
-    // actual onboarding logic is handled via onPreAuthMessage, so we do nothing here.
-    if (!isAuthenticated) return;
+    // During auth/onboarding we don't want the normal chat handler to run.
+    // Pre-auth flow (name/email) is handled via `onPreAuthMessage`.
+    // But in "guest" mode (conversationId === null) we still need to render messages
+    // in the onboarding ChatWindow.
+    // Allow guest persistence even if Convex Auth discovery is failing.
+
+    // TEMP guest mode: conversationId may be null while we temporarily disable auth.
+    // We still want to display user/assistant messages in UI.
+    if (!conversationId) {
+      const GUEST_USER_PREFIX = "__GUEST_USER__:";
+      const GUEST_AI_PREFIX = "__GUEST_AI__:";
+
+      if (text.startsWith(GUEST_USER_PREFIX)) {
+        const actualText = text.slice(GUEST_USER_PREFIX.length);
+        // Hide internal kickoff prompt from user-visible onboarding stream
+        if (/onboarding complete\./i.test(actualText.trim())) return;
+        setOnboardingMessages((prev) => [
+          ...prev,
+          {
+            id: `guest-user-${Date.now()}`,
+            role: "user",
+            content: actualText,
+            timestamp: Date.now(),
+          },
+        ]);
+        requestAnimationFrame(() => forceScrollToBottom());
+        text = actualText;
+        // During name/email collection the assistant reply is already injected by
+        // handlePreAuthMessage — do NOT show the typing bubble here.
+        if (onboardingStep === "ask_name" || onboardingStep === "ask_email") return;
+        // Forward to EstimateWizardPanel local tracker if the panel is open
+        if ((window as any).__ciedenEstimatePanelOpen === true) {
+          window.dispatchEvent(
+            new CustomEvent("estimate-local-user-message", {
+              detail: { content: actualText, role: "user", createdAt: Date.now() },
+            }),
+          );
+        }
+      } else if (text.startsWith(GUEST_AI_PREFIX)) {
+        const actualText = text.slice(GUEST_AI_PREFIX.length);
+
+        // During onboarding (ask_name / ask_email) we want to show only our
+        // pre-auth assistant prompts. Ignore agent "greeting"/auto messages.
+        if (onboardingStep !== "done") {
+          setPendingAssistantBubble(false);
+          setEstimateTyping({ active: false, label: "" });
+          return;
+        }
+
+        setPendingAssistantBubble(false);
+        setEstimateTyping({ active: false, label: "" });
+        // Tool cards should be rendered from persisted Convex messages only.
+        // If we also append TOOL_CALL payloads to onboardingMessages, duplicates appear.
+        if (parseToolCall(actualText)) {
+          return;
+        }
+        setOnboardingMessages((prev) => [
+          ...prev,
+          {
+            id: `guest-ai-${Date.now()}`,
+            role: "assistant",
+            content: actualText,
+            timestamp: Date.now(),
+          },
+        ]);
+        return;
+      }
+    }
+
+    // Show typing bubble immediately after user message
+    typingHoldUntilRef.current = Date.now() + 300;
+    setEstimateTyping({ active: true, label: "Assistant is typing…" });
+    setPendingAssistantBubble(true);
+
+    // If user asks about estimate again, reopen estimate panel
+    const lower = text.toLowerCase();
+    if (
+      /(estimate|estimation|calculator|pricing)/.test(lower) ||
+      /(естімейт|естимейт|калькулятор|оцінк|оценк|скільки кошту|сколько сто)/.test(lower)
+    ) {
+      window.dispatchEvent(new CustomEvent("open-estimate-panel"));
+    }
+
+    // Forward user message to EstimateWizardPanel local tracker (authenticated mode)
+    // Guest mode forwarding happens above in the GUEST_USER_PREFIX branch
+    if (conversationId && (window as any).__ciedenEstimatePanelOpen === true && text) {
+      window.dispatchEvent(
+        new CustomEvent("estimate-local-user-message", {
+          detail: { content: text, role: "user", createdAt: Date.now() },
+        }),
+      );
+    }
 
     // Text messaging is now handled by UnifiedChatInput component which has access to the provider
     // The UnifiedChatInput's useTextInput hook internally uses the provider's text messaging
@@ -916,61 +1688,57 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
       console.log('📤 Text message will be handled by UnifiedChatInput component');
     }
     // Voice messages already handled by existing voice system
-  }, [voiceStatus, isAuthenticated]);
+  }, [voiceStatus, conversationId, onboardingStep]);
 
-  // Auto-scroll to bottom when new messages arrive - optimized to prevent unnecessary scrolls
-  const [isUserScrolling, setIsUserScrolling] = useState(false);
-  const [messageCount, setMessageCount] = useState(0);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const scrollToBottom = useCallback(() => {
-    if (isUserScrolling) return; // Don't auto-scroll if user is manually scrolling
-    
-    const element = messagesEndRef.current;
-    if (!element) return;
-
-    // Scroll instantly so new message appears above input, not under it
-    requestAnimationFrame(() => {
-      element.scrollIntoView({ 
-        behavior: 'auto',
-        block: 'end'
+  // Force-scroll to bottom — always (user and assistant messages).
+  // We run this a few times because message layout can finalize asynchronously.
+  const forceScrollToBottom = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const scrollNow = () => {
+      const latest = scrollContainerRef.current;
+      if (!latest) return;
+      latest.scrollTop = latest.scrollHeight;
+      // Anchor to explicit end marker so the last bubble stays above input.
+      messagesEndRef.current?.scrollIntoView({
+        behavior: "auto",
+        block: "end",
       });
-    });
-  }, [isUserScrolling]);
+    };
 
-  // Detect user scrolling to prevent auto-scroll interference
-  const handleScroll = useCallback(() => {
-    setIsUserScrolling(true);
-    
-    // Clear existing timeout
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-    
-    // Reset user scrolling flag after 2 seconds of no scrolling
-    scrollTimeoutRef.current = setTimeout(() => {
-      setIsUserScrolling(false);
-    }, 2000);
+    // Immediate + delayed passes to handle async content sizing.
+    scrollNow();
+    requestAnimationFrame(scrollNow);
+    setTimeout(scrollNow, 0);
+    setTimeout(scrollNow, 60);
+    setTimeout(scrollNow, 140);
+    setTimeout(scrollNow, 260);
   }, []);
 
-  // Scroll to bottom when conversation message count changes (excluding contextual updates)
+  // Auto-scroll when Convex messages change
   useEffect(() => {
-    const conversationMessages = convexMessages?.filter(message => 
+    const visibleCount = (convexMessages?.filter(message =>
       !(message.role === 'system' && message.source === 'contextual')
-    ) || [];
-    const newMessageCount = conversationMessages.length;
-    
-    if (newMessageCount > messageCount && newMessageCount > 0) {
-      setMessageCount(newMessageCount);
-      
-      // Use requestAnimationFrame for better performance
-      const frameId = requestAnimationFrame(() => {
-        scrollToBottom();
-      });
-      
-      return () => cancelAnimationFrame(frameId);
+    ) || []).length;
+    if (visibleCount > 0) forceScrollToBottom();
+  }, [convexMessages, forceScrollToBottom]);
+
+  // Auto-scroll for onboarding/guest messages
+  useEffect(() => {
+    if (onboardingMessages.length > 0) {
+      forceScrollToBottom();
     }
-  }, [convexMessages, messageCount, scrollToBottom]);
+  }, [onboardingMessages.length, forceScrollToBottom]);
+
+  // Keep typing bubble visible above input.
+  useEffect(() => {
+    if (pendingAssistantBubble) forceScrollToBottom();
+  }, [pendingAssistantBubble, forceScrollToBottom]);
+
+  // Final safety net: after any major stream update, pin to bottom.
+  useEffect(() => {
+    forceScrollToBottom();
+  }, [convexMessages?.length, onboardingMessages.length, shouldShowOnboarding, forceScrollToBottom]);
 
 
 
@@ -979,8 +1747,18 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     if (!conversationId || clearing) return;
     try {
       setClearing(true);
-      const res = await clearHistory({ conversationId });
-      console.log(`🧹 Cleared ${res?.deleted ?? 0} messages`);
+      const batchLimit = 200;
+      const maxBatches = 25; // safety cap
+      let totalDeleted = 0;
+
+      for (let i = 0; i < maxBatches; i++) {
+        const res = await clearHistory({ conversationId, limit: batchLimit });
+        totalDeleted += res?.deleted ?? 0;
+        if (!res || (res.deleted ?? 0) === 0) break;
+      }
+
+      console.log(`🧹 Cleared conversation history`, { totalDeleted });
+
       // Notify provider subtree to restart sessions fresh
       try {
         window.dispatchEvent(new CustomEvent('history-cleared'));
@@ -1036,7 +1814,8 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
               conversationId,
               content: text,
               role: 'system',
-              source: 'contextual'
+              source: 'contextual',
+              guestId: guestId ?? undefined,
             });
             console.log('🗂️ Saved contextual update to Convex (CLOSE_QUIZ_MODAL)');
           } catch (error) {
@@ -1044,15 +1823,16 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
           }
         }
       }
-    } else if (text.startsWith('TOOL_CALL:') && conversationId) {
-      // Tool calls should be saved to Convex as new messages
+    } else if (conversationId && !!parseToolCall(text)) {
+      // Tool calls should be saved to Convex as new messages (even if protocol is partial)
       console.log('💾 Saving tool call to Convex:', text);
       try {
         await createMessage({
           conversationId,
           content: text,
           role: 'assistant',
-          source: 'contextual'
+          source: 'contextual',
+          guestId: guestId ?? undefined,
         });
         console.log('✅ Tool call message saved to Convex');
       } catch (error) {
@@ -1081,7 +1861,8 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
             conversationId,
             content: text,
             role: 'system',
-            source: 'contextual'
+            source: 'contextual',
+            guestId: guestId ?? undefined,
           });
           console.log('🗂️ Saved contextual update to Convex');
         } catch (error) {
@@ -1091,17 +1872,7 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
     }
   }, [conversationId, createMessage, sendContextualUpdate, sendProgrammaticMessage]);
 
-  // Show loading state while checking auth
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-white/50">Loading...</div>
-      </div>
-    );
-  }
-
-  // We no longer use a separate full-screen onboarding page.
-  // Instead, inline onboarding chat is rendered inside the main layout below.
+  // Auth discovery disabled for temporary guest-mode debugging.
 
   // Helper component to get queueToolMessage from context and populate ref
   function ContextBridge() {
@@ -1133,9 +1904,10 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
           <VoiceChatHeader
             className={isMobile ? 'relative' : undefined}
             onSettingsOpen={() => setShowSettings(true)}
-            onClearHistory={handleClearHistory}
+            // Clear conversation history button is intentionally hidden.
             onSignOut={async () => {
               await signOut();
+              clearOnboardingDoneCookie();
               // Hard reload so auth state and onboarding fully reset
               if (typeof window !== "undefined") {
                 window.location.href = "/voice-chat";
@@ -1165,59 +1937,148 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
                 !isMobile && 'pb-[72px]'
               )}>
               {/* Messages Display — scroll area ends above fixed input so new messages stay visible */}
-              <div 
+              <div
+                ref={scrollContainerRef}
                 className={"flex-1 p-4 lg:p-6 xl:p-8 overflow-y-auto overflow-x-hidden scrollbar-chat min-h-0"}
-                onScroll={handleScroll}
                 style={{
                   contain: 'layout style paint',
                   willChange: 'scroll-position',
-                  // Контролюємо відступ через внутрішній spacer, тут залишаємо 0
-                  paddingBottom: 0
+                  // Keep enough room so the newest bubble sits above input.
+                  paddingBottom: 24
                 }}
               >
-              {(!isAuthenticated) ? (
-                <ChatWindow
-                  messages={onboardingMessages}
-                  userName={userDisplayName}
-                  isLoading={onboardingStep === "creating"}
-                  messagesEndRef={messagesEndRef}
-                />
-              ) : ((convexMessages && convexMessages.length > 0) || (voiceStatus !== 'idle')) ? (
-                <div className="space-y-4 lg:space-y-6 max-w-4xl lg:max-w-5xl xl:max-w-6xl mx-auto w-full">
-                  {/* Quick prompts – тепер завжди видно над історією, а не лише до першого повідомлення */}
-                  {quickPrompts.length > 0 && (
-                    <div className="mb-4">
-                      <div className="text-center mb-3">
-                        <h2 className="text-lg font-semibold text-white">Welcome — your Cieden assistant is here 👋</h2>
-                        <p className="text-white/70 text-sm">Tell me about your project or pick one of the questions below.</p>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl mx-auto">
-                        {quickPrompts.map((prompt, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={async () => {
-                              const value = (prompt as any).valueUk || prompt.valueEn;
-                              if (sendProgrammaticMessage) await sendProgrammaticMessage(value);
-                            }}
-                            className="p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors border border-white/10"
-                          >
-                            <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+              {shouldShowOnboarding ? (
+                <div className="space-y-4 lg:space-y-6 w-full max-w-[min(100%,1400px)] mx-auto py-6">
+
+                  {/* Render onboarding messages inline so welcome+buttons appear below them */}
+                  {onboardingMessages.map((message) => {
+                    const isToolCall = !!parseToolCall(message.content);
+                    const isInternalKickoff = /onboarding complete\./i.test(message.content.trim());
+                    const isWelcomePrompts = message.content === ONBOARDING_WELCOME_PROMPTS_TOKEN;
+                    if (isInternalKickoff) return null;
+                    if (isWelcomePrompts) {
+                      return (
+                        <div key={message.id} className="pt-4 space-y-4 w-full max-w-[900px] mx-auto">
+                          <div className="text-center">
+                            <h2 className="text-lg font-semibold text-white">Welcome — your Cieden assistant is here 👋</h2>
+                            <p className="text-white/70 text-sm mt-1">Tell me about your project or pick one of the questions below.</p>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {quickPrompts.map((prompt, index) => (
+                              <button
+                                key={index}
+                                type="button"
+                                onClick={async () => {
+                                  const value = (prompt as any).valueUk || prompt.valueEn;
+                                  if (sendProgrammaticMessage) await sendProgrammaticMessage(value);
+                                }}
+                                className="p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors border border-white/10"
+                              >
+                                <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    if (isToolCall) {
+                      // We want tool cards to be rendered only from `convexMessages`.
+                      // During onboarding we may queue TOOL_CALL strings into `onboardingMessages`,
+                      // but showing them here creates duplicates once they also appear in Convex.
+                      return null;
+                    }
+                    return (
+                      <ChatMessage
+                        key={message.id}
+                        message={message}
+                        onQuickPrompt={(text) => sendProgrammaticMessage?.(text)}
+                        userName={userDisplayName}
+                      />
+                    );
+                  })}
+
+                  {/* Typing bubble */}
+                  {pendingAssistantBubble && (
+                    <ChatMessage
+                      key="onb-typing"
+                      message={{ id: "onb-typing", role: "assistant", content: "__TYPING__", timestamp: Date.now() }}
+                      userName={userDisplayName}
+                    />
                   )}
+
+                  <div ref={messagesEndRef} className="h-28" />
+                </div>
+              ) : ((convexMessages && convexMessages.length > 0) || (voiceStatus !== 'idle')) ? (
+                <div className="space-y-4 lg:space-y-6 w-full max-w-[min(100%,1400px)] mx-auto py-6">
+
+                  {/* Onboarding messages (name/email flow) + inline welcome block */}
+                  {onboardingMessages.length > 0 && onboardingMessages.map((message) => {
+                    const isToolCall = !!parseToolCall(message.content);
+                    const isInternalKickoff = /onboarding complete\./i.test(message.content.trim());
+                    const isWelcomePrompts = message.content === ONBOARDING_WELCOME_PROMPTS_TOKEN;
+                    if (isInternalKickoff) return null;
+                    if (isToolCall) {
+                      // Same rule as above: tool cards only via Convex messages.
+                      return null;
+                    }
+                    if (isWelcomePrompts) {
+                      return (
+                        <div key={`onb-welcome-${message.id}`} className="space-y-4 py-2 w-full max-w-[900px] mx-auto">
+                          <div className="text-center">
+                            <h2 className="text-lg font-semibold text-white">Welcome — your Cieden assistant is here 👋</h2>
+                            <p className="text-white/70 text-sm mt-1">Tell me about your project or pick one of the questions below.</p>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {quickPrompts.map((prompt, promptIndex) => (
+                              <button
+                                key={promptIndex}
+                                type="button"
+                                onClick={async () => {
+                                  const value = (prompt as any).valueUk || prompt.valueEn;
+                                  if (sendProgrammaticMessage) await sendProgrammaticMessage(value);
+                                }}
+                                className="p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors border border-white/10"
+                              >
+                                <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={`onb-wrap-${message.id}`} className="space-y-4">
+                        <ChatMessage
+                          key={`onb-${message.id}`}
+                          message={message}
+                          onQuickPrompt={(text) => sendProgrammaticMessage?.(text)}
+                          userName={userDisplayName}
+                        />
+                      </div>
+                    );
+                  })}
+
                   {convexMessages
                     .filter(message => {
                       if (message.role === 'system' && message.source === 'contextual') return false;
                       if (message.role === 'user' && message.content.startsWith('I selected:')) return false;
+                      // Hide internal onboarding kickoff message from the client view
+                      if (/onboarding complete\./i.test(message.content.trim())) return false;
                       const mode = getMessageMode(message.content);
                       if (mode === 'update') return false;
                       return true;
                     })
+                    .filter((message, index, arr) => {
+                      const isTool = !!parseToolCall(message.content);
+                      if (!isTool) return true;
+                      const prev = index > 0 ? arr[index - 1] : null;
+                      const prevIsTool = !!(prev && parseToolCall(prev.content));
+                      // Skip only immediate duplicates of the same tool payload.
+                      if (prevIsTool && prev?.content === message.content) return false;
+                      return true;
+                    })
                     .map((message) => {
-                      const isToolCall = message.content.startsWith('TOOL_CALL:');
+                      const isToolCall = !!parseToolCall(message.content);
                       if (isToolCall) {
                         return (
                           <MessageCard
@@ -1243,43 +2104,101 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
                         />
                       );
                     })}
+                  {pendingAssistantBubble && (
+                    <ChatMessage
+                      key="pending-assistant-bubble"
+                      message={{
+                        id: "pending-assistant-bubble",
+                        role: "assistant",
+                        content: "__TYPING__",
+                        timestamp: Date.now(),
+                      }}
+                      userName={userDisplayName}
+                    />
+                  )}
                   {/* Spacer під останнім повідомленням, приблизно як висота інпуту */}
-                  <div ref={messagesEndRef} className="h-20" />
+                  <div ref={messagesEndRef} className="h-28" />
                 </div>
               ) : (
-                <ChatWindow
-                  messages={[]}
-                  userName={currentUser?.name || currentUser?.email || "there"}
-                  quickPrompts={quickPrompts}
-                  onQuickPrompt={async (value) => {
-                    if (sendProgrammaticMessage) await sendProgrammaticMessage(value);
-                  }}
-                  messagesEndRef={messagesEndRef}
-                />
+                <div className="flex flex-col items-center justify-center flex-1 max-w-[900px] mx-auto w-full px-4 gap-6 py-12">
+                  <div className="text-center">
+                    <h2 className="text-xl font-semibold text-white mb-2">Welcome — your Cieden assistant is here 👋</h2>
+                    <p className="text-white/70">Tell me about your project or pick one of the questions below.</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-[900px]">
+                    {quickPrompts.map((prompt, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={async () => {
+                          const value = (prompt as any).valueUk || prompt.valueEn;
+                          if (sendProgrammaticMessage) await sendProgrammaticMessage(value);
+                        }}
+                        className="p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors border border-white/10"
+                      >
+                        <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
+                      </button>
+                    ))}
+                  </div>
+                  <div ref={messagesEndRef} />
+                </div>
               )}
               </div>
             </main>
             
             {/* Unified Chat Input */}
               {isMobile ? (
-            <footer className="flex-shrink-0 p-2 pb-1 bg-transparent pointer-events-none" style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 8px), 24px)' }}>
+            <footer className="flex-shrink-0 p-2 pb-1 bg-transparent pointer-events-none overflow-visible" style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 8px), 24px)' }}>
+              <div className="relative pointer-events-auto overflow-visible z-50">
+                <UnifiedChatInput
+                  className="pointer-events-auto"
+                  conversationId={conversationId}
+                  onMessage={handleMessage}
+                  onStatusChange={setVoiceStatus}
+                  onContextualUpdate={(sendUpdate) => setSendContextualUpdate(() => sendUpdate)}
+                  onProgrammaticSendReady={(sendFn) => setSendProgrammaticMessage(() => sendFn)}
+                  actionHandlers={actionHandlers}
+                  showSettings={showSettings}
+                  onPreAuthMessage={
+                    !canUseChat && onboardingStep !== "done" ? handlePreAuthMessage : undefined
+                  }
+                  onRequestSelect={async (request) => {
+                    console.log('🎯 Quick action selected:', request);
+                    if (sendProgrammaticMessage) {
+                      await sendProgrammaticMessage(request);
+                    }
+                  }}
+                  isMobile={true}
+                  settings={settings}
+                  updateSettings={updateSettings}
+                  onVoiceAudioUpdate={(isUserSpeaking, userLevel, agentLevel) => {
+                    setIsUserSpeaking(isUserSpeaking);
+                    setUserAudioLevel(userLevel);
+                    setAgentAudioLevel(agentLevel);
+                  }}
+                />
+              </div>
+            </footer>
+          ) : (
+            <div className="relative overflow-visible z-50">
               <UnifiedChatInput
-                className="pointer-events-auto"
                 conversationId={conversationId}
                 onMessage={handleMessage}
                 onStatusChange={setVoiceStatus}
                 onContextualUpdate={(sendUpdate) => setSendContextualUpdate(() => sendUpdate)}
                 onProgrammaticSendReady={(sendFn) => setSendProgrammaticMessage(() => sendFn)}
+                onPreAuthMessage={
+                  !canUseChat && onboardingStep !== "done" ? handlePreAuthMessage : undefined
+                }
                 actionHandlers={actionHandlers}
                 showSettings={showSettings}
-                onPreAuthMessage={!isAuthenticated ? handlePreAuthMessage : undefined}
+                alignLeft={!!activePanelDomain || !!showEstimatePanel || !!showAboutPanel}
                 onRequestSelect={async (request) => {
                   console.log('🎯 Quick action selected:', request);
                   if (sendProgrammaticMessage) {
                     await sendProgrammaticMessage(request);
                   }
                 }}
-                isMobile={true}
                 settings={settings}
                 updateSettings={updateSettings}
                 onVoiceAudioUpdate={(isUserSpeaking, userLevel, agentLevel) => {
@@ -1288,32 +2207,7 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
                   setAgentAudioLevel(agentLevel);
                 }}
               />
-            </footer>
-          ) : (
-            <UnifiedChatInput
-              conversationId={conversationId}
-              onMessage={handleMessage}
-              onStatusChange={setVoiceStatus}
-              onContextualUpdate={(sendUpdate) => setSendContextualUpdate(() => sendUpdate)}
-              onProgrammaticSendReady={(sendFn) => setSendProgrammaticMessage(() => sendFn)}
-              onPreAuthMessage={!isAuthenticated ? handlePreAuthMessage : undefined}
-              actionHandlers={actionHandlers}
-              showSettings={showSettings}
-              alignLeft={!!activePanelDomain || !!showEstimatePanel || !!showAboutPanel}
-              onRequestSelect={async (request) => {
-                console.log('🎯 Quick action selected:', request);
-                if (sendProgrammaticMessage) {
-                  await sendProgrammaticMessage(request);
-                }
-              }}
-              settings={settings}
-              updateSettings={updateSettings}
-              onVoiceAudioUpdate={(isUserSpeaking, userLevel, agentLevel) => {
-                setIsUserSpeaking(isUserSpeaking);
-                setUserAudioLevel(userLevel);
-                setAgentAudioLevel(agentLevel);
-              }}
-            />
+            </div>
           )}
           </motion.div>
           
@@ -1328,8 +2222,8 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
             />
           )}
 
-          {/* Speaking HUD - Waveform indicators (client-only to avoid early fallback) */}
-          {mounted && (
+          {/* Speaking HUD - waveform strip below input (disabled per latest UX) */}
+          {false && mounted && (
             <SpeakingHUD
               voiceStatus={voiceStatus}
               isUserSpeaking={isUserSpeaking}
@@ -1350,7 +2244,7 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onClick={closeCasesPanel}
-                  className="fixed inset-0 bg-black/40 z-40 sm:hidden"
+                  className="fixed inset-0 bg-black/40 z-40"
                 />
                 <CaseStudyPanel
                   domain={activePanelDomain}
@@ -1372,7 +2266,11 @@ export default function VoiceChatPage(props: VoiceChatPageProps = {}) {
                   onClick={() => setShowEstimatePanel(false)}
                   className="fixed inset-0 z-40 bg-black/40 sm:hidden"
                 />
-                <EstimateWizardPanel onClose={() => setShowEstimatePanel(false)} />
+                <EstimateWizardPanel
+                  key={estimatePanelKey}
+                  conversationId={conversationId}
+                  onClose={() => setShowEstimatePanel(false)}
+                />
               </>
             )}
           </AnimatePresence>

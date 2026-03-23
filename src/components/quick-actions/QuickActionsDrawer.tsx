@@ -95,7 +95,6 @@ export function QuickActionsDrawer({ onRequestSelect, className, children }: Qui
 
         {/* Hide default vaul overlay and handle */}
         <style
-          // @ts-expect-error: dangerouslySetInnerHTML requires innerHTML property
           dangerouslySetInnerHTML={{
             __html: `
               [data-slot="drawer-overlay"] { background: transparent !important; }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { UnifiedChatInput } from "@/src/components/unified/UnifiedChatInput";
@@ -11,7 +11,7 @@ import { VoiceChatHeader } from "@/src/components/VoiceChatHeader";
 import { EmptyStateWrapper } from "@/src/components/EmptyStateWrapper";
 import { MagicCard } from '@/src/components/magicui/magic-card';
 import { SettingsPanel } from '@/src/components/unified/SettingsPanel';
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useChatMessages } from "@/src/hooks/useChatMessages";
@@ -20,15 +20,13 @@ import { useElevenLabsConversation } from "@/src/providers/ElevenLabsProvider";
 import dynamic from 'next/dynamic';
 
 // Import all the card components
-import { ChartMessage } from "@/src/components/charts/ChartMessage";
 import { MessageCard } from "@/src/components/chat/MessageCard";
 import { BalanceCard } from "@/src/components/charts/BalanceCard";
-import { QuizCard } from "@/src/components/quiz/QuizCard";
 import { EMICard } from "@/src/components/charts/EMICard";
 import { SavingsGoalCard } from "@/src/components/charts/SavingsGoalCard";
-import { DocumentIDCard } from "@/src/components/charts/DocumentIDCard";
+import { DocumentIdCard } from "@/src/components/charts/DocumentIdCard";
 import { LendingOptionsCard } from "@/src/components/charts/LendingOptionsCard";
-import { CreditScoreDisplay } from "@/src/components/charts/CreditScoreDisplay";
+import { CreditScoreCard } from "@/src/components/charts/CreditScoreCard";
 
 // Dynamically import the background components with no SSR
 const AISwarmBackground = dynamic(
@@ -100,7 +98,17 @@ export function VoiceChatContent({
     if (!conversationId) return;
     setClearing(true);
     try {
-      await clearHistory({ conversationId });
+      const batchLimit = 200;
+      const maxBatches = 25; // safety cap
+      let totalDeleted = 0;
+
+      for (let i = 0; i < maxBatches; i++) {
+        const res = await clearHistory({ conversationId, limit: batchLimit });
+        totalDeleted += res?.deleted ?? 0;
+        if (!res || (res.deleted ?? 0) === 0) break;
+      }
+
+      console.log(`🧹 Cleared voice-chat history`, { totalDeleted });
     } finally {
       setClearing(false);
     }
@@ -177,35 +185,28 @@ export function VoiceChatContent({
 
         switch(toolName) {
           case 'show_balance':
-            return <BalanceCard data={parsedParams} onUserAction={handleUserAction} />;
+            return <BalanceCard balance={Number(parsedParams?.balance ?? 0)} onUserAction={handleUserAction} />;
           case 'show_savings_goal':
-            return <SavingsGoalCard data={parsedParams} onUserAction={handleUserAction} />;
+            return <SavingsGoalCard currentSavings={Number(parsedParams?.currentSavings ?? 0)} goalAmount={Number(parsedParams?.goalAmount ?? 0)} onUserAction={handleUserAction} />;
           case 'show_document_id':
-            return <DocumentIDCard data={parsedParams} onUserAction={handleUserAction} />;
+            return <DocumentIdCard userId={String(parsedParams?.userId ?? 'demo-user')} documentId={parsedParams?.documentId} onUserAction={handleUserAction} />;
           case 'show_lending_options':
-            return <LendingOptionsCard data={parsedParams} onUserAction={handleUserAction} />;
+            return <LendingOptionsCard options={parsedParams?.options} onUserAction={handleUserAction} />;
           case 'show_credit_score':
-            return <CreditScoreDisplay data={parsedParams} onUserAction={handleUserAction} />;
+            return <CreditScoreCard score={Number(parsedParams?.score ?? 0)} />;
           case 'show_emi_info':
-            return <EMICard data={parsedParams} onUserAction={handleUserAction} />;
-          case 'start_quiz':
-            return <QuizCard initialData={parsedParams} onUserAction={handleUserAction} />;
+            return <EMICard loanAmount={Number(parsedParams?.loanAmount ?? 0)} interestRate={Number(parsedParams?.interestRate ?? 0)} termMonths={Number(parsedParams?.termMonths ?? 0)} emi={Number(parsedParams?.emi ?? 0)} onUserAction={handleUserAction} />;
           default:
-            return <MessageCard message={message} />;
+            return <MessageCard message={message} onUserAction={handleUserAction} />;
         }
       } catch (e) {
         console.error('Failed to parse tool params:', e);
-        return <MessageCard message={message} />;
+        return <MessageCard message={message} onUserAction={handleUserAction} />;
       }
     }
 
-    // Check for chart messages
-    if (message.chartData) {
-      return <ChartMessage message={message} />;
-    }
-
     // Default message rendering
-    return <MessageCard message={message} />;
+    return <MessageCard message={message} onUserAction={handleUserAction} />;
   };
 
   // Memoize rendered messages to avoid re-rendering cards on frequent audio state updates
@@ -278,7 +279,7 @@ export function VoiceChatContent({
               paddingBottom: isMobile ? 'calc(260px + env(safe-area-inset-bottom))' : '280px'
             }}
           >
-            <EmptyStateWrapper hasMessages={convexMessages.length > 0}>
+            <EmptyStateWrapper isVisible={convexMessages.length === 0}>
               <div className="max-w-4xl mx-auto space-y-6">
                 <AnimatePresence initial={false}>
                   {renderedMessages}
@@ -287,6 +288,15 @@ export function VoiceChatContent({
                 <div ref={messagesEndRef} className="h-1" />
               </div>
             </EmptyStateWrapper>
+            {convexMessages.length > 0 && (
+              <div className="max-w-4xl mx-auto space-y-6">
+                <AnimatePresence initial={false}>
+                  {renderedMessages}
+                </AnimatePresence>
+                <div className="h-12" />
+                <div ref={messagesEndRef} className="h-1" />
+              </div>
+            )}
           </div>
 
           {/* Voice Status Display */}
@@ -317,13 +327,12 @@ export function VoiceChatContent({
 
       {/* Settings Panel */}
       <SettingsPanel
-        show={showSettings}
+        isVisible={showSettings}
         onClose={() => setShowSettings(false)}
         settings={settings}
+        onUpdateSettings={updateSettings}
+        onToggleGoMode={() => {}}
       />
     </div>
   );
 }
-
-// Import AnimatePresence for animations
-import { AnimatePresence } from "framer-motion";

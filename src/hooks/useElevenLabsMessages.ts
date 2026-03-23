@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import { getGuestIdentityFromCookie } from '@/src/utils/guestIdentity';
 
 interface UseElevenLabsMessagesProps {
   conversationId: Id<"conversations"> | null;
@@ -9,6 +10,7 @@ interface UseElevenLabsMessagesProps {
 
 export function useElevenLabsMessages({ conversationId }: UseElevenLabsMessagesProps) {
   const createMessage = useMutation(api.messages.create);
+  const guestId = getGuestIdentityFromCookie()?.guestId;
   
   // Buffer messages that arrive before conversationId is ready
   const pendingRef = useRef<Array<{ kind: 'agent' | 'user' | 'system'; message: string; metadata?: Record<string, unknown> }>>([]);
@@ -36,6 +38,7 @@ export function useElevenLabsMessages({ conversationId }: UseElevenLabsMessagesP
                 timestamp: Date.now(),
                 buffered: true,
               },
+              guestId: guestId ?? undefined,
             });
           } else if (item.kind === 'user') {
             const isTextMessage = item.metadata?.messageType === 'text';
@@ -50,6 +53,7 @@ export function useElevenLabsMessages({ conversationId }: UseElevenLabsMessagesP
                 timestamp: Date.now(),
                 buffered: true,
               },
+              guestId: guestId ?? undefined,
             });
           } else if (item.kind === 'system') {
             await createMessage({
@@ -63,6 +67,7 @@ export function useElevenLabsMessages({ conversationId }: UseElevenLabsMessagesP
                 timestamp: Date.now(),
                 buffered: true,
               },
+              guestId: guestId ?? undefined,
             });
           }
         } catch (error) {
@@ -92,6 +97,7 @@ export function useElevenLabsMessages({ conversationId }: UseElevenLabsMessagesP
           elevenLabsAgent: true,
           timestamp: Date.now(),
         },
+        guestId: guestId ?? undefined,
       });
 
       console.log('✅ ElevenLabs agent message saved:', messageId);
@@ -126,6 +132,7 @@ export function useElevenLabsMessages({ conversationId }: UseElevenLabsMessagesP
           [isTextMessage ? 'elevenLabsTextMessage' : 'voiceTranscript']: true,
           timestamp: Date.now(),
         },
+        guestId: guestId ?? undefined,
       });
 
       console.log(`✅ User ${source} message saved:`, messageId);
@@ -156,6 +163,7 @@ export function useElevenLabsMessages({ conversationId }: UseElevenLabsMessagesP
           systemEvent: true,
           timestamp: Date.now(),
         },
+        guestId: guestId ?? undefined,
       });
 
       console.log('✅ System message saved:', messageId);

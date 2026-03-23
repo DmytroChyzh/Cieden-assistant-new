@@ -61,25 +61,21 @@ export function ChatWindow({
           gap: 24,
         }}
       >
-        {!hasMessages && (
-          <div className="text-center py-12 w-full">
-            <h2 className="text-xl font-semibold text-white mb-2">Welcome — your Cieden assistant is here 👋</h2>
-            <p className="text-white/70 mb-6">Tell me about your project or pick one of the questions below.</p>
-            {quickPrompts.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl mx-auto">
-                {quickPrompts.map((prompt, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => onQuickPrompt?.(prompt.valueUk || prompt.valueEn)}
-                    className="p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors border border-white/10"
-                  >
-                    <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
-                    {prompt.desc && <p className="text-sm text-white/60">{prompt.desc}</p>}
-                  </button>
-                ))}
-              </div>
-            )}
+        {/* Empty state placeholder — intentionally minimal; parent controls welcome text */}
+
+        {quickPrompts.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-w-4xl mx-auto w-full">
+            {quickPrompts.map((prompt, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => onQuickPrompt?.(prompt.valueUk || prompt.valueEn)}
+                className="p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors border border-white/10"
+              >
+                <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
+                {prompt.desc && <p className="text-sm text-white/60">{prompt.desc}</p>}
+              </button>
+            ))}
           </div>
         )}
 

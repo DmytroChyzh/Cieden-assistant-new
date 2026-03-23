@@ -1,0 +1,13 @@
+,,,Include,UX/UI,,,,BA/PM,,,
+Modules ,Features/Epics,Comments ,,Min,Most likely,Maximum ,PERT,Min,Most likely,Maximum ,PERT
+Design Audit,,,,,,,,,,,
+Design Audit,Patient's mobile app designs,"identify usability issues and pain points, evaluate current visual design consistency",TRUE,8,12,16,12,,,,0
+,Audit results report,Report of findings ,TRUE,4,6,8,6,,,,0
+,,,TRUE,,,,0,,,,0
+,,,TRUE,,,,0,,,,0
+Communication,,,,1,2,2,2,0,0,0,0
+TOTAL,,,,13,20,26,20,0,0,0,0
+,Total Product Design ,,,13,20,26,20,,,,
+,Total BA,,,2,3,4,3,,,,
+,TOTAL PROJECT (hours),,,15,23,30,23,,,,
+,TOTAL PROJECT COST ,,,$759,"$1,139","$1,518","$1,139",,,,

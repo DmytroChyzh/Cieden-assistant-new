@@ -16,12 +16,41 @@ function normalizeToolName(name: string): string {
   return map[name] || cleaned.toLowerCase();
 }
 
+const KNOWN_TOOL_NAMES = new Set([
+  // Sales/info tools rendered as cards in chat
+  'show_cases',
+  'show_best_case',
+  'show_engagement_models',
+  'generate_estimate',
+  'open_calculator',
+  'show_about',
+  'show_process',
+  'show_getting_started',
+  'show_support',
+  'show_project_brief',
+  'show_next_steps',
+  'show_session_summary',
+]);
+
 export function parseToolCall(content: string):
   | { toolName: string; data: any; mode: ToolCallMode }
   | null {
-  if (!content || typeof content !== 'string' || !content.startsWith('TOOL_CALL:')) return null;
+  const raw = content?.trim();
+  if (!raw || typeof raw !== 'string') return null;
+
+  // Fallback: sometimes the agent returns just the tool name (e.g. "show_about")
+  // without our strict TOOL_CALL protocol. Support that so cards still render.
+  if (!raw.startsWith('TOOL_CALL:') && KNOWN_TOOL_NAMES.has(raw.toLowerCase())) {
+    return {
+      toolName: normalizeToolName(raw),
+      data: {},
+      mode: 'default',
+    };
+  }
+
+  if (!raw.startsWith('TOOL_CALL:')) return null;
   try {
-    const match = content.match(/^TOOL_CALL:([^:]+):(.+)$/);
+    const match = raw.match(/^TOOL_CALL:([^:]+):(.+)$/);
     if (!match) return null;
     const [, rawName, jsonData] = match;
     const data = JSON.parse(jsonData);

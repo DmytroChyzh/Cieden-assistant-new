@@ -1,0 +1,59 @@
+,,,,Include,UX/UI,,,,BA/PM,,,
+,Modules ,Features/Epics,Comments ,,Min,Most likely,Maximum ,PERT,Min,Most likely,Maximum ,PERT
+,Product discovery,,,,,,,,,,,
+,Competitors analysis,,,TRUE,,,,0,6,8,12,8
+,User Personas,User Personas,2-3 user personas,TRUE,,,,0,4,5,6,5
+,,Use Cases,,TRUE,,,,0,4,6,8,6
+,Process flows,,,TRUE,,,,0,8,10,12,10
+,Wireframes (low-fidelity),,,TRUE,,,,0,4,6,8,6
+,Roles and Accesses,,,TRUE,,,,0,4,5,6,5
+,Informational Architecture,,,TRUE,,,,0,12,16,20,16
+,Features prioritization,,,TRUE,,,,0,2,3,4,3
+,Communication,Internal,,,0,0,0,0,4,6,8,6
+,,External,,,0,0,0,0,9,12,15,12
+,TOTAL,,,,0,0,0,0,57,77,99,77
+,DesOps,,,,,,,,,,,
+,Moodboard & UI Concepts,Website,2-3 concepts,TRUE,8,12,16,12,,,,0
+,,Platform,2-3 concepts,TRUE,16,20,24,20,,,,0
+,,Design system & Documentation,,TRUE,16,20,24,20,,,,0
+,,,,FALSE,,,,0,,,,0
+,Communication,Internal,,,4,5,6,5,0,0,0,0
+,,External,,,8,10,13,10,0,0,0,0
+,TOTAL,,,,52,68,83,68,0,0,0,0
+,Branding,,,,,,,,,,,
+,Website Logo,Logo moodboard,,TRUE,4,6,8,6,,,,0
+,,Logo Concepts,several logo concepts+refinement to final version,TRUE,8,12,16,12,,,,0
+,Color Palette,,,TRUE,8,12,16,12,,,,0
+,Content - ?,,,FALSE,,,,0,,,,0
+,Communication,Internal,,,2,3,4,3,0,0,0,0
+,,External,,,4,6,8,6,0,0,0,0
+,TOTAL,,,,26,39,52,39,0,0,0,0
+,Webpage design,,,,,,,,,,,
+,Webpage,Main page,"search, vehicles carousel",TRUE,16,20,24,20,,,,0
+,,Search result,"search bar, filtering",,,,,,,,,0
+,,Authorization page,"sign in, sign up, password recovery",TRUE,6,8,12,8,,,,0
+,,Vehicle detailed page,"gallery, main info, history , CTAs",TRUE,8,12,16,12,,,,0
+,,,,FALSE,,,,0,,,,0
+,Communication,Internal,,,3,4,5,4,0,0,0,0
+,,External,,,6,8,10,8,0,0,0,0
+,TOTAL,,,,39,52,68,52,0,0,0,0
+,Handoff and Documentation,,,,,,,,,,,
+,,Specification document,"user stories, acceptance criteria, flows",TRUE,,,,0,8,16,24,16
+,Communication,,,,0,0,0,0,2,3,5,3
+,TOTAL,,,,0,0,0,0,10,19,29,19
+,,Total Product Design ,,,117,159,203,159,,,,
+,,Total BA,,,67,96,128,96,,,,
+,,Total BA/PM,,,23,32,41,32,,,,
+,,TOTAL PROJECT (hours),,,207,286,371,287,,,,
+,,TOTAL PROJECT COST ,,,"$10,360","$14,311","$18,548","$14,359",,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,Team Capacity ,,Hours a week,,,,,,,,
+,,UX/UI designer/s,,36,(based on 6h efffective working day) ,,,,,,,
+,,BA,,20,,,,,,,,
+,,,,,,,,,,,,
+,,Project Timeline (design effort) ,,Min,Most likely,Maximum ,PERT,,,,,
+,,Design effort (in weeks) ,,3,4,6,4,,,,,
+,,BA effort (in weeks),,3,5,6,5,,,,,

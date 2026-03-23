@@ -1,0 +1,104 @@
+,,,Include,UX/UI,,,,PM,,,
+Modules ,Features/Epics,Comments ,,Min,Most likely,Maximum ,PERT,Min,Most likely,Maximum ,PERT
+Product discovery,,,,,,,,,,,
+,Competitors research,,TRUE,,,,0,2,4,6,4
+,Proto-Personas,,TRUE,,,,0,3,4,6,4
+,Process flows,,TRUE,,,,0,3,4,6,4
+,Informational architecture,,TRUE,,,,0,4,6,8,6
+Communication,Internal,,,0,0,0,0,0,0,1,0
+,External,,,0,0,0,0,1,1,1,1
+TOTAL,,,,0,0,0,0,13,19,28,20
+Branding,,,,,,,,,,,
+,Logo,,TRUE,8,12,18,12,,,,0
+,Brand Book,,TRUE,20,30,40,30,,,,0
+,,,TRUE,,,,0,,,,0
+Communication,Internal,,,1,2,3,2,0,0,0,0
+,External,,,2,3,5,3,0,0,0,0
+TOTAL,,,,32,47,66,48,0,0,0,0
+DesOps,,,,,,,,,,,
+,Moodboard,,TRUE,4,6,8,6,,,,0
+,UI Concept ,,TRUE,8,10,16,11,,,,0
+,Design System ,tailwind,TRUE,12,17,24,18,,,,0
+Communication,Internal,,,1,1,1,1,0,0,0,0
+,External,,,1,2,2,2,0,0,0,0
+TOTAL,,,,26,36,52,37,0,0,0,0
+Product Design - visitor app,,,,,,,,,,,
+,Menu view,list,TRUE,6,8,12,8,,,,0
+,,search and filtering,TRUE,4,6,8,6,,,,0
+,Detailed item page,"details, actions",TRUE,6,8,12,8,,,,0
+,Payment flow,,TRUE,4,6,10,6,,,,0
+,,,FALSE,,,,0,,,,0
+Communication,Internal,,,1,1,1,1,0,0,0,0
+,External,,,1,2,3,2,0,0,0,0
+TOTAL,,,,22,31,46,32,0,0,0,0
+Product Design - restaurant (manager) - web,,,,,,,,,,,
+Manager,Authorization,,TRUE,2,3,4,3,,,,0
+,Dashboard,"overview, quick actions, recent log",TRUE,8,12,16,12,,,,0
+,Menu management,list,TRUE,16,20,28,21,,,,0
+,,dish page,,,,,,,,,0
+,,create new dish,,,,,,,,,0
+,,modifiers (similar to dishes),,,,,,,,,0
+,Tables management,list ,TRUE,8,10,16,11,,,,0
+,,detailed table info,,,,,,,,,0
+,,add new table ,,,,,,,,,0
+,,add new zone,,,,,,,,,0
+,,assign a table - optional,,,,,,,,,0
+,Staff management,list,TRUE,8,10,12,10,,,,0
+,,employee info,,,,,,,,,0
+,,add new employee,,,,,,,,,0
+,Tips,TBD,TRUE,,,,0,,,,0
+,Settings and profile,"main info, working hours, customization",TRUE,6,8,10,8,,,,0
+,Staff schedule (opt),,TRUE,16,20,24,20,,,,0
+Manager&Staff,Orders management,list,TRUE,16,20,28,21,,,,0
+,,add new order,,,,,,,,,0
+,,order details ,,,,,,,,,0
+Communication,Internal,,,2,3,4,3,0,0,0,0
+,External,,,6,7,10,7,0,0,0,0
+TOTAL,,,,88,113,152,116,0,0,0,0
+Product Design - staff app,,,,,,,,,,,
+,Orders management + authorization,list + management,TRUE,24,40,64,41,,,,0
+,,add new order,,,,,,,,,0
+,,order details,,,,,,,,,0
+,,,TRUE,,,,0,,,,0
+Communication,Internal,,,1,1,2,1,0,0,0,0
+,External,,,1,2,3,2,0,0,0,0
+TOTAL,,,,26,43,69,45,0,0,0,0
+Product Design - Super Admin web,,,,,,,,,,,
+,Authorization,,FALSE,0,0,1,0,,,,0
+,Profile,,FALSE,0,0,1,0,,,,0
+,Dashboard,,FALSE,6,10,12,10,,,,0
+,Users management,list,FALSE,4,5,6,5,,,,0
+,,add new user,,,,,,,,,0
+,,detailed user page,,,,,,,,,0
+,Venues management,list,FALSE,6,8,12,8,,,,0
+,,venue workspace,,,,,,,,,0
+,,add new venue,,,,,,,,,0
+,Logs - to clarify,list,FALSE,6,7,12,8,,,,0
+,,,TRUE,,,,0,,,,0
+,,,TRUE,,,,0,,,,0
+Communication,Internal,,,0,0,0,0,0,0,0,0
+,External,,,0,0,0,0,0,0,0,0
+TOTAL,,,,0,0,0,0,0,0,0,0
+User Testing (optional),,,,,,,,,,,
+,Test script creation,"tasks+questions, success criteria",TRUE,,,,0,,,,0
+,User testing sessions (2h per user),4-6 users (recordings+notes),TRUE,,,,0,,,,0
+,Usability testing report,"findings, quotes",TRUE,,,,0,,,,0
+,Design Refinements,if necessary (depends on feedback),FALSE,,,,0,,,,0
+Communication,,,,0,0,0,0,0,0,0,0
+TOTAL,,,,0,0,0,0,0,0,0,0
+Handoff and Documentation,,,,,,,,,,,
+,Specification document,"user stories, acceptance criteria, flows",TRUE,,,,0,,,,0
+Communication,,,,0,0,0,0,0,0,0,0
+TOTAL,,,,0,0,0,0,0,0,0,0
+,Total Product Design ,,,194,271,385,277,,,,
+,Total PM,,,52,73,105,75,,,,
+,TOTAL PROJECT (hours),,,246,344,490,352,,,,
+,TOTAL PROJECT COST ,,,"$12,277","$17,193","$24,487","$17,590",,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,Team Capacity ,,Hours a week,,,,,,,
+,,UX/UI designer/s,,35,(based on 6h efffective working day) ,,,,,,
+,,PM,,5,,,,,,,
+,,,,,,,,,,,
+,,Project Timeline (design effort) ,,Min,Most likely,Maximum ,PERT,,,,
+,,Design effort (in weeks) ,,6,8,11,8,,,,

@@ -10,6 +10,8 @@ import {
   type NormalizedMessageEvent
 } from '@/src/providers/ElevenLabsProvider';
 import { extractContextFromMessages } from '@/src/utils/agentContext';
+import { parseToolCall } from '@/src/utils/parseToolCall';
+import { getGuestIdentityFromCookie } from '@/src/utils/guestIdentity';
 
 interface UseTextInputProps {
   conversationId?: Id<"conversations"> | null;
@@ -27,8 +29,174 @@ export function useTextInput({
 }: UseTextInputProps) {
   const [textInput, setTextInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  // TEMP: allow sending even before auth / conversationId exists.
+  // When `conversationId` is missing we will not persist to Convex, but we will still surface AI output via `onMessage`.
   const [canSend, setCanSend] = useState(true);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ElevenLabs/ConvAI can hard-fail on very large payloads.
+  // We only apply truncation for ESTIMATE MODE messages (where the user may paste big specs).
+  const MAX_ESTIMATE_TRANSPORT_CHARS = 8000;
+  const truncateForTransport = (text: string) => {
+    if (text.length <= MAX_ESTIMATE_TRANSPORT_CHARS) return text;
+    const head = Math.floor(MAX_ESTIMATE_TRANSPORT_CHARS / 2);
+    const tail = MAX_ESTIMATE_TRANSPORT_CHARS - head;
+    return `${text.slice(0, head)}\n...\n${text.slice(-tail)}`;
+  };
+
+  // Client-side tool intent injection to guarantee tool cards.
+  // This prevents "text-only" responses when the model fails to call a tool.
+  const maybeInjectToolCardForUserIntent = useCallback(
+    async (rawText: string) => {
+      const text = rawText.trim();
+      if (!text) return;
+
+      // If user already sends tool protocol, do not double-inject.
+      if (parseToolCall(text)) return;
+      if (typeof window === "undefined") return;
+
+      // guest mode: no conversationId, so we can't persist to Convex.
+      // Instead we inject into the onboarding/UI stream using __GUEST_AI__.
+      const isGuestFlow = !conversationId && !onPreAuthMessage;
+      // During auth onboarding (name/email), we don't inject tool cards.
+      if (!conversationId && !isGuestFlow) return;
+
+      const lower = text.toLowerCase();
+      const isEstimateOpen = (window as any).__ciedenEstimatePanelOpen === true;
+
+      const isCostIntent =
+        /(estimate|estimation|calculator|pricing|price|cost|budget|ballpark)/.test(lower) ||
+        /(естимейт|естimation|оценк|расч|калькулятор|сколько стоит|сколько сто)/.test(lower);
+
+      if (isEstimateOpen && !isCostIntent) return;
+
+      const toolCallMessage = (toolName: string) =>
+        `TOOL_CALL:${toolName}:${JSON.stringify({ mode: "default" })}`;
+
+      type InjectedTool =
+        | "show_about"
+        | "show_process"
+        | "show_cases"
+        | "show_best_case"
+        | "show_next_steps"
+        | "show_getting_started"
+        | "show_support"
+        | "open_calculator";
+
+      let injectedTool: InjectedTool | null = null;
+
+      // About / who we are
+      if (
+        /(who are you|tell me about yourself|tell me about cieden|about cieden|what do you do|кто ты|кто вы|что вы делаете|что ты робиш|розкажи про себе|покажи про cieden|покажи про сайден|покажи про сиден|о cиден|о cайден)/.test(
+          lower,
+        )
+      ) {
+        injectedTool = "show_about";
+      }
+
+      // Process / workflow / timeline
+      if (
+        !injectedTool &&
+        /(process|workflow|timeline|stages|how we work|design process)/.test(lower)
+      ) {
+        injectedTool = "show_process";
+      }
+      if (
+        !injectedTool &&
+        /(процес|етапи|таймлайн|як ми працюємо|як працюємо|процес роботи)/.test(lower)
+      ) {
+        injectedTool = "show_process";
+      }
+
+      // Cases / portfolio / examples
+      if (!injectedTool && /(best case|флагман|лучший кейс|найкращий кейс)/.test(lower)) {
+        injectedTool = "show_best_case";
+      }
+      if (
+        !injectedTool &&
+        /(portfolio|case studies|case study|cases|examples|порфтолио|портфолио|кейси|портфоліо|приклади|проекты|проєкти|примеры)/.test(
+          lower,
+        )
+      ) {
+        injectedTool = "show_cases";
+      }
+
+      // Next steps
+      if (!injectedTool && /(next steps|what happens next|what's next|what next)/.test(lower)) {
+        injectedTool = "show_next_steps";
+      }
+      if (!injectedTool && /(що буде далі|що дальше|наступні кроки|следующие шаги|что дальше|что будет дальше)/.test(lower)) {
+        injectedTool = "show_next_steps";
+      }
+
+      // Getting started / first step / book a call
+      if (
+        !injectedTool &&
+        /(book a call|schedule a call|first step|how to start|start a project|get started)/.test(
+          lower,
+        )
+      ) {
+        injectedTool = "show_getting_started";
+      }
+      if (
+        !injectedTool &&
+        /(записаться на звонок|звонок|созвон|консультац|бріф|брив|з чого почати|перший крок|як почати|как начать|первый шаг)/.test(
+          lower,
+        )
+      ) {
+        injectedTool = "show_getting_started";
+      }
+
+      // Support / after launch
+      if (!injectedTool && /(support|after launch|file formats|figma|prototypes|retainer)/.test(lower)) {
+        injectedTool = "show_support";
+      }
+      if (!injectedTool && /(підтримка|після запуску|формати файлів|документац|файли|фигма|прототип|ретейнер)/.test(lower)) {
+        injectedTool = "show_support";
+      }
+
+      // Cost / estimate
+      if (!injectedTool && isCostIntent) {
+        injectedTool = "open_calculator";
+      }
+
+      if (!injectedTool) return;
+
+      // Cost intent: open estimate panel ASAP (like existing tool handlers).
+      if (injectedTool === "open_calculator") {
+        try {
+          window.dispatchEvent(new CustomEvent("open-estimate-panel"));
+        } catch (_) {}
+      }
+
+      const injectedContent = toolCallMessage(injectedTool);
+
+      if (conversationId) {
+        try {
+          const guestId = getGuestIdentityFromCookie()?.guestId;
+          await createMessage({
+            conversationId,
+            content: injectedContent,
+            role: "assistant",
+            source: "voice",
+            metadata: {
+              elevenLabsAgent: true,
+              forcedTool: injectedTool,
+              timestamp: Date.now(),
+            },
+            guestId: guestId ?? undefined,
+          });
+        } catch (_) {
+          // Ignore persistence failures (auth might not be ready).
+        }
+      } else if (isGuestFlow) {
+        onMessage?.(`__GUEST_AI__:${injectedContent}`);
+      }
+    },
+    // NOTE: `createMessage` is declared below in this file.
+    // We intentionally don't include it in deps to avoid TDZ ReferenceError.
+    [conversationId, onPreAuthMessage, onMessage],
+  );
 
   // Buffered persistence for messages until conversationId is available
   const { handleUserMessage } = useElevenLabsMessages({ conversationId: conversationId ?? null });
@@ -57,9 +225,16 @@ export function useTextInput({
   useEffect(() => {
     const unsubscribe = registerTextHandler(async (event: NormalizedMessageEvent) => {
       if (event.source !== 'ai' || event.via !== 'websocket') return;
-      if (!conversationId) return;
+
+      // In guest mode (no conversationId) we can't persist to Convex yet,
+      // so we at least surface the assistant message in UI.
+      if (!conversationId) {
+        onMessage?.(`__GUEST_AI__:${event.message}`);
+        return;
+      }
 
       try {
+        const guestId = getGuestIdentityFromCookie()?.guestId;
         await createMessage({
           conversationId,
           content: event.message,
@@ -69,7 +244,8 @@ export function useTextInput({
             elevenLabsTextResponse: true,
             via: 'websocket',
             timestamp: Date.now()
-          }
+          },
+          guestId: guestId ?? undefined,
         });
       } catch (error) {
         console.error('Failed to persist ElevenLabs text response:', error);
@@ -79,7 +255,7 @@ export function useTextInput({
     return () => {
       unsubscribe();
     };
-  }, [conversationId, createMessage, registerTextHandler]);
+  }, [conversationId, createMessage, registerTextHandler, onMessage]);
 
   // Surface transport errors (e.g. daily limit reached)
   useEffect(() => {
@@ -108,29 +284,42 @@ export function useTextInput({
     }, 1000);
   }, []);
 
+  // Update send availability as conversationId / onboarding handler changes.
+  useEffect(() => {
+    setCanSend(true);
+  }, [conversationId, onPreAuthMessage]);
+
   // Send text message
   const sendTextMessage = useCallback(async () => {
     const trimmed = textInput.trim();
     if (!trimmed) return;
 
-    // Pre-auth / no-conversation flow: let caller handle onboarding logic and skip Convex/ElevenLabs
+    const isGuest = !conversationId && !onPreAuthMessage;
+
+    // Pre-auth onboarding flow: let caller handle onboarding logic and skip Convex/ElevenLabs.
+    // Guest mode: when `onPreAuthMessage` is not provided, we still send via ElevenLabs.
     if (!conversationId) {
       setTextInput('');
-      onMessage?.(trimmed);
       if (onPreAuthMessage) {
+        onMessage?.(trimmed);
         await onPreAuthMessage(trimmed);
+        return;
       }
-      return;
+      // guest: continue below and send via ElevenLabs
     }
 
     setTextInput('');
     setCanSend(false);
 
     try {
-      console.log('📝 Sending text message via ElevenLabs:', trimmed);
+      await maybeInjectToolCardForUserIntent(trimmed);
+
+      const isEstimatePayload =
+        trimmed.startsWith("[ESTIMATE MODE]") || trimmed.includes("[ESTIMATE MODE]");
+      const transportText = isEstimatePayload ? truncateForTransport(trimmed) : trimmed;
 
       // Optimistically reflect in UI
-      onMessage?.(trimmed);
+      onMessage?.(isGuest ? `__GUEST_USER__:${trimmed}` : trimmed);
 
       // Persist user message via buffered hook (handles missing conversationId)
       try {
@@ -148,7 +337,7 @@ export function useTextInput({
         let tries = 0;
         while (typeof messages === 'undefined' && tries < 10) {
           // 10 * 50ms = 500ms max
-          // eslint-disable-next-line no-await-in-loop
+           
           await new Promise(r => setTimeout(r, 50));
           tries++;
         }
@@ -156,17 +345,7 @@ export function useTextInput({
         const prior = Array.isArray(messages)
           ? messages.map(m => ({ role: m.role, content: m.content || '' }))
           : [];
-        const conversationHistory = prior.length
-          ? extractContextFromMessages(prior)
-          : undefined;
-
-        console.log('[useTextInput] startText history debug (prior only)', {
-          loaded: typeof messages !== 'undefined',
-          count: Array.isArray(messages) ? messages.length : 0,
-          hasHistory: !!conversationHistory,
-          length: conversationHistory?.length ?? 0,
-          preview: conversationHistory ? conversationHistory.slice(0, 400) : '(none)'
-        });
+        const conversationHistory = prior.length ? extractContextFromMessages(prior) : undefined;
 
         // Seed pending history for provider autostart or next session
         setPendingConversationHistory?.(conversationHistory);
@@ -176,12 +355,12 @@ export function useTextInput({
         }
       }
 
-      let didSend = await sendViaProvider(trimmed);
+      let didSend = await sendViaProvider(transportText);
       if (!didSend && sessionMode === 'text') {
         // Retry once after brief delay (SDK status may be syncing)
         console.log('⚠️ First send attempt failed, retrying after 100ms...');
         await new Promise(resolve => setTimeout(resolve, 100));
-        didSend = await sendViaProvider(trimmed);
+        didSend = await sendViaProvider(transportText);
       }
 
       if (!didSend) {
@@ -195,7 +374,21 @@ export function useTextInput({
     } finally {
       setCanSend(true);
     }
-  }, [conversationId, textInput, onMessage, createMessage, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory]);
+  }, [
+    conversationId,
+    textInput,
+    onMessage,
+    onPreAuthMessage,
+    createMessage,
+    maybeInjectToolCardForUserIntent,
+    sessionMode,
+    startText,
+    sendViaProvider,
+    resetTextIdleTimer,
+    messages,
+    isTextConnected,
+    setPendingConversationHistory
+  ]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -208,22 +401,67 @@ export function useTextInput({
 
   // Send a specific message directly (for programmatic sends)
   const sendSpecificMessage = useCallback(async (message: string) => {
-    if (!conversationId) {
-      console.warn('❌ Cannot send text: missing conversationId');
-      return;
-    }
-
     const trimmed = message.trim();
     if (!trimmed) return;
 
+    const isGuest = !conversationId && !onPreAuthMessage;
+
+    // Guest mode: no Convex conversationId, but we still want the assistant to respond.
+    if (!conversationId) {
+      onMessage?.(isGuest ? `__GUEST_USER__:${trimmed}` : trimmed);
+
+      if (onPreAuthMessage) {
+        await onPreAuthMessage(trimmed);
+        return;
+      }
+
+      // Ensure tool cards still appear in guest mode (quick prompt buttons use this path).
+      await maybeInjectToolCardForUserIntent(trimmed);
+
+      const isEstimatePayload =
+        trimmed.startsWith("[ESTIMATE MODE]") || trimmed.includes("[ESTIMATE MODE]");
+      const transportText = isEstimatePayload ? truncateForTransport(trimmed) : trimmed;
+
+      try {
+        // Ensure text session is ready (sendViaProvider relies on transport being connected).
+        if (sessionMode !== 'voice' && !isTextConnected) {
+          await startText();
+        }
+
+        let didSend = await sendViaProvider(transportText);
+        if (!didSend && sessionMode === 'text') {
+          // Retry once after brief delay (SDK status may be syncing)
+          await new Promise(resolve => setTimeout(resolve, 100));
+          didSend = await sendViaProvider(transportText);
+        }
+
+        if (!didSend) {
+          throw new Error('Text transport reported a send failure');
+        }
+      } catch (error) {
+        console.error('Failed to send ElevenLabs text message (guest):', error);
+        throw error;
+      } finally {
+        resetTextIdleTimer();
+      }
+
+      return;
+    }
+
     try {
       console.log('📝 Sending specific message via ElevenLabs:', trimmed);
+      await maybeInjectToolCardForUserIntent(trimmed);
+
+      const isEstimatePayload =
+        trimmed.startsWith("[ESTIMATE MODE]") || trimmed.includes("[ESTIMATE MODE]");
+      const transportText = isEstimatePayload ? truncateForTransport(trimmed) : trimmed;
 
       // Optimistically reflect in UI
       onMessage?.(trimmed);
 
       // Persist user message immediately for chat history
       try {
+        const guestId = getGuestIdentityFromCookie()?.guestId;
         await createMessage({
           conversationId,
           content: trimmed,
@@ -232,7 +470,8 @@ export function useTextInput({
           metadata: {
             via: sessionMode === 'voice' ? 'webrtc' : 'websocket',
             timestamp: Date.now()
-          }
+          },
+          guestId: guestId ?? undefined,
         });
       } catch (error) {
         console.error('Failed to persist user text message:', error);
@@ -241,7 +480,7 @@ export function useTextInput({
       if (sessionMode !== 'voice') {
         let tries = 0;
         while (typeof messages === 'undefined' && tries < 10) {
-          // eslint-disable-next-line no-await-in-loop
+           
           await new Promise(r => setTimeout(r, 50));
           tries++;
         }
@@ -267,12 +506,12 @@ export function useTextInput({
         }
       }
 
-      let didSend = await sendViaProvider(trimmed);
+      let didSend = await sendViaProvider(transportText);
       if (!didSend && sessionMode === 'text') {
         // Retry once after brief delay (SDK status may be syncing)
         console.log('⚠️ First send attempt failed, retrying after 100ms...');
         await new Promise(resolve => setTimeout(resolve, 100));
-        didSend = await sendViaProvider(trimmed);
+        didSend = await sendViaProvider(transportText);
       }
 
       if (!didSend) {
@@ -284,7 +523,7 @@ export function useTextInput({
       console.error('Failed to send ElevenLabs text message:', error);
       throw error;
     }
-  }, [conversationId, onMessage, createMessage, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory]);
+  }, [conversationId, onMessage, createMessage, maybeInjectToolCardForUserIntent, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory]);
 
   // Apply prior-only history once messages are loaded (handles autostart race)
   const priorHistoryAppliedRef = useRef(false);

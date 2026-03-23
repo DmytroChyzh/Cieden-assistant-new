@@ -5,13 +5,16 @@ import { useEffect } from 'react';
 export function useNetworkInspector() {
   useEffect(() => {
     console.log('🔍 Network Inspector Active - Monitoring connections...');
+    const win = window as Window & {
+      webkitRTCPeerConnection?: typeof RTCPeerConnection;
+    };
 
     // Store original constructors
     const OriginalWebSocket = window.WebSocket;
-    const OriginalRTCPeerConnection = window.RTCPeerConnection || (window as any).webkitRTCPeerConnection;
+    const OriginalRTCPeerConnection = window.RTCPeerConnection || win.webkitRTCPeerConnection;
 
     // Override WebSocket to log connections
-    (window as any).WebSocket = new Proxy(OriginalWebSocket, {
+    window.WebSocket = new Proxy(OriginalWebSocket, {
       construct(target, args) {
         const url = args[0];
         const protocols = args[1];
@@ -23,7 +26,7 @@ export function useNetworkInspector() {
           stack: new Error().stack?.split('\n').slice(2, 5).join('\n')
         });
 
-        const ws = new target(...args);
+        const ws = Reflect.construct(target, args) as WebSocket;
 
         // Track connection events
         const originalOnopen = ws.onopen;
@@ -83,7 +86,7 @@ export function useNetworkInspector() {
 
     // Override RTCPeerConnection to detect WebRTC usage
     if (OriginalRTCPeerConnection) {
-      (window as any).RTCPeerConnection = new Proxy(OriginalRTCPeerConnection, {
+      window.RTCPeerConnection = new Proxy(OriginalRTCPeerConnection, {
         construct(target, args) {
           console.log('🎥 WebRTC PeerConnection Created:', {
             config: args[0],
@@ -91,7 +94,7 @@ export function useNetworkInspector() {
             stack: new Error().stack?.split('\n').slice(2, 5).join('\n')
           });
 
-          const pc = new target(...args);
+          const pc = Reflect.construct(target, args) as RTCPeerConnection;
 
           // Track connection state changes
           pc.oniceconnectionstatechange = function() {
@@ -118,7 +121,7 @@ export function useNetworkInspector() {
           timestamp: new Date().toISOString()
         });
       }
-      return originalFetch.apply(this, args);
+      return originalFetch(...(args as Parameters<typeof fetch>));
     };
 
     // Cleanup function

@@ -1,0 +1,45 @@
+Task,,Notes,"Estimate, hrs",,,
+,Phase,,Min,ML,Max,PERT
+Competitor Analysis,Discovery,"- competitive feature matrix highlighting gaps and differentiators
+- insights on potential competitive advantages",4,6,8,6
+Integrations Research,Discovery,to research what integration we could use to save development time,2,4,6,4
+MVP Definition Workshop,Discovery,- clarity on what features will be considered for the MVP.,3,5,7,5
+Moodboard,UI Concept,,3,4,6,4
+UI Concept,UI Concept,,12,18,24,18
+Log In,UX/UI,,3,4,6,4
+Admin - User Management,UX/UI,ability to CRUD admins/teachers,6,12,16,12
+Admin - Students Management,UX/UI,"ability to CRUD Students, assign them to the teacher, send them initial form to be completed (that will send emails)",8,14,18,14
+Admin - Reports,UX/UI,,8,16,20,15
+Teacher - My Students,UX/UI,list of all their students,5,7,12,8
+Teacher - Student Details,UX/UI,"brief info on the student, their lessons",3,5,9,5
+Teacher - Lesson Details,UX/UI,"page where the teacher can:
+- attach PDFs
+- upload videos
+- links zoom recordings and transcription? (maybe we can embed it?)
+- leave notes
+- create daily plan for the student
+- mark the daily plan activities as completed/incompleted",14,21,28,21
+Teacher - Calendar,UX/UI,"- see my classes scheduled
+- ability to cancel if needed
+- log time per lesson? (maybe to have a different page for it)",12,18,24,18
+Teacher - Reviews,UX/UI,analytics based on my reviews,4,7,10,7
+Student - Calendar,UX/UI,"- see my classes scheduled
+- ability to cancel/reschedule if needed
+- ability to schedule a lesson (liked the toptal design)
+- log time per lesson? (maybe to have a different page for it)",6,10,16,10
+Student - My Lessons,UX/UI,"page where the student can view lesson details:
+- attached PDFs
+- uploaded videos
+- links zoom recordings and transcription? (maybe we can embed it?)
+- teacher' notes
+- daily plan till the next lesson
+",6,10,16,10
+Student' profile,UX/UI,"- basic info such as name, email etc
+- available 'hours' (what they purchased)
+- invoices",8,14,18,14
+Student dashboard,UX/UI,analytics based on the daily plans (what is the success rate?),12,16,22,16
+Design System,Operations,,16,28,40,28
+Documentation,Operations,"requirements for the developers (user flow with conditions, task with acceptance criteria etc)",12,18,24,18
+PM&Communication,Operations,(internal&external calls),14,22,30,22
+Total,,,161,259,360,260
+,,,"$8,050","$12,950","$18,000","$12,975"

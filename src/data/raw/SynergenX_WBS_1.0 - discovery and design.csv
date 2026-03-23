@@ -1,0 +1,68 @@
+,,,Include,UX/UI,,,,PM,,,
+Modules ,Features/Epics,Comments ,,Min,Most likely,Maximum ,PERT,Min,Most likely,Maximum ,PERT
+Product discovery,,,,,,,,,,,
+,Competitors research,,TRUE,2,3,4,3,2,3,4,3
+,Informational Architecture,,TRUE,,,,0,2,4,5,4
+,Proto-Personas,,TRUE,,,,0,2,4,6,4
+,User Journeys,,TRUE,,,,0,2,3,4,3
+,Exploratory interviews (3-5 users),optional,TRUE,,,,0,7,9,12,9
+,Process flows,,TRUE,,,,0,3,4,5,4
+,Roles and Accesses matrix,,TRUE,,,,0,1,2,2,2
+,,,TRUE,,,,0,,,,0
+Communication,Internal,,,0,0,0,0,1,1,1,1
+,External,,,0,0,0,0,1,1,2,1
+TOTAL,,,,2,3,4,3,21,31,41,31
+DesOps,,,,,,,,,,,
+,Moodboard,optional,TRUE,2,2,3,2,,,,0
+,UI Concepts,2-3 layout options,TRUE,8,12,16,12,,,,0
+,Design system,,TRUE,7,11,14,11,,,,0
+,Responsive ,,TRUE,7,11,14,11,,,,0
+,Design Handoff documentation,,TRUE,8,10,12,10,,,,0
+Communication,Internal,,,1,1,2,1,0,0,0,0
+,External,,,1,1,2,1,0,0,0,0
+TOTAL,,,,34,48,63,48,0,0,0,0
+Product Design,,,,,,,,,,,
+,Home page,,TRUE,6,7,8,7,,,,0
+Services,List of Services,search and filtering,TRUE,8,12,14,12,,,,0
+,Detailed Service page,2-3 layouts for different services,TRUE,6,7,8,7,,,,0
+Conditions,List of Conditions,,TRUE,4,6,10,6,,,,0
+,Detailed Condition page,1-2 layouts,TRUE,6,7,8,7,,,,0
+Clinics,List of Clinics,"list view (map view opt), search and filtering",TRUE,4,6,8,6,,,,0
+,Clinic Profile,single layout,TRUE,2,4,6,4,,,,0
+Providers,List of Providers,,TRUE,2,3,4,3,,,,0
+,Provider Profile,single layout,TRUE,2,3,4,3,,,,0
+,AI Quiz - to clarify all steps,"start, completing quiz, rezults",TRUE,8,16,24,16,,,,0
+,Booking flow,"service, provider, time, details, confirmation",TRUE,12,14,16,14,,,,0
+Programs,List of programs,,TRUE,2,3,4,3,,,,0
+,Program page,single layout,TRUE,2,3,4,3,,,,0
+,Blog,list + detailed article page,TRUE,2,4,6,4,,,,0
+,About,,TRUE,2,5,8,5,,,,0
+,Contact and Support,"contact page, support request, FAQ",TRUE,2,3,5,3,,,,0
+,Legal,"HIPAA, Privacy policy, terms and conditions",TRUE,2,2,3,2,,,,0
+,,,TRUE,,,,0,,,,0
+Communication,Internal,,,2,3,4,3,0,0,0,0
+,External,,,4,5,7,5,0,0,0,0
+TOTAL,,,,78,113,151,114,0,0,0,0
+User Testing (optional),,,,,,,,,,,
+,Test script creation,"tasks+questions, success criteria",TRUE,,,,0,2,4,4,4
+,User testing sessions (2h per user),4-6 users (recordings+notes),TRUE,,,,0,9,11,13,11
+,Usability testing report,"findings, quotes",TRUE,,,,0,2,3,4,3
+,Design Refinements,if necessary (depends on feedback),FALSE,,,,0,,,,0
+Communication,,,,0,0,0,0,1,1,1,1
+TOTAL,,,,0,0,0,0,14,19,22,19
+Handoff and Documentation,,,,,,,,,,,
+,Specification document,"user stories, acceptance criteria, flows",TRUE,,,,0,,,,0
+Communication,,,,0,0,0,0,0,0,0,0
+TOTAL,,,,0,0,0,0,0,0,0,0
+,Total Product Design ,,,114,164,218,165,,,,
+,Total PM,,,63,91,118,91,,,,
+,TOTAL PROJECT (hours),,,177,256,336,256,,,,
+,TOTAL PROJECT COST ,,,"$8,848","$12,779","$16,778","$12,790",,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,Team Capacity ,,Hours a week,,,,,,,
+,,UX/UI designer/s,,35,(based on 6h efffective working day) ,,,,,,
+,,PM,,10,,,,,,,
+,,,,,,,,,,,
+,,Project Timeline (design effort) ,,Min,Most likely,Maximum ,PERT,,,,
+,,Design effort (in weeks) ,,3,5,6,5,,,,

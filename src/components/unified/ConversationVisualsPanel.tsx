@@ -20,6 +20,15 @@ export function ConversationVisualsPanel({
   inSidebar = false,
 }: ConversationVisualsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const visuals = {
+    waveformPlacement: settings.visuals?.waveformPlacement ?? "over-input",
+    waveformsVisibility: settings.visuals?.waveformsVisibility ?? "active",
+    showSideGradients: settings.visuals?.showSideGradients ?? true,
+    showCenterGradient: settings.visuals?.showCenterGradient ?? false,
+    showHeaderStrip: settings.visuals?.showHeaderStrip ?? false,
+    gradientVariant: settings.visuals?.gradientVariant ?? "default",
+    waveformVariant: settings.visuals?.waveformVariant ?? "default",
+  };
 
   // Close panel when clicking outside
   useEffect(() => {
@@ -90,11 +99,11 @@ export function ConversationVisualsPanel({
                   key={placement}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => onUpdateSettings({ 
-                    visuals: { ...(settings.visuals || {}), waveformPlacement: placement } 
+                    visuals: { ...visuals, waveformPlacement: placement } 
                   })}
                   className={cn(
                     "px-3 py-3 rounded-lg text-sm transition-all duration-200",
-                    settings.visuals?.waveformPlacement === placement 
+                    visuals.waveformPlacement === placement 
                       ? "bg-white/20 text-white border border-white/30" 
                       : "bg-white/5 text-white/70 hover:bg-white/10 border border-white/10"
                   )}
@@ -117,11 +126,11 @@ export function ConversationVisualsPanel({
                   key={v}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => onUpdateSettings({
-                    visuals: { ...(settings.visuals || {}), waveformsVisibility: v }
+                    visuals: { ...visuals, waveformsVisibility: v }
                   })}
                   className={cn(
                     "px-3 py-3 rounded-lg text-sm transition-all duration-200",
-                    (settings.visuals?.waveformsVisibility ?? 'active') === v
+                    visuals.waveformsVisibility === v
                       ? "bg-white/20 text-white border border-white/30"
                       : "bg-white/5 text-white/70 hover:bg-white/10 border border-white/10"
                   )}
@@ -140,11 +149,11 @@ export function ConversationVisualsPanel({
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => onUpdateSettings({ 
-                  visuals: { ...(settings.visuals || {}), showSideGradients: !(settings.visuals?.showSideGradients ?? true) } 
+                  visuals: { ...visuals, showSideGradients: !visuals.showSideGradients } 
                 })}
                 className={cn(
                   "w-full flex items-center justify-between py-3 px-4 rounded-xl transition-all duration-200",
-                  (settings.visuals?.showSideGradients ?? true) 
+                  visuals.showSideGradients
                     ? "bg-white/15 border border-white/20" 
                     : "bg-white/5 border border-white/10"
                 )}
@@ -155,7 +164,7 @@ export function ConversationVisualsPanel({
                 </div>
                 <div className={cn(
                   "w-2 h-2 rounded-full",
-                  (settings.visuals?.showSideGradients ?? true) ? "bg-blue-400" : "bg-white/30"
+                  visuals.showSideGradients ? "bg-blue-400" : "bg-white/30"
                 )} />
               </motion.button>
 
@@ -163,11 +172,11 @@ export function ConversationVisualsPanel({
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => onUpdateSettings({ 
-                  visuals: { ...(settings.visuals || {}), showCenterGradient: !(settings.visuals?.showCenterGradient ?? false) } 
+                  visuals: { ...visuals, showCenterGradient: !visuals.showCenterGradient } 
                 })}
                 className={cn(
                   "w-full flex items-center justify-between py-3 px-4 rounded-xl transition-all duration-200",
-                  (settings.visuals?.showCenterGradient ?? false) 
+                  visuals.showCenterGradient
                     ? "bg-white/15 border border-white/20" 
                     : "bg-white/5 border border-white/10"
                 )}
@@ -178,7 +187,7 @@ export function ConversationVisualsPanel({
                 </div>
                 <div className={cn(
                   "w-2 h-2 rounded-full",
-                  (settings.visuals?.showCenterGradient ?? false) ? "bg-blue-400" : "bg-white/30"
+                  visuals.showCenterGradient ? "bg-blue-400" : "bg-white/30"
                 )} />
               </motion.button>
 
@@ -186,11 +195,11 @@ export function ConversationVisualsPanel({
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => onUpdateSettings({ 
-                  visuals: { ...(settings.visuals || {}), showHeaderStrip: !(settings.visuals?.showHeaderStrip ?? false) } 
+                  visuals: { ...visuals, showHeaderStrip: !visuals.showHeaderStrip } 
                 })}
                 className={cn(
                   "w-full flex items-center justify-between py-3 px-4 rounded-xl transition-all duration-200",
-                  (settings.visuals?.showHeaderStrip ?? false) 
+                  visuals.showHeaderStrip
                     ? "bg-white/15 border border-white/20" 
                     : "bg-white/5 border border-white/10"
                 )}
@@ -201,7 +210,7 @@ export function ConversationVisualsPanel({
                 </div>
                 <div className={cn(
                   "w-2 h-2 rounded-full",
-                  (settings.visuals?.showHeaderStrip ?? false) ? "bg-blue-400" : "bg-white/30"
+                  visuals.showHeaderStrip ? "bg-blue-400" : "bg-white/30"
                 )} />
               </motion.button>
             </div>
@@ -220,11 +229,11 @@ export function ConversationVisualsPanel({
                     key={v}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => onUpdateSettings({ 
-                      visuals: { ...(settings.visuals || {}), gradientVariant: v } 
+                      visuals: { ...visuals, gradientVariant: v } 
                     })}
                     className={cn(
                       "flex-1 px-4 py-2.5 rounded-lg text-sm capitalize transition-all duration-200",
-                      settings.visuals?.gradientVariant === v 
+                      visuals.gradientVariant === v 
                         ? "bg-white/20 text-white border border-white/30" 
                         : "bg-white/5 text-white/70 hover:bg-white/10 border border-white/10"
                     )}
@@ -244,11 +253,11 @@ export function ConversationVisualsPanel({
                     key={v}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => onUpdateSettings({ 
-                      visuals: { ...(settings.visuals || {}), waveformVariant: v } 
+                      visuals: { ...visuals, waveformVariant: v } 
                     })}
                     className={cn(
                       "flex-1 px-4 py-2.5 rounded-lg text-sm capitalize transition-all duration-200",
-                      settings.visuals?.waveformVariant === v 
+                      visuals.waveformVariant === v 
                         ? "bg-white/20 text-white border border-white/30" 
                         : "bg-white/5 text-white/70 hover:bg-white/10 border border-white/10"
                     )}

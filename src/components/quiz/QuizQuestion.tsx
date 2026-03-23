@@ -48,7 +48,7 @@ export function QuizQuestion({
   // Animation variants for selection pulse
   const selectionAnimation = {
     scale: [1, 1.05, 1],
-    transition: { duration: 0.3, ease: "easeInOut" }
+    transition: { duration: 0.3, ease: "easeInOut" as const }
   };
 
   return (
@@ -73,7 +73,7 @@ export function QuizQuestion({
               )}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
-              animate={selectedAnswer === option ? selectionAnimation : {}}
+              animate={selectedAnswer === option ? selectionAnimation : undefined}
             >
               <div className="flex items-center justify-between">
                 <span className="font-medium">
@@ -105,7 +105,7 @@ export function QuizQuestion({
               )}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
-              animate={selectedAnswer === option.value ? selectionAnimation : {}}
+              animate={selectedAnswer === option.value ? selectionAnimation : undefined}
             >
               <div className="flex items-center justify-between">
                 <span className="font-medium">
@@ -145,7 +145,7 @@ export function QuizQuestion({
               }}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
-              animate={selectedAnswer === option.value ? selectionAnimation : {}}
+              animate={selectedAnswer === option.value ? selectionAnimation : undefined}
             >
               <div className="flex items-start justify-between mb-3">
                 <h4 className={cn(
@@ -197,7 +197,7 @@ export function QuizQuestion({
                 )}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
-                animate={followUpAnswer === option.value ? selectionAnimation : {}}
+                animate={followUpAnswer === option.value ? selectionAnimation : undefined}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{option.label}</span>

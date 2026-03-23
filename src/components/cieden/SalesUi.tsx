@@ -195,72 +195,74 @@ function CategorySelector() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="text-center space-y-1">
-        <h3 className="text-base font-semibold text-white/90">Browse case studies by focus area</h3>
-        <p className="text-xs text-white/40">
-          Select a category to open matching Cieden case studies in the side panel
-        </p>
-      </div>
+    <Card className="bg-transparent backdrop-blur-xl border-white/[0.08] font-[Gilroy]">
+      <CardContent className="space-y-4 p-5 sm:p-6">
+        <div className="text-center space-y-1">
+          <h3 className="text-lg sm:text-xl font-semibold text-white/90">Browse case studies by focus area</h3>
+          <p className="text-sm text-white/45">
+            Select a category to open matching Cieden case studies in the side panel
+          </p>
+        </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {domainEntries.map(({ name, count }) => {
-          const Icon = iconForDomain(name);
-          const isActive = activeDomain === name;
-          return (
-            <button
-              key={name}
-              type="button"
-              onClick={() => handleSelect(name)}
-              className={`group relative overflow-hidden rounded-xl border backdrop-blur-md px-4 py-3.5 text-left ring-1 ring-inset cursor-pointer transition-all duration-300 ${
-                isActive
-                  ? "border-violet-300/80 bg-white/[0.10] ring-violet-400/60 shadow-[0_10px_24px_rgba(76,81,191,0.4)]"
-                  : "border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/[0.2] hover:shadow-md hover:shadow-white/[0.03] ring-white/[0.04]"
-              }`}
-            >
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.15] to-transparent" />
-              <div
-                className={`absolute inset-0 bg-gradient-to-br ${
-                  DOMAIN_GRADIENTS[name] || "from-zinc-400/20 to-transparent"
-                } opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
-              />
-              <div className="relative flex flex-col gap-2">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white/8 text-white/85">
-                    <Icon className="h-4 w-4" aria-hidden />
-                  </span>
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/6 text-white/55 group-hover:bg-white/12 group-hover:text-white/80 transition-colors">
-                    <ChevronRight className="h-3 w-3" aria-hidden />
-                  </span>
-                </div>
-                <span className="text-sm font-medium text-white/80 group-hover:text-white transition-colors">
-                  {name}
-                </span>
-                <div className="mt-1 flex items-center justify-start text-[11px] text-white/35 group-hover:text-white/55 transition-colors">
-                  <div className="inline-flex items-center gap-1.5">
-                    <FolderOpen className="h-3.5 w-3.5" aria-hidden />
-                    <span>
-                      {count} {count === 1 ? "case" : "cases"}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {domainEntries.map(({ name, count }) => {
+            const Icon = iconForDomain(name);
+            const isActive = activeDomain === name;
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => handleSelect(name)}
+                className={`group relative overflow-hidden rounded-xl border backdrop-blur-md px-4 py-3.5 text-left ring-1 ring-inset cursor-pointer transition-all duration-300 ${
+                  isActive
+                    ? "border-violet-300/80 bg-white/[0.10] ring-violet-400/60 shadow-[0_10px_24px_rgba(76,81,191,0.4)]"
+                    : "border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/[0.2] hover:shadow-md hover:shadow-white/[0.03] ring-white/[0.04]"
+                }`}
+              >
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.15] to-transparent" />
+                <div
+                  className={`absolute inset-0 bg-gradient-to-br ${
+                    DOMAIN_GRADIENTS[name] || "from-zinc-400/20 to-transparent"
+                  } opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
+                />
+                <div className="relative flex flex-col gap-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white/8 text-white/85">
+                      <Icon className="h-4 w-4" aria-hidden />
+                    </span>
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/6 text-white/55 group-hover:bg-white/12 group-hover:text-white/80 transition-colors">
+                      <ChevronRight className="h-3 w-3" aria-hidden />
                     </span>
                   </div>
+                  <span className="text-[16px] font-semibold text-white/85 group-hover:text-white transition-colors">
+                    {name}
+                  </span>
+                  <div className="mt-1 flex items-center justify-start text-[13px] text-white/45 group-hover:text-white/65 transition-colors">
+                    <div className="inline-flex items-center gap-1.5">
+                      <FolderOpen className="h-3.5 w-3.5" aria-hidden />
+                      <span>
+                        {count} {count === 1 ? "case" : "cases"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+              </button>
+            );
+          })}
+        </div>
 
-      <div className="text-center pt-1">
-        <a
-          href="https://cieden.com/discover-our-work"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs text-white/30 hover:text-white/60 transition-colors"
-        >
-          See all {CASES.length} cases on cieden.com <ExternalLink className="w-3 h-3" />
-        </a>
-      </div>
-    </div>
+        <div className="text-center pt-1">
+          <a
+            href="https://cieden.com/discover-our-work"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white/70 transition-colors"
+          >
+            See all {CASES.length} cases on cieden.com <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -528,8 +530,8 @@ interface CaseDetailsProps {
 
 export function CaseDetails({ id, filter }: CaseDetailsProps) {
   const selected =
-    (id && CASES.find((c) => c.id === id)) ??
-    (filter && CASES.find((c) => c.domain.some((d) => d.toLowerCase().includes(filter.toLowerCase())))) ??
+    (id ? CASES.find((c) => c.id === id) : undefined) ??
+    (filter?.trim() ? CASES.find((c) => c.domain.some((d) => d.toLowerCase().includes(filter.toLowerCase()))) : undefined) ??
     CASES[0];
   const [imgError, setImgError] = useState(false);
 
@@ -619,117 +621,67 @@ const COLLAB_CARDS = [
 ] as const;
 
 export function EngagementModelsCard() {
-  const [selectedModelId, setSelectedModelId] = useState<(typeof COLLAB_CARDS)[number]["id"] | null>(null);
-  const selectedModel = COLLAB_CARDS.find((c) => c.id === selectedModelId) ?? null;
-
   return (
-    <div className="space-y-6">
-      <div className="text-center sm:text-left">
-        <h3 className="text-lg sm:text-xl font-semibold text-white/95">Collaboration models</h3>
-        <p className="mt-1 text-xs text-white/45">
-          Three simple ways to structure our work together.
-        </p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        {COLLAB_CARDS.map((item) => {
-          const Icon = item.icon;
-          return (
-            <div
-              key={item.id}
-              onClick={() => setSelectedModelId(item.id)}
-              className={`group relative flex flex-col justify-between rounded-3xl border border-white/[0.16] bg-gradient-to-b ${item.accent} to-white/[0.04] px-6 py-6 min-h-[220px] backdrop-blur-xl transition-all duration-200 hover:-translate-y-1.5 hover:shadow-[0_26px_70px_rgba(15,23,42,0.85)] cursor-pointer`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="inline-flex rounded-2xl bg-black/15 p-2.5 text-white/90 shadow-[0_0_18px_rgba(15,23,42,0.8)]">
-                  <Icon className="h-4 w-4" aria-hidden />
-                </div>
-                <span className="text-[10px] uppercase tracking-widest text-white/35">
-                  {item.label}
-                </span>
-              </div>
-              <div className="mt-3 space-y-2">
-                <h4 className="text-sm font-semibold leading-snug text-white">
-                  {item.title}
-                </h4>
-                <p className="text-xs leading-relaxed text-white/80">
-                  {item.description}
-                </p>
-              </div>
-              <div className="mt-4 rounded-2xl border border-white/[0.18] bg-white/8/10 bg-white/[0.06] px-3.5 py-2.5 text-[11px] text-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
-                <span className="block font-semibold text-white/85">
-                  Best for
-                </span>
-                <span className="block mt-0.5">
-                  {item.bestFor}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {selectedModel && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/65 px-4">
-          <div className="relative w-full max-w-lg rounded-3xl border border-white/[0.18] bg-gradient-to-br from-white/[0.10] via-[#050712]/95 to-[#050712]/98 backdrop-blur-3xl p-6 space-y-4 shadow-[0_40px_120px_rgba(0,0,0,0.9)]">
-            <button
-              type="button"
-              onClick={() => setSelectedModelId(null)}
-              className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-colors"
-              aria-label="Close"
-            >
-              <X className="h-3.5 w-3.5" aria-hidden />
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="inline-flex rounded-2xl bg-black/20 p-2.5 text-white shadow-[0_0_20px_rgba(15,23,42,0.9)]">
-                <selectedModel.icon className="h-4 w-4" aria-hidden />
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/55">
-                  {selectedModel.label}
-                </p>
-                <h4 className="text-sm font-semibold leading-snug text-white">
-                  {selectedModel.title}
-                </h4>
-              </div>
-            </div>
-            <p className="text-xs leading-relaxed text-white/80">
-              {selectedModel.description}
-            </p>
-            <div className="rounded-2xl border border-white/[0.18] bg-white/[0.08] px-4 py-3 text-[11px] text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]">
-              <span className="block font-semibold text-white">
-                Best for
-              </span>
-              <span className="block mt-0.5">
-                {selectedModel.bestFor}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/55">
-              <span className="inline-flex items-center gap-1 rounded-full bg-black/30 px-2.5 py-1">
-                <Clock className="h-3 w-3" aria-hidden />
-                Typical engagement: 3–6+ months
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-black/30 px-2.5 py-1">
-                <Users className="h-3 w-3" aria-hidden />
-                Team size: 1–3 designers / PM
-              </span>
-            </div>
-          </div>
+    <Card className="bg-transparent backdrop-blur-xl border-white/[0.08] font-[Gilroy]">
+      <CardContent className="space-y-6 p-6 sm:p-7">
+        <div className="text-center sm:text-left">
+          <h3 className="text-lg sm:text-xl font-semibold text-white/95">
+            Collaboration models
+          </h3>
+          <p className="mt-1 text-xs text-white/45">
+            Three simple ways to structure our work together.
+          </p>
         </div>
-      )}
 
-      <div className="pt-1">
-        <a
-          href="https://cieden.com/project-cost-calculator"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors cursor-pointer"
-        >
-          Open full pricing calculator on cieden.com
-          <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-        </a>
-      </div>
-    </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {COLLAB_CARDS.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <div
+                key={item.id}
+                className={`group relative flex flex-col rounded-3xl border border-white/[0.16] bg-gradient-to-b ${item.accent} to-white/[0.04] px-6 py-6 min-h-[220px] backdrop-blur-xl transition-all duration-200 hover:-translate-y-1.5 hover:shadow-[0_26px_70px_rgba(15,23,42,0.85)]`}
+              >
+                <div className="flex items-center gap-3 min-h-[22px]">
+                  <div className="inline-flex h-12 w-12 items-center justify-center text-white/90">
+                    <Icon className="h-8 w-8" aria-hidden strokeWidth={1} />
+                  </div>
+                  <span className="text-[10px] uppercase tracking-widest text-white/80 leading-none font-semibold truncate whitespace-nowrap">
+                    {item.label}
+                  </span>
+                </div>
+                <div className="mt-[18px] h-[132px] space-y-2">
+                  <h4 className="text-[16px] font-semibold leading-snug text-white line-clamp-2">
+                    {item.title}
+                  </h4>
+                  <p className="text-[14px] leading-relaxed text-white/80 line-clamp-3">
+                    {item.description}
+                  </p>
+                </div>
+                <div className="mt-[18px] rounded-2xl border border-white/[0.18] bg-white/8/10 bg-white/[0.06] px-3.5 py-2.5 text-[11px] text-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
+                  <span className="block font-semibold text-white/85">
+                    Best for
+                  </span>
+                  <span className="block mt-0.5">{item.bestFor}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="pt-1">
+          <a
+            href="https://cieden.com/project-cost-calculator"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors cursor-pointer"
+          >
+            Open full pricing calculator on cieden.com
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+          </a>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -778,7 +730,7 @@ export function EstimateSummaryCard({ productType, complexity, scope, timeline, 
 export function AboutCiedenCard() {
   return (
     <Card
-      className="group relative overflow-hidden rounded-3xl border border-white/[0.09] bg-gradient-to-br from-white/[0.06] via-white/[0.02] to-white/[0.01] backdrop-blur-2xl shadow-[0_22px_60px_rgba(0,0,0,0.75)] transition-all duration-300 hover:-translate-y-1.5 hover:border-violet-300/80 hover:shadow-[0_32px_90px_rgba(129,140,248,0.9)] cursor-pointer"
+      className="group relative overflow-hidden rounded-3xl border border-white/[0.09] bg-gradient-to-br from-white/[0.06] via-white/[0.02] to-white/[0.01] backdrop-blur-2xl shadow-[0_22px_60px_rgba(0,0,0,0.75)] transition-all duration-300 hover:-translate-y-1.5 hover:border-violet-300/80 hover:shadow-[0_32px_90px_rgba(129,140,248,0.9)] cursor-pointer font-[Gilroy]"
       role="button"
       tabIndex={0}
       aria-label="Open Cieden about page"
@@ -806,10 +758,10 @@ export function AboutCiedenCard() {
               About
             </p>
             <div>
-              <CardTitle className="text-lg sm:text-xl text-white/95">
+              <CardTitle className="text-[24px] text-white/95">
                 Cieden
               </CardTitle>
-              <CardDescription className="mt-1.5 text-sm text-white/65">
+              <CardDescription className="mt-1.5 text-[16px] text-white/65 leading-relaxed">
                 Digital product design agency since 2016. We combine design, business analysis, and AI expertise for B2B SaaS and enterprise.
               </CardDescription>
             </div>
@@ -818,9 +770,6 @@ export function AboutCiedenCard() {
             <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-1.5 text-[11px] font-medium text-white/75 whitespace-nowrap">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]" />
               98% satisfaction
-            </span>
-            <span className="text-[10px] text-white/40">
-              3 design hubs · EU &amp; US clients
             </span>
           </div>
         </div>
@@ -846,26 +795,26 @@ export function AboutCiedenCard() {
           {/* Three info pills under photo */}
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-white/10 bg-white/[0.05] px-3.5 py-3.5 shadow-[0_10px_26px_rgba(15,23,42,0.55)]">
-              <h4 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-white/55">
+              <h4 className="mb-1 text-[14px] font-semibold uppercase tracking-wide text-white/55">
                 What we do
               </h4>
-              <p className="text-xs text-white/80">
+              <p className="text-[12px] leading-relaxed text-white/80">
                 Product design, UX/UI, AI product design, business analysis, dedicated teams, design sprints, video production, technology consultancy (CaaS).
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.05] px-3.5 py-3.5 shadow-[0_10px_26px_rgba(15,23,42,0.55)]">
-              <h4 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-white/55">
+              <h4 className="mb-1 text-[14px] font-semibold uppercase tracking-wide text-white/55">
                 Industries
               </h4>
-              <p className="text-xs text-white/80">
+              <p className="text-[12px] leading-relaxed text-white/80">
                 AI, SaaS, fintech, healthcare, digital health, edtech, real estate, e‑commerce, BPM, ERP, martech, logistics, B2B.
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.05] px-3.5 py-3.5 shadow-[0_10px_26px_rgba(15,23,42,0.55)]">
-              <h4 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-white/55">
+              <h4 className="mb-1 text-[14px] font-semibold uppercase tracking-wide text-white/55">
                 Design &amp; development
               </h4>
-              <p className="text-xs text-white/80">
+              <p className="text-[12px] leading-relaxed text-white/80">
                 Full cycle from UX research to launch and post‑launch support. You can choose design only or design + development under one roof.
               </p>
             </div>
@@ -873,17 +822,13 @@ export function AboutCiedenCard() {
         </div>
       </CardContent>
 
-      <CardFooter className="mt-2 flex flex-col gap-2 border-t border-white/7 pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/45">
-          <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            200+ projects · 50+ people
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
-            Focus on B2B SaaS &amp; AI products
-          </span>
-        </div>
+      <CardFooter className="mt-2 flex flex-col gap-2 border-t border-white/7 pt-4 sm:flex-row sm:items-center">
+        <p className="text-[16px] leading-relaxed text-white/70">
+          Cherishing the difference between leaders and bosses, partners and customers is the basis of our
+          team cooperation. We share the responsibility for our company among us and in return, everyone is
+          granted motivating compensation, unlimited vacations, and a remote-friendly working environment. This
+          is our vision of a perfect world and we invite you to join us.
+        </p>
       </CardFooter>
     </Card>
   );
@@ -1076,35 +1021,45 @@ const PROCESS_STEP_DETAIL_STYLES: Record<
 };
 
 const PROCESS_STEP_ICON_COLORS: Record<number, string> = {
-  1: "bg-violet-500/30 text-violet-50",
-  2: "bg-sky-500/30 text-sky-50",
-  3: "bg-amber-500/30 text-amber-50",
-  4: "bg-emerald-500/30 text-emerald-50",
+  // Keep step icons neutral (no strong colored tiles)
+  1: "bg-white/[0.06] border border-white/[0.14] text-white/90",
+  2: "bg-white/[0.06] border border-white/[0.14] text-white/90",
+  3: "bg-white/[0.06] border border-white/[0.14] text-white/90",
+  4: "bg-white/[0.06] border border-white/[0.14] text-white/90",
+};
+
+const PROCESS_STEP_CARD_BG: Record<number, string> = {
+  // Mirror-like alternation by gradient direction and accent color
+  1: "bg-gradient-to-br from-violet-500/14 via-white/[0.05] to-white/[0.03]",
+  2: "bg-gradient-to-bl from-sky-500/14 via-white/[0.05] to-white/[0.03]",
+  3: "bg-gradient-to-br from-amber-500/14 via-white/[0.05] to-white/[0.03]",
+  4: "bg-gradient-to-bl from-emerald-500/14 via-white/[0.05] to-white/[0.03]",
 };
 
 export function ProcessTimelineCard() {
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(0);
+  // Start collapsed: the step details popup should appear only after user clicks.
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const currentStep =
     selectedIndex != null ? PROCESS_STEPS[selectedIndex] : PROCESS_STEPS[0];
 
   return (
-    <Card className="relative overflow-hidden rounded-3xl border border-white/[0.1] bg-white/[0.05] backdrop-blur-2xl">
+    <Card className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-transparent backdrop-blur-xl font-[Gilroy]">
       {/* subtle glow */}
-      <div className="pointer-events-none absolute inset-0 opacity-60">
+      <div className="pointer-events-none absolute inset-0 opacity-40">
         <div className="absolute -top-24 -left-24 h-56 w-56 rounded-full bg-violet-500/20 blur-3xl" />
         <div className="absolute top-0 right-[-80px] h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl" />
       </div>
       <CardHeader className="pb-3 relative z-10">
-        <CardTitle className="text-lg sm:text-xl text-white/90">
+        <CardTitle className="text-[24px] text-white/90">
           Process, team & communication
         </CardTitle>
-        <CardDescription className="text-white/60 text-sm">
+        <CardDescription className="text-white/60 text-[16px] leading-relaxed">
           Four clear stages from first conversation to ongoing support.
         </CardDescription>
       </CardHeader>
-      <CardContent className="relative z-10 space-y-6 text-sm text-white/75">
+      <CardContent className="relative z-10 space-y-6 text-[16px] text-white/75">
         <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-white/90">
+          <h4 className="text-[16px] font-semibold text-white/90">
             Process timeline
           </h4>
 
@@ -1120,33 +1075,41 @@ export function ProcessTimelineCard() {
                   onClick={() => setSelectedIndex(index)}
                   whileHover={{ y: -2, scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
-                  className={`group relative flex h-full min-h-[260px] flex-col items-start rounded-2xl border px-5 py-6 text-left backdrop-blur-xl transition-all ${
+                  aria-label={`Open details for step ${step.label}`}
+                  className={`group relative flex h-full min-h-[260px] flex-col items-start rounded-2xl border px-5 py-6 text-left backdrop-blur-xl transition-all cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/70 ${
                     isActive
-                      ? "border-violet-300/80 bg-white/[0.12]"
-                      : "border-white/[0.12] bg-white/[0.04] hover:border-violet-200/70 hover:bg-white/[0.08]"
-                  }`}
+                      ? "border-violet-300/80 shadow-[0_14px_35px_rgba(124,58,237,0.22)]"
+                      : "border-white/[0.12] hover:border-violet-200/70 hover:shadow-[0_12px_28px_rgba(15,23,42,0.55)]"
+                  } ${PROCESS_STEP_CARD_BG[step.id] ?? "bg-white/[0.04]"}`}
                 >
-                  <div className="mb-3 flex w-full items-center justify-between gap-2">
+                  <div className="mb-6 flex w-full items-center gap-3">
                     <div
-                      className={`inline-flex h-10 w-10 items-center justify-center rounded-xl p-2.5 text-white/90 ${
+                      className={`inline-flex h-14 w-14 items-center justify-center rounded-xl p-2 text-white/90 ${
                         PROCESS_STEP_ICON_COLORS[step.id] ?? "bg-black/30 text-white"
                       }`}
                     >
-                      {Icon && <Icon className="h-4 w-4" aria-hidden />}
+                      {Icon && (
+                        <Icon
+                          className="h-8 w-8"
+                          aria-hidden
+                          // Make the icon lines thinner to match the new visual balance.
+                          strokeWidth={1}
+                        />
+                      )}
                     </div>
                     <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/50">
                       Step {step.id}
                     </span>
                   </div>
-                  <p className="text-[12px] font-semibold uppercase tracking-wide text-white/90">
+                  <p className="text-[16px] font-semibold uppercase tracking-wide text-white/90">
                     {step.label}
                   </p>
-                  <p className="mt-1 text-[12px] leading-snug text-white/75 line-clamp-4">
+                  <p className="mt-1 text-[14px] leading-snug text-white/75 line-clamp-4">
                     {step.caption}
                   </p>
                   <span className="mt-auto inline-flex items-center gap-1 pt-4 text-[11px] font-medium text-violet-300 group-hover:text-violet-200">
                     View details
-                    <ChevronRight className="h-3 w-3" aria-hidden />
+                    <ChevronRight className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
                   </span>
                 </motion.button>
               );
@@ -1163,7 +1126,7 @@ export function ProcessTimelineCard() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.97 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className={`relative w-full max-w-3xl rounded-3xl border px-6 py-6 text-[12px] text-white/85 backdrop-blur-3xl ${
+              className={`relative w-full max-w-3xl rounded-3xl border px-6 py-6 text-[16px] text-white/85 backdrop-blur-3xl ${
                 PROCESS_STEP_DETAIL_STYLES[currentStep.id]?.border ??
                 "border-white/[0.16] bg-white/[0.10]"
               }`}
@@ -1191,11 +1154,11 @@ export function ProcessTimelineCard() {
                   </h4>
                 </div>
               </div>
-              <p className="mt-2 text-[13px] leading-relaxed text-white/95">
+              <p className="mt-2 text-[16px] leading-relaxed text-white/95">
                 {currentStep.detail}
               </p>
               {currentStep.bullets && (
-                <ul className="mt-4 grid gap-2 text-[12px] text-white/90 sm:grid-cols-2">
+                <ul className="mt-4 grid gap-2 text-[16px] text-white/90 sm:grid-cols-2">
                   {currentStep.bullets.map((item) => (
                     <li key={item} className="flex items-start gap-2">
                       <span className="mt-[7px] h-1.5 w-1.5 flex-shrink-0 rounded-full bg-white/90" />
@@ -1227,37 +1190,37 @@ export function GettingStartedCard() {
   const [activeModel, setActiveModel] = useState<"project" | "extension" | "bot">("project");
 
   return (
-    <Card className="bg-gradient-to-b from-white/[0.07] to-white/[0.02] border-white/[0.08]">
+    <Card className="bg-transparent backdrop-blur-xl border-white/[0.08] font-[Gilroy]">
       <CardHeader>
-        <CardTitle className="text-lg sm:text-xl text-white/90">How to start</CardTitle>
-        <CardDescription className="text-white/50 text-sm">
+        <CardTitle className="text-xl sm:text-2xl text-white/90">How to start</CardTitle>
+        <CardDescription className="text-white/50 text-sm sm:text-base">
           We reply in under 24 hours. First call is free — we align on your goals and suggest next steps.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-8 text-sm text-white/70">
-        <ol className="space-y-2 list-decimal list-inside">
+      <CardContent className="space-y-8 text-sm sm:text-[16px] text-white/70">
+        <ol className="space-y-2 list-decimal list-inside text-sm sm:text-[15px]">
           <li>Write to us (chat or form on cieden.com/contact) — briefly about your project</li>
           <li>We schedule a call and ask about your vision, goals, and requirements</li>
           <li>You get a free consultation: what we can offer for your budget and timeline</li>
         </ol>
-        <p className="text-xs text-white/50">If we’re not a fit, we’ll say so and recommend alternatives. No obligation.</p>
+        <p className="text-xs sm:text-sm text-white/50">If we’re not a fit, we’ll say so and recommend alternatives. No obligation.</p>
 
         {/* Inline pricing & models preview */}
         <div className="mt-2 space-y-4">
-          <h4 className="text-sm font-semibold text-white/85">Pricing & collaboration models</h4>
+          <h4 className="text-base sm:text-lg font-semibold text-white/85">Pricing & collaboration models</h4>
           <p className="text-xs text-white/55 max-w-3xl">
             Three main ways we usually work together. Exact numbers are refined after we understand scope, team size, and timelines.
           </p>
 
           <div className="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto w-full">
             {/* Project-based */}
-            <div className="rounded-3xl border border-violet-300/70 bg-gradient-to-b from-violet-500/22 via-violet-600/10 to-white/[0.02] backdrop-blur-xl px-6 py-7 flex flex-col justify-between min-h-[300px] transition-all duration-200 hover:border-violet-200 hover:bg-violet-500/24">
+            <div className="rounded-3xl border border-violet-300/70 bg-gradient-to-b from-violet-500/22 via-violet-600/10 to-white/[0.02] backdrop-blur-xl px-6 py-8 flex flex-col justify-between min-h-[340px] transition-all duration-200 hover:border-violet-200 hover:bg-violet-500/24">
               <div className="space-y-3">
-                <div className="inline-flex rounded-xl bg-violet-500/35 text-violet-100 px-3 py-2">
-                  <Clock className="h-4 w-4" aria-hidden />
+                <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-xl bg-white/[0.06] border border-white/[0.14] text-white/90">
+                  <Clock className="h-12 w-12" aria-hidden strokeWidth={1} />
                 </div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/50">Project-based</p>
-                <p className="text-xs text-white/60">
+                <p className="text-[13px] font-semibold uppercase tracking-widest text-white/50">Project-based</p>
+                <p className="text-[15px] sm:text-[16px] text-white/60">
                   You delegate the entire project to us, from planning to final delivery. Our team is responsible for completing all deliverables on time.
                 </p>
                 <div className="mt-2">
@@ -1265,9 +1228,9 @@ export function GettingStartedCard() {
                   <p className="text-2xl font-semibold text-white/95">
                     $50<span className="text-xs font-normal text-white/60"> /hour</span>
                   </p>
-                  <p className="text-[11px] text-white/45">Designers based in USA/Canada: from $80/hour.</p>
+                  <p className="text-[12px] text-white/45">Designers based in USA/Canada: from $80/hour.</p>
                 </div>
-                <div className="mt-3 space-y-1.5 text-[11px] text-white/60">
+                <div className="mt-3 space-y-1.5 text-[12px] text-white/60">
                   <p className="font-semibold text-white/70">You get:</p>
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>a one‑stop design journey</li>
@@ -1279,10 +1242,10 @@ export function GettingStartedCard() {
               </div>
               <div className="mt-4 pt-3 border-t border-white/[0.08]">
                 <a
-                  href="https://cieden.com/pricing-models"
+                  href="https://cieden.com/contact"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-300 bg-violet-500/90 py-2.5 px-3 text-xs font-semibold text-white hover:bg-violet-400 hover:border-violet-200 transition-colors"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-300 bg-transparent py-2.5 px-3 text-sm font-semibold text-violet-100 hover:border-violet-200 transition-colors"
                 >
                   Contact us
                   <ExternalLink className="w-3.5 h-3.5" aria-hidden />
@@ -1291,13 +1254,13 @@ export function GettingStartedCard() {
             </div>
 
             {/* Team extension */}
-            <div className="rounded-3xl border border-sky-300/70 bg-gradient-to-b from-sky-500/22 via-sky-600/10 to-white/[0.02] backdrop-blur-xl px-6 py-7 flex flex-col justify-between min-h-[300px] transition-all duration-200 hover:border-sky-200 hover:bg-sky-500/24">
+            <div className="rounded-3xl border border-sky-300/70 bg-gradient-to-b from-sky-500/22 via-sky-600/10 to-white/[0.02] backdrop-blur-xl px-6 py-8 flex flex-col justify-between min-h-[340px] transition-all duration-200 hover:border-sky-200 hover:bg-sky-500/24">
               <div className="space-y-3">
-                <div className="inline-flex rounded-xl bg-violet-500/35 text-violet-100 px-3 py-2">
-                  <Users className="h-4 w-4" aria-hidden />
+                <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-xl bg-white/[0.06] border border-white/[0.14] text-white/90">
+                  <Users className="h-12 w-12" aria-hidden strokeWidth={1} />
                 </div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/50">Team extension</p>
-                <p className="text-xs text-white/60">
+                <p className="text-[13px] font-semibold uppercase tracking-widest text-white/50">Team extension</p>
+                <p className="text-[15px] sm:text-[16px] text-white/60">
                   You outsource our specialists to fill skill gaps or expand your team&apos;s capacity, integrating them with your in‑house team.
                 </p>
                 <div className="mt-2">
@@ -1305,9 +1268,9 @@ export function GettingStartedCard() {
                   <p className="text-2xl font-semibold text-white/95">
                     $7,200<span className="text-xs font-normal text-white/60"> /month per person</span>
                   </p>
-                  <p className="text-[11px] text-white/45">Designers based in USA/Canada: from $11,520/month.</p>
+                  <p className="text-[12px] text-white/45">Designers based in USA/Canada: from $11,520/month.</p>
                 </div>
-                <div className="mt-3 space-y-1.5 text-[11px] text-white/60">
+                <div className="mt-3 space-y-1.5 text-[12px] text-white/60">
                   <p className="font-semibold text-white/70">You get:</p>
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>designers who feel like part of your in‑house crew</li>
@@ -1319,10 +1282,10 @@ export function GettingStartedCard() {
               </div>
               <div className="mt-4 pt-3 border-t border-white/[0.08]">
                 <a
-                  href="https://cieden.com/pricing-models"
+                  href="https://cieden.com/contact"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-300 bg-violet-500/90 py-2.5 px-3 text-xs font-semibold text-white hover:bg-violet-400 hover:border-violet-200 transition-colors"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-300 bg-transparent py-2.5 px-3 text-sm font-semibold text-sky-100 hover:border-sky-200 transition-colors"
                 >
                   Contact us
                   <ExternalLink className="w-3.5 h-3.5" aria-hidden />
@@ -1333,11 +1296,11 @@ export function GettingStartedCard() {
             {/* Build-operate-transfer */}
             <div className="rounded-3xl border border-emerald-300/70 bg-gradient-to-b from-emerald-500/22 via-emerald-600/10 to-white/[0.02] backdrop-blur-xl px-6 py-7 flex flex-col justify-between min-h-[300px] transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-500/24">
               <div className="space-y-3">
-                <div className="inline-flex rounded-xl bg-violet-500/35 text-violet-100 px-3 py-2">
-                  <Handshake className="h-4 w-4" aria-hidden />
+                <div className="inline-flex h-[72px] w-[72px] items-center justify-center rounded-xl bg-white/[0.06] border border-white/[0.14] text-white/90">
+                  <Handshake className="h-12 w-12" aria-hidden strokeWidth={1} />
                 </div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-white/50">Build‑operate‑transfer</p>
-                <p className="text-xs text-white/60">
+                <p className="text-[13px] font-semibold uppercase tracking-widest text-white/50">Build‑operate‑transfer</p>
+                <p className="text-[15px] sm:text-[16px] text-white/60">
                   We recruit, onboard, and train a team for your project, then smoothly transfer the team to you when you are ready.
                 </p>
                 <div className="mt-2">
@@ -1346,7 +1309,7 @@ export function GettingStartedCard() {
                     $25,000<span className="text-xs font-normal text-white/60"> /per person</span>
                   </p>
                 </div>
-                <div className="mt-3 space-y-1.5 text-[11px] text-white/60">
+                <div className="mt-3 space-y-1.5 text-[12px] text-white/60">
                   <p className="font-semibold text-white/70">You get:</p>
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>a handpicked team, recruited and trained just for you</li>
@@ -1358,10 +1321,10 @@ export function GettingStartedCard() {
               </div>
               <div className="mt-4 pt-3 border-t border-white/[0.08]">
                 <a
-                  href="https://cieden.com/pricing-models"
+                  href="https://cieden.com/contact"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-300 bg-violet-500/90 py-2.5 px-3 text-xs font-semibold text-white hover:bg-violet-400 hover:border-violet-200 transition-colors"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-transparent py-2.5 px-3 text-sm font-semibold text-emerald-100 hover:border-emerald-200 transition-colors"
                 >
                   Contact us
                   <ExternalLink className="w-3.5 h-3.5" aria-hidden />
@@ -1379,25 +1342,52 @@ export function GettingStartedCard() {
 /* ── Post-delivery & Support card ── */
 export function SupportCard() {
   const [activeTab, setActiveTab] = useState<"deliverables" | "ongoing" | "models">("deliverables");
-  const [openFaq, setOpenFaq] = useState<null | number>(0);
+
+  const faqItems = [
+    {
+      id: 0,
+      q: "What exactly do I get at the end of the project?",
+      a: "You get full ownership of design files, documentation and design system. We also run a handoff session with your team so everyone knows how to use it.",
+    },
+    {
+      id: 1,
+      q: "Can you help our dev team after launch?",
+      a: "Yes. We stay available for UX questions, edge cases, new feature design and design system updates, either in a light or weekly support mode.",
+    },
+    {
+      id: 2,
+      q: "Is support only long-term retainers?",
+      a: "No. We can start from a small package of hours or a short trial month and then scale to a stable retainer if it makes sense.",
+    },
+  ] as const;
 
   return (
-    <Card className="bg-gradient-to-b from-white/[0.07] to-white/[0.02] border-white/[0.08]">
-      <CardHeader>
-        <CardTitle className="text-lg sm:text-xl text-white/90">After delivery &amp; support</CardTitle>
-        <CardDescription className="text-white/50 text-sm">
+    <Card className="relative overflow-hidden bg-black/85 border border-white/10 rounded-[32px] backdrop-blur-2xl shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)] font-[Gilroy]">
+      <div className="absolute inset-0 bg-gradient-to-tr from-sky-500/14 via-transparent to-violet-500/16 pointer-events-none" />
+
+      <CardHeader className="relative z-10 pb-4 pt-6 px-6">
+        <CardTitle className="text-white text-[24px] font-semibold leading-tight">
+          After delivery &amp; support
+        </CardTitle>
+        <CardDescription className="text-white/70 text-[16px] leading-relaxed mt-1.5">
           What happens after launch: what you get, how we stay involved, and which support model fits you best.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4 text-sm text-white/75">
+      <CardContent className="relative z-10 space-y-4 px-6 sm:px-7 pb-2 text-[14px] text-white/75">
         {/* Tabs */}
-        <div className="inline-flex rounded-full bg-white/[0.04] p-1 text-xs text-white/60">
+        <div
+          className="inline-flex flex-wrap rounded-full bg-white/[0.06] p-1 text-[13px] text-white/60 ring-1 ring-white/[0.08]"
+          role="tablist"
+          aria-label="Support sections"
+        >
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "deliverables"}
             onClick={() => setActiveTab("deliverables")}
             className={`px-3 py-1.5 rounded-full transition-all ${
               activeTab === "deliverables"
-                ? "bg-white text-slate-950 shadow-sm"
+                ? "bg-white text-slate-950 shadow-sm font-semibold"
                 : "hover:bg-white/[0.06]"
             }`}
           >
@@ -1405,10 +1395,12 @@ export function SupportCard() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "ongoing"}
             onClick={() => setActiveTab("ongoing")}
             className={`px-3 py-1.5 rounded-full transition-all ${
               activeTab === "ongoing"
-                ? "bg-white text-slate-950 shadow-sm"
+                ? "bg-white text-slate-950 shadow-sm font-semibold"
                 : "hover:bg-white/[0.06]"
             }`}
           >
@@ -1416,10 +1408,12 @@ export function SupportCard() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "models"}
             onClick={() => setActiveTab("models")}
             className={`px-3 py-1.5 rounded-full transition-all ${
               activeTab === "models"
-                ? "bg-white text-slate-950 shadow-sm"
+                ? "bg-white text-slate-950 shadow-sm font-semibold"
                 : "hover:bg-white/[0.06]"
             }`}
           >
@@ -1430,22 +1424,22 @@ export function SupportCard() {
         {/* Tab content */}
         {activeTab === "deliverables" && (
           <div className="space-y-3">
-            <h4 className="font-semibold text-white/90">What you get at handoff</h4>
-            <ul className="space-y-1.5 text-sm text-white/75 list-disc list-inside">
+            <h4 className="text-[16px] font-semibold text-white/90">What you get at handoff</h4>
+            <ul className="space-y-2 text-[14px] text-white/75 list-disc list-inside leading-relaxed">
               <li>
-                <span className="font-medium text-white/90">Figma files:</span> design system, low‑/high‑fidelity
+                <span className="font-semibold text-white/90">Figma files:</span> design system, low‑/high‑fidelity
                 prototypes, dev‑ready components.
               </li>
               <li>
-                <span className="font-medium text-white/90">UX docs (on request):</span> user flows, personas, customer
+                <span className="font-semibold text-white/90">UX docs (on request):</span> user flows, personas, customer
                 journeys, information architecture.
               </li>
               <li>
-                <span className="font-medium text-white/90">Specs for developers:</span> clickable prototypes, redlines,
+                <span className="font-semibold text-white/90">Specs for developers:</span> clickable prototypes, redlines,
                 tokens, component usage guidelines.
               </li>
               <li>
-                <span className="font-medium text-white/90">Knowledge transfer:</span> walkthrough session and recording
+                <span className="font-semibold text-white/90">Knowledge transfer:</span> walkthrough session and recording
                 so your team can continue without us.
               </li>
             </ul>
@@ -1454,15 +1448,15 @@ export function SupportCard() {
 
         {activeTab === "ongoing" && (
           <div className="space-y-3">
-            <h4 className="font-semibold text-white/90">How we support you after launch</h4>
-            <ul className="space-y-1.5 text-sm text-white/75 list-disc list-inside">
+            <h4 className="text-[16px] font-semibold text-white/90">How we support you after launch</h4>
+            <ul className="space-y-2 text-[14px] text-white/75 list-disc list-inside leading-relaxed">
               <li>Fix UX issues spotted by real users and your team.</li>
               <li>Design and validate new features in small, focused sprints.</li>
               <li>Review analytics and session recordings to find quick wins.</li>
               <li>Support developers with UI/UX questions, edge cases, and QA.</li>
               <li>Keep the design system healthy as the product grows.</li>
             </ul>
-            <p className="text-xs text-white/50">
+            <p className="text-[13px] text-white/55 leading-relaxed">
               You can pause or scale support up/down depending on your roadmap — we adapt to your release cadence.
             </p>
           </div>
@@ -1470,86 +1464,59 @@ export function SupportCard() {
 
         {activeTab === "models" && (
           <div className="space-y-4">
-            <h4 className="font-semibold text-white/90">Typical support formats</h4>
-            <div className="grid gap-3 sm:grid-cols-3 text-xs text-white/75">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5">
+            <h4 className="text-[16px] font-semibold text-white/90">Typical support formats</h4>
+            <div className="grid gap-3 sm:grid-cols-3 text-[13px] text-white/75">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3.5">
                 <p className="text-[11px] uppercase tracking-wide text-white/45 mb-1.5">Light</p>
                 <p className="font-semibold text-white/90 mb-1">A few days per month</p>
-                <p className="text-white/65">
+                <p className="text-white/65 leading-relaxed">
                   Best when product is stable and you need occasional tweaks, reviews, and design support.
                 </p>
               </div>
               <div className="rounded-2xl border border-violet-300/60 bg-violet-500/15 p-3.5">
                 <p className="text-[11px] uppercase tracking-wide text-violet-100 mb-1.5">Standard</p>
                 <p className="font-semibold text-white/90 mb-1">Weekly involvement</p>
-                <p className="text-white/80">
+                <p className="text-white/80 leading-relaxed">
                   Designers join planning, refine UX for new features, and keep the design system in sync with dev.
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3.5">
                 <p className="text-[11px] uppercase tracking-wide text-white/45 mb-1.5">Intensive</p>
                 <p className="font-semibold text-white/90 mb-1">Embedded in your team</p>
-                <p className="text-white/65">
+                <p className="text-white/65 leading-relaxed">
                   For fast‑moving roadmaps: designers work almost like in‑house, with tight loops to your PM and devs.
                 </p>
               </div>
             </div>
-            <p className="text-xs text-white/50">
+            <p className="text-[13px] text-white/55 leading-relaxed">
               Exact scope and pricing depend on your roadmap — we usually start with a short call to pick the right model.
             </p>
           </div>
         )}
 
-        {/* FAQ accordion */}
-        <div className="mt-4 space-y-2 border-t border-white/10 pt-3">
+        {/* FAQ — static (no accordion) */}
+        <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
           <p className="text-[11px] uppercase tracking-wide text-white/40">FAQ about support</p>
-          {[
-            {
-              id: 0,
-              q: "What exactly do I get at the end of the project?",
-              a: "You get full ownership of design files, documentation and design system. We also run a handoff session with your team so everyone knows how to use it.",
-            },
-            {
-              id: 1,
-              q: "Can you help our dev team after launch?",
-              a: "Yes. We stay available for UX questions, edge cases, new feature design and design system updates, either in a light or weekly support mode.",
-            },
-            {
-              id: 2,
-              q: "Is support only long-term retainers?",
-              a: "No. We can start from a small package of hours or a short trial month and then scale to a stable retainer if it makes sense.",
-            },
-          ].map((item) => (
-            <button
+          {faqItems.map((item) => (
+            <div
               key={item.id}
-              type="button"
-              onClick={() => setOpenFaq(openFaq === item.id ? null : item.id)}
-              className="w-full text-left rounded-lg border border-white/12 bg-white/[0.04] px-4 py-3 text-xs text-white/75 hover:bg-white/[0.08] transition-colors"
+              className="rounded-xl border border-white/12 bg-white/[0.04] px-4 py-3 text-[14px] text-white/75"
             >
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-medium text-white/90">{item.q}</span>
-                <ChevronDown
-                  className={`h-3.5 w-3.5 text-white/40 transition-transform ${
-                    openFaq === item.id ? "rotate-180" : ""
-                  }`}
-                  aria-hidden
-                />
-              </div>
-              {openFaq === item.id && (
-                <p className="mt-2 text-[11px] text-white/65">{item.a}</p>
-              )}
-            </button>
+              <p className="font-semibold text-white/90">{item.q}</p>
+              <p className="mt-2 text-[14px] text-white/65 leading-relaxed">{item.a}</p>
+            </div>
           ))}
         </div>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="relative z-10 px-6 sm:px-7 pb-6 pt-0">
         <a
           href="https://cieden.com/contact"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
+          className="inline-flex items-center gap-1.5 text-[14px] text-white/50 hover:text-white/80 transition-colors"
+          aria-label="Contact for support options (opens in new tab)"
         >
-          Contact for support options <ExternalLink className="w-3.5 h-3.5" aria-hidden />
+          Contact for support options <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden />
         </a>
       </CardFooter>
     </Card>

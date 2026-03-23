@@ -1,0 +1,58 @@
+,,,Include,UX/UI,,,,PM,,,
+Modules ,Features/Epics,Comments ,,Min,Most likely,Maximum ,PERT,Min,Most likely,Maximum ,PERT
+Product discovery,,,,,,,,,,,
+,Workflows,"case creation, family onboarding, application review process",TRUE,,,,0,6,10,12,10
+,Informational architecture,"case, family application, family page",TRUE,,,,0,6,8,10,8
+,,,FALSE,,,,0,,,,0
+Communication,,,,0,0,0,0,0,1,1,1
+TOTAL,,,,0,0,0,0,12,19,23,18
+DesOps,,,,,,,,,,,
+,Moodboard,,TRUE,2,4,6,4,,,,0
+,UI Concepts,,TRUE,8,12,16,12,,,,0
+,Design system,,TRUE,3,5,8,5,,,,0
+,Responsive platform,,FALSE,8,11,17,12,,,,0
+,Responsive website,,TRUE,3,5,7,5,,,,0
+,Handoff,,FALSE,2,4,8,4,,,,0
+,Сlickable prototype,AI tool,TRUE,8,11,17,12,,,,0
+Communication,,,,0,1,1,1,0,0,0,0
+TOTAL,,,,24,38,55,39,0,0,0,0
+Product Design - MVP,,,,,,,,,,,
+,Authorization page,,TRUE,2,4,6,4,,,,0
+Agencies,Cases ,List of Cases+management,TRUE,10,12,16,12,,,,0
+,,Add new case,TRUE,8,20,32,20,,,,0
+,,"Detailed case page (overview, timeline, team and contacts, medical/education/legal/documents, calendar, chat, library)",TRUE,32,40,60,42,,,,0
+,Families,List of Family,FALSE,4,6,10,6,,,,0
+,,"Detailed Family page (household and members, compliance docs, preferences, current placement, history, notes)",FALSE,24,32,40,32,,,,0
+,Family Application view,"applicant info, household summary, documents, notes, actions, convert to family profile",FALSE,8,12,20,13,,,,0
+,Dashboards,"KPI, Quick actions, alerts, map widget",FALSE,8,12,16,12,,,,
+Family,Applicant portal,"application flow (profile and household, home details, pets, documents, preferences/constraints, review and audit)",FALSE,16,20,32,21,,,,0
+,,"home page (progress, support/help)",FALSE,6,8,12,8,,,,0
+Communication,Internal,,,2,2,3,2,0,0,0,0
+,External,,,4,5,8,5,0,0,0,0
+TOTAL,,,,57,84,125,86,0,0,0,0
+Public website,,,,,,,,,,,
+,Landing page,"home page, how it works, testemonials, agencies, contact,privacy",TRUE,16,24,32,24,,,,0
+,Agency sign up,request form,TRUE,2,3,5,3,,,,0
+,Family entry point,application,TRUE,2,4,8,4,,,,0
+Communication,,,,1,2,3,2,0,0,0,0
+TOTAL,,,,21,33,48,34,0,0,0,0
+Branding and Guidelines,,,,,,,,,,,
+,Light logo refresh,concept + revisions,FALSE,8,12,14,12,,,,0
+,Color system,definition + adjustments,FALSE,8,12,14,12,,,,0
+,Typography and UI tone,selection + tuning,FALSE,6,8,10,8,,,,0
+,Brand guide,in Google Slides (editable) or Figma (PDF),FALSE,40,60,80,60,,,,0
+,Feedback & revisions,,FALSE,6,8,10,8,,,,0
+Communication,,,,0,0,0,0,0,0,0,0
+TOTAL,,,,0,0,0,0,0,0,0,0
+,Total Product Design ,,,103,155,229,159,,,,
+,Total PM,,,33,57,80,58,,,,
+,TOTAL PROJECT (hours),,,136,212,308,216,,,,
+,TOTAL PROJECT COST ,,,"$6,791","$10,613","$15,419","$10,820",,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,Team Capacity ,,Hours a week,,,,,,,
+,,UX/UI designer/s,,35,(based on 6h efffective working day) ,,,,,,
+,,PM,,5,,,,,,,
+,,,,,,,,,,,
+,,Project Timeline (design effort) ,,Min,Most likely,Maximum ,PERT,,,,
+,,Design effort (in weeks) ,,3,4,7,5,,,,

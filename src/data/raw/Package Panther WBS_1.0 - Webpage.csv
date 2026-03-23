@@ -1,0 +1,56 @@
+,,,Include-?,UX/UI,,,,BA/PM,,,
+Modules ,Features/Epics,Comments ,,Min,Most likely,Maximum ,PERT,Min,Most likely,Maximum ,PERT
+Discovery phase,,,,,,,,,,,
+Competitors and Market research (optional),,,TRUE,12,16,20,16,,,,0
+Informational Architecture/ WBS,,,TRUE,,,,0,16,20,24,20
+Communication,Internal,,,1,1,1,1,1,1,1,1
+,External,,,1,2,2,2,2,2,2,2
+TOTAL,,,,14,18,23,18,18,23,28,23
+Product Design (Phase 1 - Website),,,,,,,,,,,
+Website,Main page,,TRUE,8,12,16,12,,,,0
+,Rates page,"description, calculator, service details",TRUE,8,12,16,12,,,,0
+,Features page,"list of features, description, case studies",TRUE,7,9,11,9,,,,0
+,Pricing page,,TRUE,4,6,8,6,,,,0
+,Blog,"list, article page",TRUE,6,8,10,8,,,,0
+,Support,"FAQ, Help Center, email support",TRUE,8,10,12,10,,,,0
+,About us,,TRUE,7,11,15,11,,,,0
+Communication,Internal,,,2,3,4,3,0,0,0,0
+,External,,,7,10,13,10,0,0,0,0
+TOTAL,,,,58,82,106,82,0,0,0,0
+Branding,,,,,,,,,,,
+Website Logo,Logo moodboard,,TRUE,2,4,6,4,,,,0
+,Logo Concepts,several logo concepts+refinement to final version,TRUE,6,12,16,12,,,,0
+Website moodboard,,,TRUE,2,3,4,3,,,,0
+Content - ?,,,FALSE,,,,0,,,,0
+Communication,Internal,,,1,1,1,1,0,0,0,0
+,External,,,2,3,4,3,0,0,0,0
+TOTAL,,,,12,23,31,22,0,0,0,0
+DesOps,,,,,,,,,,,
+,UI Concepts (website),2-3 concepts,TRUE,12,16,20,16,,,,0
+,UI Concepts (lite platform),2-3 concepts,FALSE,12,16,20,16,,,,0
+,Design system (ongoing),both website and platform,TRUE,7,10,13,10,,,,0
+,Design documentation,developers guidelines for main features,FALSE,4,6,8,6,,,,0
+Communication,External,,,1,1,2,1,0,0,0,0
+TOTAL,,,,20,28,35,28,0,0,0,0
+Documentation,,,,,,,,,,,
+,Project Specification,"user stories, acceptance criteria, flows",FALSE,,,,0,30,50,70,50
+,User Guide (optional),,FALSE,,,,0,24,32,40,32
+Communication,External,,,0,0,0,0,0,0,0,0
+TOTAL,,,,0,0,0,0,0,0,0,0
+,Total Product Design ,,,104,150,195,150,,,,
+,Total BA,,,18,23,28,23,,,,
+,Total BA/PM,,,26,38,49,37,,,,
+,TOTAL PROJECT (hours),,,148,211,271,210,,,,
+,TOTAL PROJECT COST ,,,"$7,393","$10,544","$13,546","$10,519",,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,Team Capacity ,,Hours a week,,,,,,,,
+,UX/UI designer/s,,36,(based on 6h efffective working day) ,,,,,,,
+,BA,,15,,,,,,,,
+,BA/PM ,,5,,,,,,,,
+,,,,,,,,,,,
+,Project Timeline (design effort) ,,Min,Most likely,Maximum ,PERT,,,,,
+,Design effort (in weeks) ,,3,4,5,4,,,,,
+,BA effort (in weeks),,1,2,2,2,,,,,

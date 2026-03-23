@@ -67,7 +67,6 @@ export function ContextualUpdateTester({
 
   // Convex mutations for logging
   const createMessage = useMutation(api.messages.create);
-  const logDebugEvent = useMutation(api.messages.logDebugEvent);
 
   // Pre-defined test contexts
   const testContexts = [

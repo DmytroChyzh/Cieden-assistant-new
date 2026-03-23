@@ -40,7 +40,7 @@ export default function RootLayout({
   return (
     <ConvexAuthNextjsServerProvider apiRoute="/api/auth">
       <html lang="en" suppressHydrationWarning>
-        <body className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} antialiased`} suppressHydrationWarning>
+        <body className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} font-sans antialiased`} suppressHydrationWarning>
           <ClientBootstrap />
           <ConvexAuthProvider>
             <CopilotKitProvider>

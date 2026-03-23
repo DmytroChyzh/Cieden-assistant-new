@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { Calculator, Info, DollarSign, ArrowRight, Percent, Calendar } from "lucide-react";
+import { Calculator, Info, DollarSign, ArrowRight, Percent } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -38,7 +38,6 @@ export function EMICard({
   principal,
   interest,
   totalAmount,
-  loanType = "Personal Loan",
   className,
   onUserAction,
   compact = false,
@@ -61,6 +60,9 @@ export function EMICard({
   const resolvedLoanAmount = Number.isFinite(loanAmount) && loanAmount > 0 ? loanAmount : defaultProfile.loan;
   const resolvedTermMonths = Number.isFinite(termMonths) && termMonths > 0 ? termMonths : defaultProfile.term;
   const resolvedInterestRate = Number.isFinite(interestRate) && interestRate > 0 ? interestRate : defaultProfile.rate;
+  const principalValue = typeof principal === "number" ? principal : undefined;
+  const totalAmountValue = typeof totalAmount === "number" ? totalAmount : undefined;
+  const interestValue = typeof interest === "number" ? interest : undefined;
 
   const effectiveLoanAmount = simpleExample ? simpleExampleProfile.loan : resolvedLoanAmount;
   const effectiveTermMonths = simpleExample ? simpleExampleProfile.term : resolvedTermMonths;
@@ -77,13 +79,19 @@ export function EMICard({
     : (Number.isFinite(emi) && emi > 0 ? emi : Math.round(computeEmi(effectiveLoanAmount, effectiveInterestRate, effectiveTermMonths)));
   const calculatedPrincipal = simpleExample
     ? simpleExampleProfile.loan
-    : (Number.isFinite(principal) && principal > 0 ? principal : effectiveLoanAmount);
+    : (principalValue !== undefined && Number.isFinite(principalValue) && principalValue > 0
+      ? principalValue
+      : effectiveLoanAmount);
   const calculatedTotalAmount = simpleExample
     ? simpleExampleProfile.monthlyPayment * simpleExampleProfile.term
-    : (Number.isFinite(totalAmount) && totalAmount > 0 ? totalAmount : (calculatedEmi * effectiveTermMonths));
+    : (totalAmountValue !== undefined && Number.isFinite(totalAmountValue) && totalAmountValue > 0
+      ? totalAmountValue
+      : (calculatedEmi * effectiveTermMonths));
   const calculatedInterest = simpleExample
     ? 0
-    : (Number.isFinite(interest) && interest >= 0 ? interest : (calculatedTotalAmount - calculatedPrincipal));
+    : (interestValue !== undefined && Number.isFinite(interestValue) && interestValue >= 0
+      ? interestValue
+      : (calculatedTotalAmount - calculatedPrincipal));
 
   // Monthly breakdown that sums to monthly EMI
   const monthlyRate = simpleExample
@@ -101,20 +109,6 @@ export function EMICard({
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
-  };
-
-  // Format large numbers with K/L/Cr notation for display (safe against undefined/NaN)
-  const formatDisplayAmount = (amount: number | null | undefined) => {
-    if (amount === undefined || amount === null || !Number.isFinite(amount)) {
-      return "—";
-    }
-    const absAmount = Math.abs(amount);
-    if (absAmount >= 1_000_000) {
-      return `${(amount / 1_000_000).toFixed(1)}M`;
-    } else if (absAmount >= 1_000) {
-      return `${(amount / 1_000).toFixed(0)}K`;
-    }
-    return amount.toString();
   };
 
   // Calculate years from months
@@ -223,7 +217,7 @@ export function EMICard({
           >
             <div className="bg-white/5 backdrop-blur-sm rounded-lg p-3 border-l-4 border-white/20">
               <p className="text-gray-300 text-sm leading-relaxed">
-                <strong className="text-white">Simple Meaning:</strong> EMI is the fixed amount you pay every month to the bank when you take a loan. It's like breaking your big loan into small, equal monthly payments!
+                <strong className="text-white">Simple Meaning:</strong> EMI is the fixed amount you pay every month to the bank when you take a loan. It&apos;s like breaking your big loan into small, equal monthly payments!
               </p>
             </div>
           </motion.div>

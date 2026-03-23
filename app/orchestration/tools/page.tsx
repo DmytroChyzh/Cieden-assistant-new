@@ -189,8 +189,8 @@ export default function ToolTestingPage() {
 
   // Memoize actionHandlers to avoid creating a new object every render which could
   // cause downstream effects (e.g., endless state updates in child hooks).
-  const actionHandlers: ActionHandlers = useMemo(() => ({
-    show_balance: async (params) => {
+  const actionHandlers = useMemo<any>(() => ({
+    show_balance: async (params: any) => {
       addResult('🔧 Bridge Handler - show_balance called: ' + JSON.stringify(params));
       
       if (conversationId) {
@@ -224,7 +224,7 @@ export default function ToolTestingPage() {
       return `I'm displaying your current balance of ${formattedBalance} on screen now.`;
     },
     
-    show_savings_goal: async (params) => {
+    show_savings_goal: async (params: any) => {
       addResult('🎯 Bridge Handler - show_savings_goal called: ' + JSON.stringify(params));
       
       if (conversationId) {
@@ -255,7 +255,7 @@ export default function ToolTestingPage() {
       return `Great progress! You're ${progress.toFixed(0)}% towards your goal. I'm showing your savings progress on screen now.`;
     },
 
-    show_document_id: async (params) => {
+    show_document_id: async (params: any) => {
       addResult('🆔 Bridge Handler - show_document_id called: ' + JSON.stringify(params));
       
       if (conversationId) {
@@ -283,7 +283,7 @@ export default function ToolTestingPage() {
         : `I'm showing your identification document on screen now.`;
     },
 
-    show_loans: async (params) => {
+    show_loans: async (params: any) => {
       addResult('💳 Bridge Handler - show_loans called: ' + JSON.stringify(params));
       
       if (conversationId) {
@@ -333,7 +333,7 @@ export default function ToolTestingPage() {
       return `Here's your loan overview: You've paid ${formattedPaid} out of ${formattedTotal} total - that's ${paidPercentage.toFixed(0)}% complete. I'm showing your detailed loan payment progress on screen.`;
     },
 
-    show_lending_options: async (params) => {
+    show_lending_options: async (params: any) => {
       addResult('💰 Bridge Handler - show_lending_options called: ' + JSON.stringify(params));
       
       if (conversationId) {
@@ -361,7 +361,7 @@ export default function ToolTestingPage() {
       return `I'm displaying ${optionCount} lending options for you on the screen. Each option shows the loan amount, interest rate, monthly payment, and key features. You can click "Learn More" on any option to get additional details.`;
     },
 
-    show_credit_score: async (params) => {
+    show_credit_score: async (params: any) => {
       addResult('📊 Bridge Handler - show_credit_score called: ' + JSON.stringify(params));
       
       if (conversationId) {
@@ -392,7 +392,7 @@ export default function ToolTestingPage() {
       return `I'm displaying your credit score of ${params.score} (${range}) on the screen. This gives you a comprehensive view of your credit health with tips for improvement.`;
     },
 
-    show_emi_info: async (params) => {
+    show_emi_info: async (params: any) => {
       addResult('🧮 Bridge Handler - show_emi_info called: ' + JSON.stringify(params));
       
       if (conversationId) {
@@ -435,7 +435,7 @@ export default function ToolTestingPage() {
       return `I'm showing your EMI calculation on screen: ${formattedEMI} per month for ${termDisplay}. The breakdown shows how your payment is split between principal and interest, plus helpful tips for managing your loan.`;
     },
 
-    start_quiz: async (params) => {
+    start_quiz: async (params: any) => {
       addResult('🧠 Bridge Handler - start_quiz called: ' + JSON.stringify(params));
       
       if (conversationId) {
@@ -465,7 +465,7 @@ export default function ToolTestingPage() {
       return `I'm starting the ${quizName} quiz for you. You can navigate using voice commands or by clicking the buttons on screen.`;
     },
 
-    update_quiz: async (params) => {
+    update_quiz: async (params: any) => {
       addResult('📝 Bridge Handler - update_quiz called: ' + JSON.stringify(params));
       
       // Normalize incoming parameters from different callers

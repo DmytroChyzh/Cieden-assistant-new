@@ -9,6 +9,7 @@ import {
   GitBranch,
   Plus,
   Play,
+  Edit,
   Pause,
   Square,
   RotateCw,
@@ -27,7 +28,7 @@ interface WorkflowStep {
   id: string;
   name: string;
   agent: string;
-  status: "pending" | "running" | "completed" | "failed" | "skipped";
+  status: "pending" | "running" | "completed" | "failed" | "skipped" | "paused";
   duration?: string;
   input?: string;
   output?: string;

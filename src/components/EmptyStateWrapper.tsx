@@ -37,7 +37,7 @@
            className="text-2xl md:text-3xl font-semibold text-white mb-2"
            style={{
              fontFamily:
-               "Inter, -apple-system, Roboto, Helvetica, sans-serif",
+              "Gilroy",
              letterSpacing: "-0.03em"
            }}
          >

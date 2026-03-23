@@ -1,0 +1,62 @@
+,,,Include,UX/UI,,,,PM,,,
+Modules ,Features/Epics,Comments ,,Min,Most likely,Maximum ,PERT,Min,Most likely,Maximum ,PERT
+DesOps,,,,,,,,,,,
+,Moodboard,,TRUE,6,8,12,8,,,,0
+,Light/dark themes setup,,TRUE,4,6,8,6,,,,
+,Components library+Design system,,TRUE,16,24,32,24,,,,0
+Communication,Internal,,,1,1,1,1,0,0,0,0
+,External,,,1,2,2,2,0,0,0,0
+TOTAL,,,,22,32,43,32,0,0,0,0
+Product Design,,,,,,,,,,,
+,"Authorization page (Login/registration, password reset)",,TRUE,8,10,14,10,,,,0
+,Onboarding/ Setup,,TRUE,12,16,24,17,,,,0
+,"Main navigation, quick actions, search",,TRUE,10,14,18,14,,,,0
+,Main dashboard,,TRUE,8,16,24,16,,,,0
+Profile,User Profile,,TRUE,6,8,12,8,,,,0
+,Support Ticket,,TRUE,,,,0,,,,0
+Admin Settings,General,"User management, Teams management, Titles management, Certifications, Lead Sources, Lead Mediums, Industries, Practice Areas, Tags, Notification Lists, Document Labels, Task Types, Notes Templates, Note Actions, Manage Workflows, Email templates, Campaigns, Fees, Miscellaneous ",TRUE,28,44,69,46,,,,0
+,System configuration,"Recruiting Leads, Sales Leads, Candidates, Placements, Opportunities, Companies, Jobs, Submission, Vendors",TRUE,8,10,12,10,,,,0
+,Workflow,"workflows, templates, Campaigns, settings",TRUE,11,16,22,16,,,,0
+,BC-agent (to clarify),,TRUE,8,24,32,23,,,,0
+,"List, search and filtering",,TRUE,8,12,16,12,,,,0
+,Bulk actions,,TRUE,8,12,16,12,,,,0
+,Detailed item page,"Candidates, Submissions, Placements, Leads, Opportunities, Clients, Contacts, Vendors, Jobs, Documents, Tasks, Appointments, Events",TRUE,10,14,16,14,,,,0
+,Kanban view,,TRUE,8,12,16,12,,,,0
+,Pipeline view,,TRUE,4,5,8,5,,,,0
+,Add smth new flow,,TRUE,16,20,24,20,,,,0
+,Reports,,TRUE,16,32,54,33,,,,0
+,Add Note,where can i find a note?,TRUE,,,,0,,,,0
+Communication,Internal,,,5,8,11,8,0,0,0,0
+,External,,,12,19,26,19,0,0,0,0
+TOTAL,,,,186,292,415,294,0,0,0,0
+Product Design - mobile app,,,,,,,,,,,
+,Design style & mobile specific components,,TRUE,10,16,24,16,,,,
+,Authorization,,TRUE,6,8,12,8,,,,0
+,Profile,personal info + edit profile,TRUE,6,8,12,8,,,,0
+,Dashboard/ Home page,,TRUE,12,18,24,18,,,,0
+,Candidates,"list, search and filtering, quick actions",TRUE,12,18,24,18,,,,0
+,Detailed Candidate page,,TRUE,4,6,8,6,,,,0
+,Notifications,,TRUE,3,4,5,4,,,,0
+,Settings,,TRUE,3,4,6,4,,,,0
+Communication,Internal,,,1,2,3,2,0,0,0,0
+,External,,,5,7,9,7,0,0,0,0
+TOTAL,,,,52,75,103,76,0,0,0,0
+Handoff and Documentation,,,,,,,,,,,
+,Design Handoff (depends on complexity),documentation,FALSE,16,24,34,25,,,,0
+,Continuous Support during development,per week,TRUE,1,2,4,2,,,,0
+,Specification document,"user stories, acceptance criteria, flows",FALSE,,,,0,,,,0
+Communication,,,,0,0,0,0,0,0,0,0
+TOTAL,,,,1,2,4,2,0,0,0,0
+,Total Product Design ,,,260,400,565,405,,,,
+,Total PM,,,65,100,141,101,,,,
+,TOTAL PROJECT (hours),,,326,501,706,506,,,,
+,TOTAL PROJECT COST ,,,"$16,280","$25,030","$35,296","$25,283",,,,
+,,,,,,,,,,,
+,,Team Capacity ,,Hours a week,,,,,,,
+,,UX/UI designer/s,,35,(based on 6h efffective working day) ,,,,,,
+,,PM,,16,,,,,,,
+,,,,,,,,,,,
+,,,,Weeks,,,,Months,,,
+,,Project Timeline (design effort) ,,Min,Most likely,Maximum ,PERT,Min,Most likely,Maximum ,PERT
+,,Design effort (in weeks) 1 Product Designer,,7,11,16,12,2,3,4,3
+,,Design effort (in weeks) 2 Product Designer,,5,8,11,8,1,2,3,2

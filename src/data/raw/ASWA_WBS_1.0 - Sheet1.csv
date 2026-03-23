@@ -1,0 +1,44 @@
+,,,Include,UX/UI,,,,PM,,,
+Modules ,Features/Epics,Comments ,,Min,Most likely,Maximum ,PERT,Min,Most likely,Maximum ,PERT
+UX audit,,,,,,,,,,,
+,UX audit,"full walkthrough, core experience, navigation, gamification",TRUE,3,4,6,4,,,,0
+,UX audit summary with findings and opportunities,,TRUE,1,2,3,2,,,,0
+Communication,Internal,,,0,0,0,0,0,0,0,0
+,External,,,0,1,1,1,0,0,0,0
+TOTAL,,,,5,7,10,7,0,0,0,0
+Product discovery,,,,,,,,,,,
+,User Journey flow,"first time user, returning user, sharing flow, interactions",TRUE,,,,0,6,8,12,8
+,Gamification concept,,TRUE,,,,0,6,10,16,10
+Communication,Internal,,,0,0,0,0,0,1,1,1
+,External,,,0,0,0,0,1,1,2,1
+TOTAL,,,,0,0,0,0,13,20,31,21
+DesOps,,,,,,,,,,,
+,Design System,depends on existing files,TRUE,6,8,16,9,,,,0
+,UI concept,optional,TRUE,2,3,4,3,,,,0
+,,,TRUE,,,,0,,,,0
+Communication,Internal,,,0,0,1,0,0,0,0,0
+,External,,,0,1,1,1,0,0,0,0
+TOTAL,,,,9,12,22,13,0,0,0,0
+Product Design,,,,,,,,,,,
+,Onboarding redesign,,TRUE,6,10,12,10,,,,0
+,Profile,"emotions, settings, journal, manuals",TRUE,8,16,24,16,,,,0
+,Statistics,,TRUE,8,16,20,15,,,,0
+,Gamification,,TRUE,12,16,24,17,,,,0
+,Navigation,,TRUE,5,6,7,6,,,,0
+,3D/ animations,will be defined based on the elements,TRUE,,,,0,,,,0
+,,,TRUE,,,,0,,,,0
+Communication,Internal,,,1,2,3,2,0,0,0,0
+,External,,,3,4,6,4,0,0,0,0
+TOTAL,,,,43,70,96,70,0,0,0,0
+,Total Product Design ,,,56,89,128,90,,,,
+,Total PM,,,27,42,63,43,,,,
+,TOTAL PROJECT (hours),,,84,131,190,133,,,,
+,TOTAL PROJECT COST ,,,"$4,181","$6,564","$9,518","$6,659",,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,Team Capacity ,,Hours a week,,,,,,,
+,,UX/UI designer/s,,35,(based on 6h efffective working day) ,,,,,,
+,,PM,,5,,,,,,,
+,,,,,,,,,,,
+,,Project Timeline (design effort) ,,Min,Most likely,Maximum ,PERT,,,,
+,,Design effort (in weeks) ,,2,3,4,3,,,,

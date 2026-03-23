@@ -363,7 +363,7 @@ export const CompactLendingCard = memo(function CompactLendingCard({
                 </div>
               )}
               <div className="flex items-center justify-between border-t border-white/15 pt-3">
-                <span className="font-medium text-white">Total you'll repay</span>
+                <span className="font-medium text-white">Total you&apos;ll repay</span>
                 <span className="text-lg font-semibold text-white">
                   {formatCurrency(option.loanAmount + option.totalInterest)}
                 </span>
