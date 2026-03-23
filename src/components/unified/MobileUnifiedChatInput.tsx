@@ -471,7 +471,7 @@ export function MobileUnifiedChatInput({
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
               <span className="text-xs text-red-200 font-medium">
-                Daily Limit Reached
+                {dailyLimitError.code === 1008 ? 'Daily Limit Reached' : 'ElevenLabs Error'}
               </span>
             </div>
             <p className="text-xs text-red-300 mt-1">

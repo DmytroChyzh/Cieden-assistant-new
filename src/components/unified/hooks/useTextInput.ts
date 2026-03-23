@@ -370,6 +370,14 @@ export function useTextInput({
       resetTextIdleTimer();
     } catch (error) {
       console.error('Failed to send ElevenLabs text message:', error);
+      // Surface transport errors so in production the user doesn't just see "nothing happens".
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : 'ElevenLabs text transport failed';
+      onDailyLimitReached?.({ code: 0, reason: message });
       setTextInput(trimmed);
     } finally {
       setCanSend(true);
@@ -440,7 +448,13 @@ export function useTextInput({
         }
       } catch (error) {
         console.error('Failed to send ElevenLabs text message (guest):', error);
-        throw error;
+        const message =
+          error instanceof Error
+            ? error.message
+            : typeof error === 'string'
+              ? error
+              : 'ElevenLabs text transport failed (guest)';
+        onDailyLimitReached?.({ code: 0, reason: message });
       } finally {
         resetTextIdleTimer();
       }
@@ -521,7 +535,10 @@ export function useTextInput({
       resetTextIdleTimer();
     } catch (error) {
       console.error('Failed to send ElevenLabs text message:', error);
-      throw error;
+      const message =
+        error instanceof Error ? error.message : typeof error === 'string' ? error : 'ElevenLabs text transport failed';
+      onDailyLimitReached?.({ code: 0, reason: message });
+      return;
     }
   }, [conversationId, onMessage, createMessage, maybeInjectToolCardForUserIntent, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory]);
 
