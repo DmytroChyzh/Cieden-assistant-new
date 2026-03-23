@@ -24,6 +24,7 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import estimatesCatalog from "@/src/data/estimates/catalog.example.json";
+import { getGuestIdentityFromCookie } from "@/src/utils/guestIdentity";
 
 type CatalogEntry = {
   id: string;
@@ -152,7 +153,11 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
     Array<{ id: string; role: "user" | "assistant"; content: string; createdAt: number }>
   >([]);
 
-  const allMessages = useQuery(api.messages.list, conversationId ? { conversationId } : "skip");
+  const guestId = getGuestIdentityFromCookie()?.guestId;
+  const allMessages = useQuery(
+    api.messages.list,
+    conversationId ? { conversationId, guestId: guestId ?? undefined } : "skip",
+  );
 
   // Capture user messages forwarded from page.tsx when estimate panel is open.
   // We keep this for BOTH guest and authenticated flows so the estimate card
@@ -176,11 +181,15 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
   }, []);
 
   const estimateSessionMessages = useMemo(() => {
-    if (!estimateSessionStartedAt) return [];
+    const fallbackStart = Date.now() - 2 * 60 * 60 * 1000; // 2h
+    const effectiveStart =
+      typeof estimateSessionStartedAt === "number" ? estimateSessionStartedAt : fallbackStart;
 
     // Guest mode: local stream only.
     if (!conversationId) {
-      return localMessages.filter((m) => m.createdAt >= estimateSessionStartedAt);
+      return localMessages
+        .filter((m) => m.createdAt >= effectiveStart)
+        .sort((a, b) => a.createdAt - b.createdAt);
     }
 
     // Auth mode: merge Convex + local forwarded stream for immediate UI updates.
@@ -211,7 +220,7 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
     });
 
     return deduped
-      .filter((m) => m.createdAt >= estimateSessionStartedAt)
+      .filter((m) => m.createdAt >= effectiveStart)
       .sort((a, b) => a.createdAt - b.createdAt);
   }, [allMessages, estimateSessionStartedAt, conversationId, localMessages]);
 
@@ -535,11 +544,11 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
     }
     if (domain) {
       const byDomain = candidates.filter((e) => e.domain === domain);
-      if (byDomain.length >= 2) candidates = byDomain;
+      if (byDomain.length >= 1) candidates = byDomain;
     }
     if (clientType) {
       const byClient = candidates.filter((e) => e.clientType === clientType);
-      if (byClient.length >= 2) candidates = byClient;
+      if (byClient.length >= 1) candidates = byClient;
     }
     if (candidates.length === 0) candidates = catalog;
 
@@ -600,13 +609,20 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
       const catalogHours = sourceCandidates
         .map((e) => {
           const hb = (e.hoursBreakdown ?? {}) as Record<string, any>;
-          const total =
-            hb?.total?.uxui + hb?.total?.pm ||
-            hb?.totalProjectHours?.uxui + hb?.totalProjectHours?.pm ||
-            hb?.totalProductDesign?.uxui + hb?.totalPm?.pm ||
-            hb?.totalProductDesign?.uxui + hb?.totalBaPm?.pm ||
-            hb?.totalProductDesign?.uxui + hb?.totalBa?.pm ||
-            null;
+          const toNum = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+          const uxTotal =
+            toNum(hb?.total?.uxui) ||
+            toNum(hb?.totalProjectHours?.uxui) ||
+            toNum(hb?.totalProductDesign?.uxui) ||
+            0;
+          const pmTotal =
+            toNum(hb?.total?.pm) ||
+            toNum(hb?.totalProjectHours?.pm) ||
+            toNum(hb?.totalPm?.pm) ||
+            toNum(hb?.totalBaPm?.pm) ||
+            toNum(hb?.totalBa?.pm) ||
+            0;
+          const total = uxTotal + pmTotal;
           return typeof total === "number" && Number.isFinite(total) ? total : null;
         })
         .filter((v): v is number => typeof v === "number");
