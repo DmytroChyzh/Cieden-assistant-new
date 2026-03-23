@@ -1669,7 +1669,16 @@ export function ElevenLabsProvider({
     enqueueMessage(pendingTextQueueRef.current, truncateForTransport(message));
     try {
       await startText();
-    } catch {}
+    } catch (error) {
+      const reason =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : 'Failed to start text transport';
+      emitErrorToHandlers(textErrorHandlersRef, { code: 0, reason });
+      return false;
+    }
     return true; // queued successfully
   }, [actionHandlers, enqueueMessage, startText, startVoice, textConversation]);
 
