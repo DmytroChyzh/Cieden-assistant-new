@@ -154,9 +154,10 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
 
   const allMessages = useQuery(api.messages.list, conversationId ? { conversationId } : "skip");
 
-  // Capture user messages forwarded from page.tsx when estimate panel is open in guest mode
+  // Capture user messages forwarded from page.tsx when estimate panel is open.
+  // We keep this for BOTH guest and authenticated flows so the estimate card
+  // can update immediately even if Convex persistence is delayed.
   useEffect(() => {
-    if (conversationId) return; // not needed when Convex is available
     const handler = (e: Event) => {
       const ev = e as CustomEvent<{ content: string; role?: "user" | "assistant"; createdAt?: number }>;
       if (!ev.detail?.content) return;
@@ -172,27 +173,46 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
     };
     window.addEventListener("estimate-local-user-message", handler as EventListener);
     return () => window.removeEventListener("estimate-local-user-message", handler as EventListener);
-  }, [conversationId]);
+  }, []);
 
   const estimateSessionMessages = useMemo(() => {
-    // Guest mode (no conversationId): use locally captured messages
+    if (!estimateSessionStartedAt) return [];
+
+    // Guest mode: local stream only.
     if (!conversationId) {
-      if (!estimateSessionStartedAt) return [];
       return localMessages.filter((m) => m.createdAt >= estimateSessionStartedAt);
     }
-    // Convex mode: wait for data
-    if (!allMessages) return null;
-    if (!estimateSessionStartedAt) return [];
-    return allMessages.filter((m) => {
-      // Convex typically returns `createdAt` (we store it), but `_creationTime` is a safe fallback.
-      const createdAt =
-        typeof (m as any).createdAt === "number"
-          ? (m as any).createdAt
-          : typeof (m as any)._creationTime === "number"
-            ? (m as any)._creationTime
-            : 0;
-      return createdAt >= estimateSessionStartedAt;
+
+    // Auth mode: merge Convex + local forwarded stream for immediate UI updates.
+    // If Convex query is still loading, we can still work from local messages.
+    const convexPart =
+      allMessages?.map((m) => {
+        const createdAt =
+          typeof (m as any).createdAt === "number"
+            ? (m as any).createdAt
+            : typeof (m as any)._creationTime === "number"
+              ? (m as any)._creationTime
+              : 0;
+        return {
+          id: String((m as any)._id ?? `convex-${createdAt}-${String((m as any).role ?? "assistant")}`),
+          role: (m as any).role as "user" | "assistant" | "system",
+          content: String((m as any).content ?? ""),
+          createdAt,
+        };
+      }) ?? [];
+
+    const merged = [...convexPart, ...localMessages];
+    const seen = new Set<string>();
+    const deduped = merged.filter((m) => {
+      const key = `${m.role}|${m.createdAt}|${m.content}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
+
+    return deduped
+      .filter((m) => m.createdAt >= estimateSessionStartedAt)
+      .sort((a, b) => a.createdAt - b.createdAt);
   }, [allMessages, estimateSessionStartedAt, conversationId, localMessages]);
 
   const isKickoffMessage = useCallback((content: string) => {
@@ -451,9 +471,6 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
 
     if (nonKickoffUserMessages.length === 0) return null;
 
-    // Require at least platform/type to start drafting numbers (so we don't guess).
-    if (!extractedEstimateContext?.filled.platform) return null;
-
     // IMPORTANT: inference should use only what user said (not assistant questions).
     // For performance on very large inputs, analyze only a trimmed view of the text.
     const rawText = nonKickoffUserMessages.join("\n").toLowerCase();
@@ -462,6 +479,14 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
       rawText.length <= MAX_ANALYSIS_CHARS
         ? rawText
         : `${rawText.slice(0, Math.floor(MAX_ANALYSIS_CHARS / 2))}\n...\n${rawText.slice(-Math.floor(MAX_ANALYSIS_CHARS / 2))}`;
+
+    // Start draft as soon as we have any meaningful project signal.
+    // Previously we hard-required platform, which kept the card at $0 even with rich context.
+    const hasAnyProjectSignal =
+      extractedEstimateContext
+        ? Object.values(extractedEstimateContext.filled).some(Boolean)
+        : false;
+    if (!hasAnyProjectSignal) return null;
 
     const inferPlatform = () => {
       const hasWeb =
