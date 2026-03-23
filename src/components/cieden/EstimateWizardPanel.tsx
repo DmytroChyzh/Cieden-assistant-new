@@ -765,12 +765,32 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
 
   // Map new wizard complexity to estimateRanges keys
   const complexityMapped = useMemo((): "low" | "medium" | "high" | null => {
-    if (!complexity) return null;
     if (complexity === "essential") return "low";
     if (complexity === "advanced") return "medium";
     if (complexity === "enterprise") return "high";
+
+    const custom = (customByStep["complexity"] ?? "").toLowerCase().trim();
+    if (custom.length > 0) {
+      if (/(enterprise|advanced|complex|складн|висок|high|admin|roles|permissions|integrations|payments|real[-\s]?time)/.test(custom)) {
+        return "high";
+      }
+      if (/(medium|mid|moderate|середн|medium|mvp\+|growth)/.test(custom)) {
+        return "medium";
+      }
+      if (/(essential|simple|basic|прост|low|mvp)/.test(custom)) {
+        return "low";
+      }
+      // If user wrote any custom complexity text, default to medium (safe midpoint).
+      return "medium";
+    }
+
+    // Fallback by selected scope/specs when complexity is not explicitly chosen.
+    if (scope === "30+" || specs === "have-specs") return "high";
+    if (scope === "16-30" || specs === "have-idea") return "medium";
+    if (scope === "1-5" || scope === "6-15" || specs === "need-research") return "low";
+
     return null;
-  }, [complexity]);
+  }, [complexity, customByStep, scope, specs]);
 
   const result = useMemo((): EstimationEntry | null => {
     if (!complexityMapped) return null;
