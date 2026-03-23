@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -195,10 +195,62 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
     });
   }, [allMessages, estimateSessionStartedAt, conversationId, localMessages]);
 
+  const isKickoffMessage = useCallback((content: string) => {
+    return (
+      /i want a preliminary design estimate/i.test(content) ||
+      /ask me one question at a time/i.test(content) ||
+      /enter estimate mode/i.test(content) ||
+      /\[estimate mode]/i.test(content)
+    );
+  }, []);
+
+  // In production users often provide project details BEFORE opening the side panel.
+  // If the current estimate session has no real user content yet, fall back to recent
+  // conversation user messages so the draft card can still start calculating.
+  const estimateAnalysisMessages = useMemo(() => {
+    if (!estimateSessionMessages) return estimateSessionMessages;
+
+    const hasSessionUserContent = estimateSessionMessages.some(
+      (m) =>
+        m.role === "user" &&
+        typeof m.content === "string" &&
+        m.content.trim().length > 0 &&
+        !isKickoffMessage(m.content),
+    );
+    if (hasSessionUserContent) return estimateSessionMessages;
+
+    const pool = !conversationId ? localMessages : (allMessages ?? []);
+    if (!pool || pool.length === 0) return estimateSessionMessages;
+
+    const lowerBound =
+      typeof estimateSessionStartedAt === "number"
+        ? Math.max(0, estimateSessionStartedAt - 2 * 60 * 60 * 1000) // 2h lookback
+        : 0;
+
+    const recent = pool.filter((m) => {
+      const createdAt =
+        typeof (m as any).createdAt === "number"
+          ? (m as any).createdAt
+          : typeof (m as any)._creationTime === "number"
+            ? (m as any)._creationTime
+            : 0;
+      return createdAt >= lowerBound;
+    });
+
+    return recent.slice(-40);
+  }, [
+    estimateSessionMessages,
+    conversationId,
+    localMessages,
+    allMessages,
+    estimateSessionStartedAt,
+    isKickoffMessage,
+  ]);
+
   const extractedEstimateContext = useMemo(() => {
-    if (!estimateSessionMessages) return null;
+    if (!estimateAnalysisMessages) return null;
     const MAX_ANALYSIS_CHARS = 12000;
-    const rawUserText = estimateSessionMessages
+    const rawUserText = estimateAnalysisMessages
       .filter((m) => m.role === "user")
       .map((m) => m.content ?? "")
       .join("\n")
@@ -293,28 +345,22 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
       filled,
       missing,
     };
-  }, [estimateSessionMessages]);
+  }, [estimateAnalysisMessages]);
 
   const estimateProgress = useMemo(() => {
-    if (!estimateSessionMessages || estimateSessionMessages.length === 0) return { percent: 0, checks: 0 };
+    if (!estimateAnalysisMessages || estimateAnalysisMessages.length === 0) return { percent: 0, checks: 0 };
 
-    const isKickoff = (content: string) =>
-      /i want a preliminary design estimate/i.test(content) ||
-      /ask me one question at a time/i.test(content) ||
-      /enter estimate mode/i.test(content) ||
-      /\[estimate mode]/i.test(content);
-
-    const userMessages = estimateSessionMessages
+    const userMessages = estimateAnalysisMessages
       .filter((m) => m.role === "user")
       .map((m) => m.content ?? "")
-      .filter((c) => c.trim().length > 0 && !isKickoff(c));
+      .filter((c) => c.trim().length > 0 && !isKickoffMessage(c));
 
     if (userMessages.length === 0) return { percent: 0, checks: 0 };
 
     // IMPORTANT: readiness must be based ONLY on what user said.
     // Assistant questions or hidden contextual payloads must not affect draft confidence.
     const MAX_ANALYSIS_CHARS = 12000;
-    const rawText = estimateSessionMessages
+    const rawText = estimateAnalysisMessages
       .filter((m) => m.role === "user")
       .map((m) => m.content ?? "")
       .join("\n")
@@ -358,7 +404,7 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
     const cap = 90;
     const percent = Math.round((filledCount / Math.max(1, totalFields)) * cap);
     return { percent, checks };
-  }, [estimateSessionMessages, extractedEstimateContext]);
+  }, [estimateAnalysisMessages, extractedEstimateContext, isKickoffMessage]);
 
   useEffect(() => {
     if (mode !== "assistant") return;
@@ -391,23 +437,17 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
   }, [mode, estimateSessionMessages, extractedEstimateContext, assistantInputKind]);
 
   const catalogDraftResult = useMemo(() => {
-    if (!estimateSessionMessages || estimateSessionMessages.length === 0) return null;
+    if (!estimateAnalysisMessages || estimateAnalysisMessages.length === 0) return null;
 
     // Show draft numbers only when the user provided at least one real project signal.
     // If the user only starts the flow ("I want an estimate...") we keep $0/$0.
     // If the user provided platform/type (web/app) we show an approximate range
     // and tighten it as more answers arrive.
     // 1) Ignore kickoff phrases like "I want a preliminary design estimate..."
-    const isKickoff = (content: string) =>
-      /i want a preliminary design estimate/i.test(content) ||
-      /ask me one question at a time/i.test(content) ||
-      /enter estimate mode/i.test(content) ||
-      /\[estimate mode]/i.test(content);
-
-    const nonKickoffUserMessages = estimateSessionMessages
+    const nonKickoffUserMessages = estimateAnalysisMessages
       .filter((m) => m.role === "user")
       .map((m) => m.content ?? "")
-      .filter((c) => c.trim().length > 0 && !isKickoff(c));
+      .filter((c) => c.trim().length > 0 && !isKickoffMessage(c));
 
     if (nonKickoffUserMessages.length === 0) return null;
 
@@ -587,7 +627,7 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
     }
 
     return primary;
-  }, [estimateSessionMessages, extractedEstimateContext, estimateProgress.checks]);
+  }, [estimateAnalysisMessages, extractedEstimateContext, estimateProgress.checks, isKickoffMessage]);
 
   // IMPORTANT: Always show numbers driven by our local catalog calculations.
   // Assistant ESTIMATE_PANEL_RESULT is treated as contextual guidance only.
