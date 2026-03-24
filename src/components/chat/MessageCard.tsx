@@ -109,7 +109,7 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
               }`}
             >
               <div className={compact ? "text-sm" : "text-sm md:text-base"}>
-                <p className="text-white leading-relaxed whitespace-pre-wrap break-words">
+                <p className="text-white leading-6 whitespace-pre-wrap break-words">
                   {displayContent}
                 </p>
               </div>
