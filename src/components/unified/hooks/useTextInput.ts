@@ -301,7 +301,6 @@ export function useTextInput({
     if (!conversationId) {
       setTextInput('');
       if (onPreAuthMessage) {
-        onMessage?.(trimmed);
         await onPreAuthMessage(trimmed);
         return;
       }
@@ -416,12 +415,12 @@ export function useTextInput({
 
     // Guest mode: no Convex conversationId, but we still want the assistant to respond.
     if (!conversationId) {
-      onMessage?.(isGuest ? `__GUEST_USER__:${trimmed}` : trimmed);
-
       if (onPreAuthMessage) {
         await onPreAuthMessage(trimmed);
         return;
       }
+
+      onMessage?.(isGuest ? `__GUEST_USER__:${trimmed}` : trimmed);
 
       // Ensure tool cards still appear in guest mode (quick prompt buttons use this path).
       await maybeInjectToolCardForUserIntent(trimmed);
