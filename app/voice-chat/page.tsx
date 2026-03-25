@@ -297,6 +297,22 @@ export default function VoiceChatPage() {
     });
   }, []);
 
+  // If the user is already authenticated (or onboarding is marked done via cookie),
+  // ensure we exit onboarding UI state so quick prompts/buttons appear.
+  useEffect(() => {
+    if (!canUseChat) return;
+
+    const cookieDone =
+      typeof document !== "undefined" &&
+      document.cookie.includes("cieden_onboarding_done=1");
+    const hasProfileIdentity = Boolean(currentUser?.name || currentUser?.email);
+
+    if ((cookieDone || hasProfileIdentity) && onboardingStep !== "done") {
+      setOnboardingStep("done");
+      pushWelcomePromptsIfMissing();
+    }
+  }, [canUseChat, currentUser?.name, currentUser?.email, onboardingStep, pushWelcomePromptsIfMissing]);
+
   // Handle pre-auth messages (name + email) coming from the main chat input
   const handlePreAuthMessage = useCallback(
     async (text: string) => {
