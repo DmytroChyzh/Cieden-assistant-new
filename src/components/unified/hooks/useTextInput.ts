@@ -203,9 +203,7 @@ export function useTextInput({
 
       // Cost intent: open estimate panel ASAP (like existing tool handlers).
       if (injectedTool === "open_calculator") {
-        try {
-          window.dispatchEvent(new CustomEvent("open-estimate-panel"));
-        } catch (_) {}
+        // Inline estimate UI will appear via the TOOL_CALL card itself.
       }
 
       const injectedContent = toolCallMessage(injectedTool);

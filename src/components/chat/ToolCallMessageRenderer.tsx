@@ -18,6 +18,7 @@ import { SessionSummaryCard } from "@/src/components/cieden/SessionSummaryCard";
 import { parseToolCall } from '@/src/utils/parseToolCall';
 import type { Id } from "@/convex/_generated/dataModel";
 import { ClipboardList, ChevronRight } from "lucide-react";
+import { EstimateInlineChooserCard } from "@/src/components/cieden/EstimateInlineChooserCard";
 
 interface ToolCallMessageRendererProps {
   content: string;
@@ -181,35 +182,7 @@ export function ToolCallMessageRenderer({
 
     case "generate_estimate":
     case "open_calculator":
-      // If the estimate panel is already open, don't spam another "open panel" card.
-      if (typeof window !== "undefined" && (window as any).__ciedenEstimatePanelOpen) return null;
-      return (
-        <div className="w-full max-w-4xl mx-auto">
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent("open-estimate-panel"))}
-            className="group w-full text-left rounded-2xl border border-violet-400/30 bg-gradient-to-br from-violet-500/15 via-purple-500/10 to-transparent p-5 hover:border-violet-400/50 hover:from-violet-500/25 transition-all duration-300 ring-1 ring-inset ring-white/[0.06] cursor-pointer"
-          >
-            <div className="flex items-start gap-4">
-              <div className="shrink-0 rounded-xl bg-violet-500/25 p-3 text-violet-300 group-hover:bg-violet-500/35 transition-colors">
-                <ClipboardList className="h-6 w-6" aria-hidden />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="text-base font-semibold text-white/95">
-                  Preliminary estimate — short questionnaire
-                </h4>
-                <p className="mt-1 text-sm text-white/60 leading-relaxed">
-                  Answer 3–4 quick questions (project type, complexity) and get an approximate price range. Opens in the side panel.
-                </p>
-                <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-violet-300 group-hover:text-violet-200 transition-colors">
-                  Open questionnaire
-                  <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" aria-hidden />
-                </span>
-              </div>
-            </div>
-          </button>
-        </div>
-      );
+      return <EstimateInlineChooserCard messageId={messageId} />;
 
     case "show_about":
       return (

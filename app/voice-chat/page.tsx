@@ -43,7 +43,8 @@ import {
   AboutPanel,
   EstimateSummaryCard,
 } from "@/src/components/cieden/SalesUi";
-import { EstimateWizardPanel } from "@/src/components/cieden/EstimateWizardPanel";
+import { EstimateWizardPanel, type EstimateFinalResult } from "@/src/components/cieden/EstimateWizardPanel";
+import { EstimateFinalResultSidePanel } from "@/src/components/cieden/EstimateFinalResultSidePanel";
 
 export default function VoiceChatPage() {
   // Session resetter moved to dedicated component
@@ -930,12 +931,63 @@ export default function VoiceChatPage() {
   // Estimate wizard side panel (unified for generate_estimate / open_calculator)
   const [showEstimatePanel, setShowEstimatePanel] = useState(false);
   const [estimatePanelKey, setEstimatePanelKey] = useState(0);
+  const [showEstimateInline, setShowEstimateInline] = useState(false);
+  const [estimateFinalResult, setEstimateFinalResult] = useState<EstimateFinalResult | null>(null);
+  const [showEstimateAssistantRunner, setShowEstimateAssistantRunner] = useState(false);
 
   // Let message renderers know whether estimate panel is open (to avoid spam cards)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    (window as unknown as { __ciedenEstimatePanelOpen?: boolean }).__ciedenEstimatePanelOpen = showEstimatePanel;
-  }, [showEstimatePanel]);
+    (window as unknown as { __ciedenEstimatePanelOpen?: boolean }).__ciedenEstimatePanelOpen = showEstimatePanel || showEstimateInline;
+  }, [showEstimatePanel, showEstimateInline]);
+
+  // Inline estimate UI events (chat feed) -> side panel opening only at the final step.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleInlineActive = (e: Event) => {
+      const detail = (e as CustomEvent<{ active?: boolean }>).detail;
+      setShowEstimateInline(!!detail?.active);
+    };
+
+    const handleChooseQuick = (e: Event) => {
+      // Open the right-side questionnaire panel immediately.
+      setShowEstimateAssistantRunner(false);
+      setEstimateFinalResult(null);
+      setShowEstimatePanel(true);
+      setShowEstimateInline(false);
+      setEstimatePanelKey((prev) => prev + 1);
+    };
+
+    const handleChooseAssistant = (e: Event) => {
+      // No side panel while assistant is collecting info.
+      setShowEstimatePanel(false);
+      setEstimateFinalResult(null);
+      setShowEstimateInline(false);
+      setShowEstimateAssistantRunner(true);
+    };
+
+    const handleEstimateFinal = (e: Event) => {
+      const detail = (e as CustomEvent<EstimateFinalResult>).detail;
+      if (!detail) return;
+      setEstimateFinalResult(detail);
+      setShowEstimatePanel(true);
+      setShowEstimateInline(false);
+      setShowEstimateAssistantRunner(false);
+      setEstimatePanelKey((prev) => prev + 1);
+    };
+
+    window.addEventListener("estimate-inline-active-change", handleInlineActive);
+    window.addEventListener("estimate-choose-quick", handleChooseQuick);
+    window.addEventListener("estimate-choose-assistant", handleChooseAssistant);
+    window.addEventListener("estimate-final-ready", handleEstimateFinal);
+    return () => {
+      window.removeEventListener("estimate-inline-active-change", handleInlineActive);
+      window.removeEventListener("estimate-choose-quick", handleChooseQuick);
+      window.removeEventListener("estimate-choose-assistant", handleChooseAssistant);
+      window.removeEventListener("estimate-final-ready", handleEstimateFinal);
+    };
+  }, []);
 
   // Let message renderers know whether cases panel is open.
   useEffect(() => {
@@ -1023,18 +1075,7 @@ export default function VoiceChatPage() {
       setEstimateTyping((prev) => (prev.active ? { active: false, label: "" } : prev));
     }
   }, [convexMessages, showEstimatePanel]);
-  useEffect(() => {
-    const handleOpenEstimatePanel = () => {
-      // Only reset panel state when opening from closed state
-      setShowEstimatePanel((isOpen) => {
-        if (isOpen) return true;
-        setEstimatePanelKey((prev) => prev + 1);
-        return true;
-      });
-    };
-    window.addEventListener("open-estimate-panel", handleOpenEstimatePanel);
-    return () => window.removeEventListener("open-estimate-panel", handleOpenEstimatePanel);
-  }, []);
+  // Side panel opens only when EstimateWizardPanel reports final results (inline flow completion).
 
   useEffect(() => {
     const handleCasesPanel = (e: Event) => {
@@ -1255,7 +1296,6 @@ export default function VoiceChatPage() {
 
     generate_estimate: async (params) => {
       console.log('💰 Bridge Handler - generate_estimate called:', params);
-      window.dispatchEvent(new CustomEvent("open-estimate-panel"));
       try {
         const safeParams =
           params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
@@ -1266,12 +1306,11 @@ export default function VoiceChatPage() {
       } catch (error) {
         console.error('❌ Failed to queue generate_estimate:', error);
       }
-      return 'I\'ve opened the estimate wizard in the side panel. Answer a few questions to get a preliminary price range. For an exact quote, our manager will follow up.';
+      return 'I\'ll show the estimate options in the chat. Answer a few questions to get a preliminary price range. For an exact quote, our manager will follow up.';
     },
 
     open_calculator: async (params) => {
       console.log('🧮 Bridge Handler - open_calculator called:', params);
-      window.dispatchEvent(new CustomEvent("open-estimate-panel"));
       try {
         const safeParams =
           params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
@@ -1282,7 +1321,7 @@ export default function VoiceChatPage() {
       } catch (error) {
         console.error('❌ Failed to queue open_calculator:', error);
       }
-      return 'I\'ve opened the estimate wizard in the side panel. Answer a few questions to get a preliminary price range.';
+      return 'I\'ll show the estimate options in the chat. Answer a few questions to get a preliminary price range.';
     },
 
     show_about: async (params) => {
@@ -1754,7 +1793,7 @@ export default function VoiceChatPage() {
       /(estimate|estimation|calculator|pricing)/.test(lower) ||
       /(естімейт|естимейт|калькулятор|оцінк|оценк|скільки кошту|сколько сто)/.test(lower)
     ) {
-      window.dispatchEvent(new CustomEvent("open-estimate-panel"));
+      // Estimate UI will appear via the TOOL_CALL card (inline) once tool injection happens.
     }
 
     // Forward user message to EstimateWizardPanel local tracker (authenticated mode)
@@ -2359,6 +2398,28 @@ export default function VoiceChatPage() {
           </AnimatePresence>
 
           {/* Estimate wizard side panel */}
+          {/* Hidden assistant runner (starts questions in chat; no side panel until result) */}
+          <AnimatePresence>
+            {showEstimateAssistantRunner && (
+              <EstimateWizardPanel
+                key={`estimate-assistant-runner-${estimatePanelKey}`}
+                variant="hidden"
+                conversationId={conversationId}
+                initialMode="assistant"
+                initialStep={0}
+                onClose={() => setShowEstimateAssistantRunner(false)}
+                onEstimateInlineActiveChange={(active) => setShowEstimateInline(active)}
+                onEstimateFinal={(finalResult) => {
+                  window.dispatchEvent(
+                    new CustomEvent("estimate-final-ready", {
+                      detail: finalResult,
+                    }),
+                  );
+                }}
+              />
+            )}
+          </AnimatePresence>
+
           <AnimatePresence>
             {showEstimatePanel && (
               <>
@@ -2366,14 +2427,41 @@ export default function VoiceChatPage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  onClick={() => setShowEstimatePanel(false)}
+                  onClick={() => {
+                    setShowEstimatePanel(false);
+                    setEstimateFinalResult(null);
+                  }}
                   className="fixed inset-0 z-40 bg-black/40 sm:hidden"
                 />
-                <EstimateWizardPanel
-                  key={estimatePanelKey}
-                  conversationId={conversationId}
-                  onClose={() => setShowEstimatePanel(false)}
-                />
+                {estimateFinalResult ? (
+                  <EstimateFinalResultSidePanel
+                    key={estimatePanelKey}
+                    result={estimateFinalResult}
+                    onClose={() => {
+                      setShowEstimatePanel(false);
+                      setEstimateFinalResult(null);
+                    }}
+                  />
+                ) : (
+                  <EstimateWizardPanel
+                    key={estimatePanelKey}
+                    conversationId={conversationId}
+                    variant="panel"
+                    initialMode="wizard"
+                    initialStep={0}
+                    onClose={() => {
+                      setShowEstimatePanel(false);
+                      setEstimateFinalResult(null);
+                    }}
+                    onEstimateFinal={(finalResult) => {
+                      window.dispatchEvent(
+                        new CustomEvent("estimate-final-ready", {
+                          detail: finalResult,
+                        }),
+                      );
+                    }}
+                  />
+                )}
               </>
             )}
           </AnimatePresence>

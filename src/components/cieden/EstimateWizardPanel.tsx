@@ -128,11 +128,39 @@ const CUSTOM_PLACEHOLDER = "Or write your own (optional)";
 interface EstimateWizardPanelProps {
   onClose: () => void;
   conversationId?: Id<"conversations"> | null;
+  variant?: "panel" | "inline" | "hidden";
+  onEstimateFinal?: (result: EstimateFinalResult) => void;
+  onEstimateInlineActiveChange?: (active: boolean) => void;
+  initialMode?: EstimateMode;
+  initialStep?: number;
 }
 
-export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardPanelProps) {
-  const [mode, setMode] = useState<EstimateMode>("chooser");
-  const [step, setStep] = useState(0);
+export type EstimateFinalResult = {
+  minPrice: number;
+  maxPrice: number;
+  weeks?: number;
+  timeline?: string;
+  // Wizard mode provides a range.
+  minHours?: number;
+  maxHours?: number;
+  // Assistant mode provides a single computed number.
+  totalHours?: number;
+  phaseHours?: Record<string, number>;
+};
+
+export function EstimateWizardPanel({
+  onClose,
+  conversationId,
+  variant = "panel",
+  onEstimateFinal,
+  onEstimateInlineActiveChange,
+  initialMode,
+  initialStep,
+}: EstimateWizardPanelProps) {
+  const [mode, setMode] = useState<EstimateMode>(initialMode ?? "chooser");
+  const [step, setStep] = useState(initialStep ?? 0);
+  const isInline = variant === "inline";
+  const isHidden = variant === "hidden";
   // Wizard answers
   const [platform, setPlatform]   = useState<WizardPlatform | null>(null);
   const [stage, setStage]         = useState<WizardStage | null>(null);
@@ -329,6 +357,10 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
       /(\d+)\s*(screens|screen|pages|page)/.test(userText) ||
       /(\d+)\s*(екра|сторін)/.test(userText);
 
+    const hasSpecs =
+      /(specs|wireframes|wireframe|figma|prototype|prototypes|deck|brief|requirements|documentation|doc(s)?)/.test(userText) ||
+      /(бріф|бриф|тз|тзшка|вимог|специфікац|спецификац|документац|документаци|фигма|прототип|прототипы|презентац|презентац|макети|макет)/.test(userText);
+
     const hasTimeline =
       /(week|weeks|month|months|deadline|asap|timeline)/.test(userText) ||
       /(тиж|недел|місяц|месяц|дедлайн|термін|срок|asap)/.test(userText);
@@ -347,13 +379,16 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
 
     const hasComplexitySignals =
       /(roles|permissions|multi|integration|payments|analytics|chat|notifications|realtime)/.test(userText) ||
-      /(ролі|роли|права|інтеграц|интеграц|оплат|платіж|платеж|аналітик|аналитик|чат|нотиф|сповіщ)/.test(userText);
+      /(ролі|роли|права|інтеграц|интеграц|оплат|платіж|платеж|аналітик|аналитик|чат|нотиф|сповіщ)/.test(userText) ||
+      /(essential|simple|basic|low|mvp|easy)/.test(userText) ||
+      /(прост|простий|низк|низкий|низкий|низко|low|essential|мвп|mvp)/.test(userText);
 
     const filled = {
       platform: !!platform,
       productStage: !!productStage,
       audience: !!audience,
       goal: hasGoal,
+      specs: hasSpecs,
       scope: hasScope,
       screensCount: hasScreensCount,
       timeline: hasTimeline,
@@ -363,8 +398,22 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
       complexity: hasComplexitySignals,
     };
 
+    // Finalization must depend only on wizard-required fields.
+    // Optional signals (integrations/payments/admin) must NOT block completion.
+    const requiredKeys = [
+      "platform",
+      "productStage",
+      "audience",
+      "goal",
+      "specs",
+      "scope",
+      "screensCount",
+      "timeline",
+      "complexity",
+    ] as const;
+
     const missing = Object.entries(filled)
-      .filter(([, ok]) => !ok)
+      .filter(([k, ok]) => (requiredKeys as readonly string[]).includes(k) && !ok)
       .map(([k]) => k);
 
     return {
@@ -555,6 +604,7 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
     const coreFields: Array<keyof NonNullable<typeof extractedEstimateContext>["filled"]> = [
       "platform",
       "productStage",
+      "specs",
       "scope",
       "screensCount",
       "timeline",
@@ -674,6 +724,13 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
   // Assistant ESTIMATE_PANEL_RESULT is treated as contextual guidance only.
   const displayedEstimate = catalogDraftResult;
 
+  // Let the page know that estimate inline UI is mounted (used for message forwarding + sales-tool gating).
+  useEffect(() => {
+    if (!isInline && !isHidden) return;
+    onEstimateInlineActiveChange?.(true);
+    return () => onEstimateInlineActiveChange?.(false);
+  }, [isInline, isHidden, onEstimateInlineActiveChange]);
+
   // Typing indicator is handled globally in the main chat UI.
 
   // Provide the assistant with the SAME draft numbers as the UI (prevents mismatch)
@@ -735,13 +792,14 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
       "Maintain memory of everything already said - do NOT repeat answered questions.\n" +
       "Only ask for missing info. Skip questions the client already answered.\n\n" +
       "Question topics (always phrase them in the client's detected language):\n" +
-      "1. Project type - website, mobile app, web+mobile? New product or redesign?\n" +
-      "2. Audience & goal - B2C, B2B or internal? What is the main product goal?\n" +
-      "3. Scope - approx number of screens/pages/flows? Key must-have features?\n" +
-      "4. Complexity - any of: user roles, admin panel, chat, payments, integrations, real-time?\n" +
-      "5. Design references - any products or designs they like? (e.g. Airbnb, Instagram level)\n" +
-      "6. Brand / assets - existing brand (logo, colors, guidelines) or designing from scratch?\n" +
-      "7. Timeline - expected delivery timeframe? (ASAP / 1-3 months / 3-6 months / flexible)\n\n" +
+      "1. Project type - website, mobile app, web+mobile\n" +
+      "2. New vs redesign\n" +
+      "3. Audience & goal - B2C, B2B or internal? What is the main product goal?\n" +
+      "4. Specs / wireframes ready? (Figma / wireframes / deck / brief / documentation)\n" +
+      "5. Scope - approx number of screens/pages/flows + must-have features\n" +
+      "6. Complexity - any of: user roles, admin panel, chat, payments, integrations, real-time?\n" +
+      "7. Timeline - expected delivery timeframe? (ASAP / 1-3 months / 3-6 months / flexible)\n" +
+      "8. Extra notes (optional) - references, constraints, assets, must-have details\n\n" +
       "Once enough answers are collected, deliver (in client's language):\n" +
       "* cost estimate (range)\n" +
       "* timeline in weeks\n" +
@@ -753,7 +811,7 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
       "- The range should be wide initially and tighten as more info is provided.\n" +
       "- WHILE IN ESTIMATE MODE you MUST NOT call sales/case tools (show_cases, show_best_case, show_engagement_models).\n" +
       "- When you mention numbers, they MUST match UI_DRAFT_ESTIMATE exactly.\n\n" +
-      "After you have all core fields: output the final range, weeks, total hours, and hours by phase.\n\n" +
+      "After you have the required fields: output the final range, weeks, total hours, and hours by phase.\n\n" +
       "IMPORTANT: When you are ready with the FINAL numbers, include ONE extra line in your reply exactly like this:\n" +
       'ESTIMATE_PANEL_RESULT:{"minPrice":12345,"maxPrice":23456,"weeks":6,"totalHours":240,"phaseHours":{"Discovery":20,"UX / IA":40,"UI design":80,"Design system":30,"Prototyping":20,"Testing & iteration":25,"Handoff & support":15,"PM / communication":10}}';
 
@@ -852,6 +910,44 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
     }
     return null;
   }, [stage, platform, complexityMapped]);
+
+  // Notify parent exactly once when the estimate is finalized (wizard result step or assistant final draft).
+  const hasReportedFinalRef = useRef(false);
+  useEffect(() => {
+    if (!onEstimateFinal) return;
+    if (hasReportedFinalRef.current) return;
+
+    if (mode === "wizard" && isResultStep && result) {
+      hasReportedFinalRef.current = true;
+      onEstimateFinal({
+        minPrice: result.minPrice,
+        maxPrice: result.maxPrice,
+        timeline: result.timeline,
+        minHours: result.minHours,
+        maxHours: result.maxHours,
+        weeks: Math.max(1, Math.round(result.minHours / 40)),
+      });
+      return;
+    }
+
+    if (mode === "assistant" && estimateProgress.percent === 100 && displayedEstimate) {
+      hasReportedFinalRef.current = true;
+      onEstimateFinal({
+        minPrice: displayedEstimate.minPrice,
+        maxPrice: displayedEstimate.maxPrice,
+        weeks: displayedEstimate.weeks,
+        totalHours: displayedEstimate.totalHours,
+        phaseHours: displayedEstimate.phaseHours,
+      });
+    }
+  }, [
+    displayedEstimate,
+    estimateProgress.percent,
+    isResultStep,
+    mode,
+    onEstimateFinal,
+    result,
+  ]);
 
   const progressPercent =
     mode === "wizard"
@@ -978,12 +1074,24 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
 
   return (
     <motion.div
-      initial={{ x: "100%" }}
-      animate={{ x: 0 }}
-      exit={{ x: "100%" }}
+      initial={isInline ? { opacity: 0, y: 8 } : { x: "100%" }}
+      animate={isInline ? { opacity: 1, y: 0 } : { x: 0 }}
+      exit={isInline ? { opacity: 0, y: 8 } : { x: "100%" }}
       transition={{ type: "spring", damping: 30, stiffness: 300 }}
-      className="fixed right-0 top-0 h-full w-full sm:w-1/2 z-50 flex flex-col bg-[#0a0a0c]/60 backdrop-blur-2xl border-l border-white/[0.12] shadow-[-8px_0_32px_rgba(0,0,0,0.4)]"
-      style={{ boxShadow: "inset 1px 0 0 rgba(255,255,255,0.06), -8px 0 32px rgba(0,0,0,0.35)" }}
+      className={
+        isHidden
+          ? "hidden"
+          : isInline
+            ? "relative w-full max-w-[900px] mx-auto z-10 flex flex-col rounded-2xl bg-[#0a0a0c]/60 backdrop-blur-2xl border border-white/[0.12] shadow-[0_28px_80px_rgba(0,0,0,0.45)] overflow-hidden"
+            : "fixed right-0 top-0 h-full w-full sm:w-1/2 z-50 flex flex-col bg-[#0a0a0c]/60 backdrop-blur-2xl border-l border-white/[0.12] shadow-[-8px_0_32px_rgba(0,0,0,0.4)]"
+      }
+      style={
+        isHidden
+          ? undefined
+          : isInline
+            ? { boxShadow: "inset 1px 0 0 rgba(255,255,255,0.06)" }
+            : { boxShadow: "inset 1px 0 0 rgba(255,255,255,0.06), -8px 0 32px rgba(0,0,0,0.35)" }
+      }
     >
       <div className="flex items-center justify-between px-5 py-3 shrink-0 bg-white/[0.03] backdrop-blur-sm border-b border-white/[0.08]">
         <div className="flex items-center gap-2">
@@ -996,15 +1104,17 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
               ← Back
             </button>
           )}
-        <h2 className="text-sm font-semibold text-white/90">Preliminary estimate</h2>
+          <h2 className="text-sm font-semibold text-white/90">Preliminary estimate</h2>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/50 hover:text-white cursor-pointer"
-          aria-label="Close"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        {!isInline && !isHidden && (
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/50 hover:text-white cursor-pointer"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {mode === "wizard" && !isResultStep && (
@@ -1024,7 +1134,7 @@ export function EstimateWizardPanel({ onClose, conversationId }: EstimateWizardP
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 scrollbar-chat">
+      <div className={isInline ? "px-5 py-4" : "flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 scrollbar-chat"}>
         <AnimatePresence mode="wait">
           {mode === "chooser" && (
             <motion.div

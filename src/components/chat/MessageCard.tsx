@@ -20,16 +20,6 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
   const toolCall = parseToolCall(message.content);
   const isToolMessage = !!toolCall;
   const isUser = message.role === "user";
-
-  // If the estimate panel is already open, don't render a blank tool message wrapper.
-  if (
-    toolCall &&
-    (toolCall.toolName === "open_calculator" || toolCall.toolName === "generate_estimate") &&
-    typeof window !== "undefined" &&
-    (window as any).__ciedenEstimatePanelOpen
-  ) {
-    return null;
-  }
   const displayContent = message.content
     // Remove inline technical payloads (can appear mid-line)
     .replace(/ESTIMATE_PANEL_RESULT:\s*\{[\s\S]*?\}(?=\s|$)/g, "")
@@ -137,6 +127,9 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
   const isNextStepsTool = isToolMessage && toolCall?.toolName === "show_next_steps";
   const isBookCallTool = isToolMessage && toolCall?.toolName === "book_call";
   const isSupportTool = isToolMessage && toolCall?.toolName === "show_support";
+  const isEstimateTool =
+    isToolMessage &&
+    (toolCall?.toolName === "open_calculator" || toolCall?.toolName === "generate_estimate");
   const cardBackdrop = isEngagementModelsTool ? "" : "backdrop-blur-xl";
 
   const cardClassName = `w-full ${cardBackdrop} transition-all duration-200 text-white ${
@@ -165,6 +158,7 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
     isProjectBriefTool ||
     isNextStepsTool ||
     isBookCallTool ||
+    isEstimateTool ||
     isSupportTool
   ) {
     // Inline maxWidth only — do NOT add Tailwind max-w-* here; it caps below these px values
@@ -173,13 +167,14 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
     const toolWrapperMaxWidth = isProjectBriefTool || isNextStepsTool || isSupportTool || isBookCallTool
       || isGettingStartedTool
       || isCasesTool
+      || isEstimateTool
       ? 900
       : isProcessTool || isAboutTool
         ? 1280
         : 1024;
 
     const toolWrapperPaddingClass =
-      isGettingStartedTool || isCasesTool || isBookCallTool ? "px-0" : "px-2 sm:px-4 lg:px-0";
+      isGettingStartedTool || isCasesTool || isBookCallTool || isEstimateTool ? "px-0" : "px-2 sm:px-4 lg:px-0";
     // GettingStarted needs to occupy full max width (900px). Padding like `xl:p-6`
     // reduces the visible content width (e.g. 900 - 48 = 852).
     // Rich tool cards already include their own internal padding/frame and are designed
@@ -191,6 +186,7 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
       isProjectBriefTool ||
       isNextStepsTool ||
       isBookCallTool ||
+      isEstimateTool ||
       isSupportTool
         ? "p-0"
         : toolContentPaddingClass;
