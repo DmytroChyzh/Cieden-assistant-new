@@ -919,6 +919,21 @@ export function EstimateWizardPanel({
 
     if (mode === "wizard" && isResultStep && result) {
       hasReportedFinalRef.current = true;
+
+      // Wizard result step gives min/max hours, but we still want phase split in the final card.
+      // We approximate with the midpoint totalHours and then split using the same default ratios.
+      const totalHoursForSplit = Math.max(0, Math.round((result.minHours + result.maxHours) / 2));
+      const phaseHours: Record<string, number> = {};
+      let sum = 0;
+      for (const phase of ESTIMATE_PHASE_LABELS) {
+        const v = Math.max(0, Math.round(totalHoursForSplit * PHASE_DEFAULT_SPLIT[phase]));
+        phaseHours[phase] = v;
+        sum += v;
+      }
+      if (sum !== totalHoursForSplit) {
+        phaseHours["UI design"] = Math.max(0, (phaseHours["UI design"] ?? 0) + (totalHoursForSplit - sum));
+      }
+
       onEstimateFinal({
         minPrice: result.minPrice,
         maxPrice: result.maxPrice,
@@ -926,6 +941,7 @@ export function EstimateWizardPanel({
         minHours: result.minHours,
         maxHours: result.maxHours,
         weeks: Math.max(1, Math.round(result.minHours / 40)),
+        phaseHours,
       });
       return;
     }
