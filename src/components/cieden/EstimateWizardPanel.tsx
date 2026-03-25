@@ -1095,15 +1095,6 @@ export function EstimateWizardPanel({
     >
       <div className="flex items-center justify-between px-5 py-3 shrink-0 bg-white/[0.03] backdrop-blur-sm border-b border-white/[0.08]">
         <div className="flex items-center gap-2">
-          {mode !== "chooser" && (
-            <button
-              type="button"
-              onClick={handleBackFromPanel}
-              className="inline-flex items-center gap-1 text-xs text-white/65 hover:text-white/95 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-            >
-              ← Back
-            </button>
-          )}
           <h2 className="text-sm font-semibold text-white/90">Preliminary estimate</h2>
         </div>
         {!isInline && !isHidden && (

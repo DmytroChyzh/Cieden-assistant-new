@@ -2441,7 +2441,7 @@ export default function VoiceChatPage() {
                   window.dispatchEvent(
                     new CustomEvent("estimate-final-ready", {
                       detail: {
-                        token: estimateFlowToken,
+                        token: estimateFlowTokenRef.current,
                         ...finalResult,
                       },
                     }),
@@ -2459,8 +2459,7 @@ export default function VoiceChatPage() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onClick={() => {
-                    setShowEstimatePanel(false);
-                    setEstimateFinalResult(null);
+                    window.dispatchEvent(new CustomEvent("estimate-cancel"));
                   }}
                   className="fixed inset-0 z-40 bg-black/40 sm:hidden"
                 />
@@ -2469,8 +2468,7 @@ export default function VoiceChatPage() {
                     key={estimatePanelKey}
                     result={estimateFinalResult}
                     onClose={() => {
-                      setShowEstimatePanel(false);
-                      setEstimateFinalResult(null);
+                      window.dispatchEvent(new CustomEvent("estimate-cancel"));
                     }}
                   />
                 ) : (
@@ -2481,14 +2479,13 @@ export default function VoiceChatPage() {
                     initialMode="wizard"
                     initialStep={0}
                     onClose={() => {
-                      setShowEstimatePanel(false);
-                      setEstimateFinalResult(null);
+                      window.dispatchEvent(new CustomEvent("estimate-cancel"));
                     }}
                     onEstimateFinal={(finalResult) => {
                       window.dispatchEvent(
                         new CustomEvent("estimate-final-ready", {
                           detail: {
-                            token: estimateFlowToken,
+                            token: estimateFlowTokenRef.current,
                             ...finalResult,
                           },
                         }),

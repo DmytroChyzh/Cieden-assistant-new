@@ -22,6 +22,11 @@ export function EstimateInlineChooserCard({ messageId }: EstimateInlineChooserCa
   }, [choice]);
 
   useEffect(() => {
+    const handleCancel = () => {
+      setChoice(null);
+      setFinalResult(null);
+    };
+
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ token?: number } & EstimateFinalResult>).detail;
       if (!detail) return;
@@ -31,8 +36,12 @@ export function EstimateInlineChooserCard({ messageId }: EstimateInlineChooserCa
       setFinalResult(rest as EstimateFinalResult);
     };
 
+    window.addEventListener("estimate-cancel", handleCancel as EventListener);
     window.addEventListener("estimate-final-ready", handler as EventListener);
-    return () => window.removeEventListener("estimate-final-ready", handler as EventListener);
+    return () => {
+      window.removeEventListener("estimate-cancel", handleCancel as EventListener);
+      window.removeEventListener("estimate-final-ready", handler as EventListener);
+    };
   }, []);
 
   const dispatchChoose = (next: EstimateChoice) => {
