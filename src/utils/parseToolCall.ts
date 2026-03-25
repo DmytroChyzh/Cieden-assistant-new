@@ -29,6 +29,7 @@ const KNOWN_TOOL_NAMES = new Set([
   'show_support',
   'show_project_brief',
   'show_next_steps',
+  'book_call',
   'show_session_summary',
 ]);
 

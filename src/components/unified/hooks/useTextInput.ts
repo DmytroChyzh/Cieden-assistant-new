@@ -80,6 +80,7 @@ export function useTextInput({
         | "show_best_case"
         | "show_engagement_models"
         | "show_next_steps"
+        | "book_call"
         | "show_getting_started"
         | "show_support"
         | "open_calculator";
@@ -139,20 +140,30 @@ export function useTextInput({
         injectedTool = "show_next_steps";
       }
 
-      // Getting started / first step / book a call
+      // Book a call (dedicated manager card)
       if (
         !injectedTool &&
-        /(book a call|schedule a call|first step|how to start|start a project|get started)/.test(
-          lower,
-        )
+        /(book a call|schedule a call|how do we start working together)/.test(lower)
+      ) {
+        injectedTool = "book_call";
+      }
+      if (
+        !injectedTool &&
+        /(записатися на дзвінок|записаться на звонок|звонок|созвон|консультац)/.test(lower)
+      ) {
+        injectedTool = "book_call";
+      }
+
+      // Getting started / first step
+      if (
+        !injectedTool &&
+        /(first step|how to start|start a project|get started)/.test(lower)
       ) {
         injectedTool = "show_getting_started";
       }
       if (
         !injectedTool &&
-        /(записаться на звонок|звонок|созвон|консультац|бріф|брив|з чого почати|перший крок|як почати|как начать|первый шаг)/.test(
-          lower,
-        )
+        /(бріф|брив|з чого почати|перший крок|як почати|как начать|первый шаг)/.test(lower)
       ) {
         injectedTool = "show_getting_started";
       }

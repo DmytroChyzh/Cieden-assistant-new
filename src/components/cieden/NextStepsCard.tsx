@@ -92,6 +92,31 @@ export function NextStepsCard({
               </p>
             </div>
           )}
+
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 flex items-center gap-3">
+            <div className="h-12 w-12 shrink-0 rounded-full overflow-hidden border border-white/10 bg-black/20">
+              <img
+                src="/managers/yulia-mahera.png"
+                alt="Yulia Mahera"
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[14px] font-semibold text-white/90 leading-tight">
+                Yulia Mahera
+              </div>
+              <a
+                href="mailto:yulia.mahera@cieden.com"
+                className="text-[12px] text-violet-200/90 hover:text-violet-100 underline underline-offset-2 transition-colors"
+                aria-label="Email Yulia Mahera"
+              >
+                yulia.mahera@cieden.com
+              </a>
+              <div className="text-[12px] text-white/55 leading-relaxed">
+                Manager · book a call
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </motion.div>

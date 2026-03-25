@@ -1472,6 +1472,42 @@ export default function VoiceChatPage() {
       return 'Showing next-step options (call, deck, or estimate) on screen.';
     },
 
+    book_call: async (params) => {
+      console.log('📞 Bridge Handler - book_call called:', params);
+      try {
+        const safeParams =
+          params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
+        const toolCallMessage = `TOOL_CALL:book_call:${safeJSONStringify(safeParams)}`;
+
+        if (!conversationId) {
+          setOnboardingMessages((prev) => {
+            if (prev.some((m) => m.content === toolCallMessage)) return prev;
+            return [
+              ...prev,
+              {
+                id: `onb-tool-${toolCallMessage}-${Date.now()}`,
+                role: "assistant",
+                content: toolCallMessage,
+                timestamp: Date.now(),
+              },
+            ];
+          });
+        } else {
+          window.setTimeout(() => {
+            queueToolMessageRef.current?.(toolCallMessage, {
+              toolCall: true,
+              toolName: 'book_call',
+              timestamp: Date.now()
+            });
+          }, 250);
+        }
+      } catch (error) {
+        console.error('❌ Failed to queue book_call:', error);
+      }
+
+      return 'Opening the booking card on screen.';
+    },
+
     show_session_summary: async (params) => {
       console.log('📄 Bridge Handler - show_session_summary called:', params);
       try {

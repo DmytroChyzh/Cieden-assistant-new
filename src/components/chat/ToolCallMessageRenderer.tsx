@@ -13,6 +13,7 @@ import {
 } from "@/src/components/cieden/SalesUi";
 import { ProjectBriefCard } from "@/src/components/cieden/ProjectBriefCard";
 import { NextStepsCard } from "@/src/components/cieden/NextStepsCard";
+import { BookCallCard } from "@/src/components/cieden/BookCallCard";
 import { SessionSummaryCard } from "@/src/components/cieden/SessionSummaryCard";
 import { parseToolCall } from '@/src/utils/parseToolCall';
 import type { Id } from "@/convex/_generated/dataModel";
@@ -249,6 +250,13 @@ export function ToolCallMessageRenderer({
       return (
         <div className="w-full max-w-[900px] mx-auto">
           <NextStepsCard data={data} />
+        </div>
+      );
+
+    case "book_call":
+      return (
+        <div className="w-full max-w-[900px] mx-auto">
+          <BookCallCard />
         </div>
       );
 

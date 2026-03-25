@@ -135,6 +135,7 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
   const isGettingStartedTool = isToolMessage && toolCall?.toolName === "show_getting_started";
   const isProjectBriefTool = isToolMessage && toolCall?.toolName === "show_project_brief";
   const isNextStepsTool = isToolMessage && toolCall?.toolName === "show_next_steps";
+  const isBookCallTool = isToolMessage && toolCall?.toolName === "book_call";
   const isSupportTool = isToolMessage && toolCall?.toolName === "show_support";
   const cardBackdrop = isEngagementModelsTool ? "" : "backdrop-blur-xl";
 
@@ -163,12 +164,13 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
     isGettingStartedTool ||
     isProjectBriefTool ||
     isNextStepsTool ||
+    isBookCallTool ||
     isSupportTool
   ) {
     // Inline maxWidth only — do NOT add Tailwind max-w-* here; it caps below these px values
     // (e.g. max-w-4xl = 896px blocked 1200px cards). Wider than default chat bubbles (900px).
     // Brief + Next steps + Support: same width as chat column / bubbles (900px); inner ToolCallMessageRenderer also uses max-w-[900px].
-    const toolWrapperMaxWidth = isProjectBriefTool || isNextStepsTool || isSupportTool
+    const toolWrapperMaxWidth = isProjectBriefTool || isNextStepsTool || isSupportTool || isBookCallTool
       || isGettingStartedTool
       || isCasesTool
       ? 900
@@ -177,7 +179,7 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
         : 1024;
 
     const toolWrapperPaddingClass =
-      isGettingStartedTool || isCasesTool ? "px-0" : "px-2 sm:px-4 lg:px-0";
+      isGettingStartedTool || isCasesTool || isBookCallTool ? "px-0" : "px-2 sm:px-4 lg:px-0";
     // GettingStarted needs to occupy full max width (900px). Padding like `xl:p-6`
     // reduces the visible content width (e.g. 900 - 48 = 852).
     // Rich tool cards already include their own internal padding/frame and are designed
@@ -188,6 +190,7 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
       isCasesTool ||
       isProjectBriefTool ||
       isNextStepsTool ||
+      isBookCallTool ||
       isSupportTool
         ? "p-0"
         : toolContentPaddingClass;

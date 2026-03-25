@@ -24,6 +24,7 @@ export interface ActionHandlers {
   show_support?: (params: ShowSupportParams) => Promise<string> | string;
   show_project_brief?: (params: ProjectBriefParams) => Promise<string> | string;
   show_next_steps?: (params: NextStepsParams) => Promise<string> | string;
+  book_call?: (params: BookCallParams) => Promise<string> | string;
   show_session_summary?: (params: SessionSummaryParams) => Promise<string> | string;
 }
 
@@ -192,6 +193,11 @@ export interface NextStepsParams {
   mode?: 'update' | 'overlay';
 }
 
+export interface BookCallParams {
+  // For now we keep it empty; tool exists mainly to render a dedicated card.
+  mode?: 'update' | 'overlay';
+}
+
 export interface SessionSummaryParams {
   projectName?: string;
   keyPoints?: string[];
@@ -332,6 +338,14 @@ export async function bridgeElevenLabsToolToCopilot(
           actionHandlers.show_next_steps(toolCall.parameters as NextStepsParams)
         );
 
+      case 'book_call':
+        if (!actionHandlers.book_call) {
+          throw new Error('book_call handler not registered');
+        }
+        return await Promise.resolve(
+          actionHandlers.book_call(toolCall.parameters as BookCallParams)
+        );
+
       case 'show_session_summary':
         if (!actionHandlers.show_session_summary) {
           throw new Error('show_session_summary handler not registered');
@@ -375,6 +389,7 @@ export function validateToolParameters(toolName: string, parameters: unknown): b
     case 'show_process':
     case 'show_getting_started':
     case 'show_support':
+    case 'book_call':
       return true;
 
     case 'generate_estimate': {
