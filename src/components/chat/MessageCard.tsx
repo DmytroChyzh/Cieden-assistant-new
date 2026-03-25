@@ -180,8 +180,17 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
       isGettingStartedTool || isCasesTool ? "px-0" : "px-2 sm:px-4 lg:px-0";
     // GettingStarted needs to occupy full max width (900px). Padding like `xl:p-6`
     // reduces the visible content width (e.g. 900 - 48 = 852).
+    // Rich tool cards already include their own internal padding/frame and are designed
+    // to be exactly ~900px wide in the chat lane. Extra wrapper padding would shrink
+    // their visible width (e.g. 900 - 48 = 852), so we remove it here.
     const toolContentPaddingClassForGettingStarted =
-      isGettingStartedTool || isCasesTool ? "p-0" : toolContentPaddingClass;
+      isGettingStartedTool ||
+      isCasesTool ||
+      isProjectBriefTool ||
+      isNextStepsTool ||
+      isSupportTool
+        ? "p-0"
+        : toolContentPaddingClass;
 
     return (
       <div className={`flex w-full ${wrapperJustify} mb-4`}>

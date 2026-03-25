@@ -78,6 +78,7 @@ export function useTextInput({
         | "show_process"
         | "show_cases"
         | "show_best_case"
+        | "show_engagement_models"
         | "show_next_steps"
         | "show_getting_started"
         | "show_support"
@@ -112,9 +113,18 @@ export function useTextInput({
       if (!injectedTool && /(best case|флагман|лучший кейс|найкращий кейс)/.test(lower)) {
         injectedTool = "show_best_case";
       }
+      // Specific example / one example -> "best case" card (single case)
       if (
         !injectedTool &&
-        /(portfolio|case studies|case study|cases|examples|порфтолио|портфолио|кейси|портфоліо|приклади|проекты|проєкти|примеры)/.test(
+        /(specific example|single example|one example|one-of|точний приклад|конкретний приклад|конкретный пример|конкретний кейс|конкретный кейс)/.test(
+          lower,
+        )
+      ) {
+        injectedTool = "show_best_case";
+      }
+      if (
+        !injectedTool &&
+        /(portfolio|case studies|case study|cases|examples?|порфтолио|портфолио|кейси|портфоліо|приклад(?:и)?|проекты|проєкти|примеры?)/.test(
           lower,
         )
       ) {
@@ -155,6 +165,24 @@ export function useTextInput({
         injectedTool = "show_support";
       }
 
+      // Engagement / pricing models (collaboration models)
+      if (
+        !injectedTool &&
+        /(engagement models|collaboration models|pricing models|collaboration|models of cooperation|retainer|partnership|dedicated team|time & material|time and material|tm)\b/.test(
+          lower,
+        )
+      ) {
+        injectedTool = "show_engagement_models";
+      }
+      if (
+        !injectedTool &&
+        /(модел[іь] співпрац[іи]|модел[іь] сотрудничеств[а] |моделі співпраці|модели сотрудничества|ретейнер|партнерств[оа]|партнёрств[оа]|підписк[аі]|подписк[аы]|dedicated team|time & material|t&m)/.test(
+          lower,
+        )
+      ) {
+        injectedTool = "show_engagement_models";
+      }
+
       // Cost / estimate
       if (!injectedTool && isCostIntent) {
         injectedTool = "open_calculator";
@@ -174,23 +202,34 @@ export function useTextInput({
       if (conversationId) {
         try {
           const guestId = getGuestIdentityFromCookie()?.guestId;
-          await createMessage({
+          const payload = {
             conversationId,
             content: injectedContent,
-            role: "assistant",
-            source: "voice",
+            role: "assistant" as const,
+            source: "voice" as const,
             metadata: {
               elevenLabsAgent: true,
               forcedTool: injectedTool,
               timestamp: Date.now(),
             },
             guestId: guestId ?? undefined,
-          });
+          };
+
+          // Important UX: show tool card AFTER the assistant text bubble.
+          // We schedule persistence slightly later, so the text message usually
+          // lands first in Convex + UI.
+          window.setTimeout(() => {
+            void createMessage(payload).catch(() => {
+              // Ignore persistence failures; auth/chat session might race.
+            });
+          }, 450);
         } catch (_) {
           // Ignore persistence failures (auth might not be ready).
         }
       } else if (isGuestFlow) {
-        onMessage?.(`__GUEST_AI__:${injectedContent}`);
+        window.setTimeout(() => {
+          onMessage?.(`__GUEST_AI__:${injectedContent}`);
+        }, 450);
       }
     },
     // NOTE: `createMessage` is declared below in this file.

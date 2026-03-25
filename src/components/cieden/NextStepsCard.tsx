@@ -37,7 +37,7 @@ export function NextStepsCard({
       initial={{ opacity: 0, y: 20, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: "spring", stiffness: 215, damping: 22 }}
-      className={cn("w-full max-w-none mx-auto", className)}
+      className={cn("w-full max-w-[900px] mx-auto", className)}
     >
       <Card className="relative overflow-hidden bg-black/85 border border-white/10 rounded-[32px] backdrop-blur-2xl shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)] font-[Gilroy]">
         <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/18 via-transparent to-violet-500/16 pointer-events-none" />

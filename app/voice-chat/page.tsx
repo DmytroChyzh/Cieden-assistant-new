@@ -61,6 +61,11 @@ export default function VoiceChatPage() {
   const pendingQuizContextsRef = useRef<string[]>([]);
   const [sendContextualUpdate, setSendContextualUpdate] = useState<((text: string) => void) | null>(null);
   const [sendProgrammaticMessage, setSendProgrammaticMessage] = useState<((text: string) => Promise<void>) | null>(null);
+  // If user clicks quick prompts before `UnifiedChatInput` finishes initializing
+  // (sendProgrammaticMessage is still null), we queue the last prompt and send it
+  // as soon as programmatic sending becomes available (prevents "only after refresh").
+  const [pendingQuickPrompt, setPendingQuickPrompt] = useState<string | null>(null);
+  const creatingConversationRef = useRef(false);
   const [estimateTyping, setEstimateTyping] = useState<{ active: boolean; label: string }>({ active: false, label: "" });
   const typingHoldUntilRef = useRef<number>(0);
   const typingHoldTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -77,7 +82,7 @@ export default function VoiceChatPage() {
     if (typeof document === "undefined") return;
     document.cookie = "cieden_onboarding_done=; path=/; max-age=0";
   }, []);
-  
+
   // Voice audio states for background animations
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [userAudioLevel, setUserAudioLevel] = useState(0);
@@ -110,6 +115,31 @@ export default function VoiceChatPage() {
   const guestId = getGuestIdentityFromCookie()?.guestId;
   // Custom hook for Convex message integration
   const { convexMessages } = useChatMessages({ conversationId });
+
+  // Ensure `conversationId` exists before sending any programmatic message.
+  // Otherwise the model output/tool calls can land in "guest" mode and won't
+  // render the tool cards until refresh.
+  const ensureConversationId = useCallback(async () => {
+    if (conversationId) return;
+    if (!canUseChat) return;
+    if (creatingConversationRef.current) return;
+
+    // Prefer existing conversations if the query already resolved.
+    if (Array.isArray(conversations) && conversations.length > 0) {
+      setConversationId(conversations[0]._id);
+      return;
+    }
+
+    creatingConversationRef.current = true;
+    try {
+      const id = await createConversation({ title: "Voice Chat" });
+      setConversationId(id);
+    } catch (err) {
+      console.error("Failed to create conversation:", err);
+    } finally {
+      creatingConversationRef.current = false;
+    }
+  }, [conversationId, canUseChat, conversations, createConversation]);
 
   // Listen to messages coming from the estimate side panel
   useEffect(() => {
@@ -153,6 +183,55 @@ export default function VoiceChatPage() {
     window.addEventListener("estimate-assistant-message", handler as EventListener);
     return () => window.removeEventListener("estimate-assistant-message", handler as EventListener);
   }, [sendProgrammaticMessage, sendContextualUpdate, conversationId, createMessage]);
+
+  // Flush queued quick prompt once programmatic sending becomes ready.
+  useEffect(() => {
+    if (!sendProgrammaticMessage || !pendingQuickPrompt) return;
+    // If authenticated but conversation isn't ready yet, do not send;
+    // otherwise we land in "guest" mode and tool cards won't render.
+    if (canUseChat && !conversationId) return;
+    const value = pendingQuickPrompt;
+    console.log("🎯 Flushing queued quick prompt:", {
+      value,
+      canUseChat,
+      conversationId,
+    });
+    setPendingQuickPrompt(null);
+    void sendProgrammaticMessage(value).catch((err) => {
+      console.error("Failed to flush queued quick prompt:", err);
+    });
+  }, [sendProgrammaticMessage, pendingQuickPrompt, canUseChat, conversationId]);
+
+  const sendQuickPrompt = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed) return;
+      // If user is authenticated but conversationId isn't ready yet,
+      // initialize it so the send happens in the correct (Convex-backed) mode.
+      // In that situation we MUST queue; otherwise we'd send in guest mode and
+      // tool cards won't render until refresh.
+      if (canUseChat && !conversationId) {
+        console.log("⏳ Queue quick prompt until conversation ready:", {
+          value: trimmed,
+          canUseChat,
+          conversationId,
+        });
+        void ensureConversationId();
+        setPendingQuickPrompt(trimmed);
+        return;
+      }
+
+      if (sendProgrammaticMessage) {
+        void sendProgrammaticMessage(trimmed);
+        return;
+      }
+
+      // conversationId might be null (guest/onboarding). Queue until unified input
+      // exposes the programmatic send function.
+      setPendingQuickPrompt(trimmed);
+    },
+    [sendProgrammaticMessage, canUseChat, conversationId, ensureConversationId],
+  );
 
   // Onboarding state for unauthenticated users (collect name + email via main chat input)
   type OnboardingStep = "ask_name" | "ask_email" | "creating" | "done";
@@ -201,6 +280,22 @@ export default function VoiceChatPage() {
   // After that, we render the main chat UI even if Convex Auth is temporarily
   // broken (guest persistence will take over).
   const shouldShowOnboarding = onboardingStep !== "done";
+  const disableQuickPrompts = onboardingStep !== "done";
+
+  const pushWelcomePromptsIfMissing = useCallback(() => {
+    setOnboardingMessages((prev) => {
+      if (prev.some((m) => m.content === ONBOARDING_WELCOME_PROMPTS_TOKEN)) return prev;
+      return [
+        ...prev,
+        {
+          id: `onb-welcome-${Date.now()}`,
+          role: "assistant",
+          content: ONBOARDING_WELCOME_PROMPTS_TOKEN,
+          timestamp: Date.now(),
+        },
+      ];
+    });
+  }, []);
 
   // Handle pre-auth messages (name + email) coming from the main chat input
   const handlePreAuthMessage = useCallback(
@@ -288,16 +383,8 @@ export default function VoiceChatPage() {
 
             setConversationId(id);
             setOnboardingStep("done");
-            setOnboardingMessages((prev) => [
-              ...prev,
-              {
-                id: `onb-welcome-${Date.now()}`,
-                role: "assistant",
-                content: ONBOARDING_WELCOME_PROMPTS_TOKEN,
-                timestamp: Date.now(),
-              },
-            ]);
             setPendingOnboardingKickoff(true);
+            pushWelcomePromptsIfMissing();
             return;
           }
 
@@ -321,16 +408,8 @@ export default function VoiceChatPage() {
           } as any);
 
           setOnboardingStep("done");
-          setOnboardingMessages((prev) => [
-            ...prev,
-            {
-              id: `onb-welcome-${Date.now()}`,
-              role: "assistant",
-              content: ONBOARDING_WELCOME_PROMPTS_TOKEN,
-              timestamp: Date.now(),
-            },
-          ]);
           setPendingOnboardingKickoff(true);
+          pushWelcomePromptsIfMissing();
         } catch (err: unknown) {
           const errorPayload: any = err as any;
           console.error("❌ [preAuth] anonymous signIn failed:", {
@@ -381,16 +460,8 @@ export default function VoiceChatPage() {
               } as any);
 
               setOnboardingStep("done");
-              setOnboardingMessages((prev) => [
-                ...prev,
-                {
-                  id: `onb-welcome-${Date.now()}`,
-                  role: "assistant",
-                  content: ONBOARDING_WELCOME_PROMPTS_TOKEN,
-                  timestamp: Date.now(),
-                },
-              ]);
               setPendingOnboardingKickoff(true);
+              pushWelcomePromptsIfMissing();
               return;
             } catch (fallbackErr) {
               console.error("❌ [preAuth] password signUp fallback failed:", fallbackErr);
@@ -412,16 +483,8 @@ export default function VoiceChatPage() {
 
             setConversationId(id);
             setOnboardingStep("done");
-            setOnboardingMessages((prev) => [
-              ...prev,
-              {
-                id: `onb-welcome-${Date.now()}`,
-                role: "assistant",
-                content: ONBOARDING_WELCOME_PROMPTS_TOKEN,
-                timestamp: Date.now(),
-              },
-            ]);
             setPendingOnboardingKickoff(true);
+            pushWelcomePromptsIfMissing();
           } catch (guestErr) {
             console.error("❌ [preAuth] guest persistence failed:", guestErr);
             setOnboardingStep("ask_email");
@@ -527,11 +590,10 @@ export default function VoiceChatPage() {
       "Show the main collaboration and pricing models Cieden works with (Time & Material, Partnership, Dedicated team). Use when user asks how we work or pricing models.",
     parameters: [],
     handler: async () => {
-      return "Showing main collaboration models we use with clients.";
+      // Render handled by `render` below; return empty to avoid extra text bubble.
+      return "";
     },
-    // IMPORTANT: do not render the card inline here.
-    // The tool bridge queues a TOOL_CALL message which is then rendered by
-    // `ToolCallMessageRenderer`. Rendering here too causes a duplicate card.
+    // Avoid CopilotKit inline rendering; rely on TOOL_CALL -> ToolCallMessageRenderer.
     render: () => <></>,
   });
 
@@ -1083,11 +1145,14 @@ export default function VoiceChatPage() {
             ];
           });
         } else {
-          queueToolMessageRef.current?.(toolCallMessage, {
-            toolCall: true,
-            toolName: "show_best_case",
-            timestamp: Date.now(),
-          });
+          // Ensure ordering: text bubble first, tool card right after.
+          window.setTimeout(() => {
+            queueToolMessageRef.current?.(toolCallMessage, {
+              toolCall: true,
+              toolName: "show_best_case",
+              timestamp: Date.now(),
+            });
+          }, 250);
         }
       } catch (error) {
         console.error('❌ Failed to queue show_best_case:', error);
@@ -1106,35 +1171,12 @@ export default function VoiceChatPage() {
           safeParams,
         )}`;
 
-        if (typeof window !== "undefined") {
-          // Dedupe: sometimes the tool is triggered twice in a row
-          // which would render 2 identical "Collaboration models" cards.
-          const dedupeKey = "__ciedenEngagementModelsLastQueuedAt";
-          const lastMessageKey = "__ciedenEngagementModelsLastToolCallMessage";
-          const now = Date.now();
-          const lastQueuedAt = (window as any)[dedupeKey] as number | undefined;
-          const lastToolCallMessage = (window as any)[lastMessageKey] as
-            | string
-            | undefined;
-
-          const dedupeWindowMs = 2500;
-
-          if (lastToolCallMessage === toolCallMessage) {
-            return "Collaboration models are already queued.";
-          }
-
-          if (typeof lastQueuedAt === "number" && now - lastQueuedAt < dedupeWindowMs) {
-            return 'Collaboration models are already shown on screen.';
-          }
-
-          (window as any)[dedupeKey] = now;
-          (window as any)[lastMessageKey] = toolCallMessage;
-
-          const isEstimateOpen = (window as unknown as { __ciedenEstimatePanelOpen?: boolean })
+        const isEstimateOpen =
+          typeof window !== "undefined" &&
+          (window as unknown as { __ciedenEstimatePanelOpen?: boolean })
             .__ciedenEstimatePanelOpen;
-          if (isEstimateOpen) {
-            return 'Staying in estimate mode. I will continue asking estimate questions and updating the draft range.';
-          }
+        if (isEstimateOpen) {
+          return 'Staying in estimate mode. I will continue asking estimate questions and updating the draft range.';
         }
 
         if (!conversationId) {
@@ -1152,11 +1194,13 @@ export default function VoiceChatPage() {
             ];
           });
         } else {
-          queueToolMessageRef.current?.(toolCallMessage, {
-            toolCall: true,
-            toolName: "show_engagement_models",
-            timestamp: Date.now(),
-          });
+          window.setTimeout(() => {
+            queueToolMessageRef.current?.(toolCallMessage, {
+              toolCall: true,
+              toolName: "show_engagement_models",
+              timestamp: Date.now(),
+            });
+          }, 250);
         }
       } catch (error) {
         console.error('❌ Failed to queue show_engagement_models:', error);
@@ -1315,27 +1359,6 @@ export default function VoiceChatPage() {
           params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
         const toolCallMessage = `TOOL_CALL:show_support:${safeJSONStringify(safeParams)}`;
 
-        if (typeof window !== "undefined") {
-          const dedupeKey = "__ciedenSupportLastQueuedAt";
-          const lastMessageKey = "__ciedenSupportLastToolCallMessage";
-          const now = Date.now();
-          const lastQueuedAt = (window as any)[dedupeKey] as number | undefined;
-          const lastToolCallMessage = (window as any)[lastMessageKey] as string | undefined;
-
-          const dedupeWindowMs = 2500;
-
-          if (lastToolCallMessage === toolCallMessage) {
-            return "Support card is already queued.";
-          }
-
-          if (typeof lastQueuedAt === "number" && now - lastQueuedAt < dedupeWindowMs) {
-            return "Support card is already shown on screen.";
-          }
-
-          (window as any)[dedupeKey] = now;
-          (window as any)[lastMessageKey] = toolCallMessage;
-        }
-
         if (!conversationId) {
           setOnboardingMessages((prev) => {
             if (prev.some((m) => m.content === toolCallMessage)) return prev;
@@ -1350,9 +1373,11 @@ export default function VoiceChatPage() {
             ];
           });
         } else {
-          queueToolMessageRef.current?.(toolCallMessage, {
-            toolCall: true, toolName: 'show_support', timestamp: Date.now()
-          });
+          window.setTimeout(() => {
+            queueToolMessageRef.current?.(toolCallMessage, {
+              toolCall: true, toolName: 'show_support', timestamp: Date.now()
+            });
+          }, 250);
         }
       } catch (error) {
         console.error('❌ Failed to queue show_support:', error);
@@ -1369,29 +1394,6 @@ export default function VoiceChatPage() {
             : { mode: "default" };
         const toolCallMessage = `TOOL_CALL:show_project_brief:${safeJSONStringify(safeParams)}`;
 
-        if (typeof window !== "undefined") {
-          const dedupeKey = "__ciedenProjectBriefLastQueuedAt";
-          const lastMessageKey = "__ciedenProjectBriefLastToolCallMessage";
-          const now = Date.now();
-          const lastQueuedAt = (window as any)[dedupeKey] as number | undefined;
-          const lastToolCallMessage = (window as any)[lastMessageKey] as
-            | string
-            | undefined;
-
-          const dedupeWindowMs = 2500;
-
-          if (lastToolCallMessage === toolCallMessage) {
-            return "Project brief card is already queued.";
-          }
-
-          if (typeof lastQueuedAt === "number" && now - lastQueuedAt < dedupeWindowMs) {
-            return "Project brief card is already shown on screen.";
-          }
-
-          (window as any)[dedupeKey] = now;
-          (window as any)[lastMessageKey] = toolCallMessage;
-        }
-
         if (!conversationId) {
           setOnboardingMessages((prev) => {
             if (prev.some((m) => m.content === toolCallMessage)) return prev;
@@ -1406,9 +1408,11 @@ export default function VoiceChatPage() {
             ];
           });
         } else {
-          queueToolMessageRef.current?.(toolCallMessage, {
-            toolCall: true, toolName: 'show_project_brief', timestamp: Date.now()
-          });
+          window.setTimeout(() => {
+            queueToolMessageRef.current?.(toolCallMessage, {
+              toolCall: true, toolName: 'show_project_brief', timestamp: Date.now()
+            });
+          }, 250);
         }
       } catch (error) {
         console.error('❌ Failed to queue show_project_brief:', error);
@@ -1968,11 +1972,19 @@ export default function VoiceChatPage() {
                               <button
                                 key={index}
                                 type="button"
-                                onClick={async () => {
+                                disabled={disableQuickPrompts}
+                                aria-label={prompt.title}
+                                aria-disabled={disableQuickPrompts}
+                                onClick={() => {
+                                  if (disableQuickPrompts) return;
                                   const value = (prompt as any).valueUk || prompt.valueEn;
-                                  if (sendProgrammaticMessage) await sendProgrammaticMessage(value);
+                                  sendQuickPrompt(value);
                                 }}
-                                className="p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors border border-white/10"
+                                className={`p-4 bg-white/5 rounded-lg text-left transition-colors border border-white/10 ${
+                                  disableQuickPrompts
+                                    ? "opacity-50 cursor-not-allowed hover:bg-white/5"
+                                    : "hover:bg-white/10"
+                                }`}
                               >
                                 <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
                               </button>
@@ -1991,7 +2003,7 @@ export default function VoiceChatPage() {
                       <ChatMessage
                         key={message.id}
                         message={message}
-                        onQuickPrompt={(text) => sendProgrammaticMessage?.(text)}
+                        onQuickPrompt={disableQuickPrompts ? undefined : (text) => sendQuickPrompt(text)}
                         userName={userDisplayName}
                       />
                     );
@@ -2033,11 +2045,19 @@ export default function VoiceChatPage() {
                               <button
                                 key={promptIndex}
                                 type="button"
-                                onClick={async () => {
+                                disabled={disableQuickPrompts}
+                                aria-label={prompt.title}
+                                aria-disabled={disableQuickPrompts}
+                                onClick={() => {
+                                  if (disableQuickPrompts) return;
                                   const value = (prompt as any).valueUk || prompt.valueEn;
-                                  if (sendProgrammaticMessage) await sendProgrammaticMessage(value);
+                                  sendQuickPrompt(value);
                                 }}
-                                className="p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors border border-white/10"
+                                className={`p-4 bg-white/5 rounded-lg text-left transition-colors border border-white/10 ${
+                                  disableQuickPrompts
+                                    ? "opacity-50 cursor-not-allowed hover:bg-white/5"
+                                    : "hover:bg-white/10"
+                                }`}
                               >
                                 <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
                               </button>
@@ -2051,7 +2071,7 @@ export default function VoiceChatPage() {
                         <ChatMessage
                           key={`onb-${message.id}`}
                           message={message}
-                          onQuickPrompt={(text) => sendProgrammaticMessage?.(text)}
+                          onQuickPrompt={disableQuickPrompts ? undefined : (text) => sendQuickPrompt(text)}
                           userName={userDisplayName}
                         />
                       </div>
@@ -2099,7 +2119,7 @@ export default function VoiceChatPage() {
                         <ChatMessage
                           key={message._id}
                           message={botMsg}
-                          onQuickPrompt={(text) => sendProgrammaticMessage?.(text)}
+                          onQuickPrompt={(text) => sendQuickPrompt(text)}
                           userName={userDisplayName}
                         />
                       );
@@ -2130,10 +2150,14 @@ export default function VoiceChatPage() {
                       <button
                         key={index}
                         type="button"
-                        onClick={async () => {
+                        onClick={() => {
+                          if (disableQuickPrompts) return;
                           const value = (prompt as any).valueUk || prompt.valueEn;
-                          if (sendProgrammaticMessage) await sendProgrammaticMessage(value);
+                          sendQuickPrompt(value);
                         }}
+                        disabled={disableQuickPrompts}
+                        aria-label={prompt.title}
+                        aria-disabled={disableQuickPrompts}
                         className="p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors border border-white/10"
                       >
                         <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
