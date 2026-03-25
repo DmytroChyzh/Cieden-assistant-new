@@ -51,7 +51,7 @@ export function VoiceChatHeader({
     <header
       className={cn(
         "fixed top-0 left-0 z-20 w-full h-24 transition-all duration-300",
-        "bg-[#212121]/50 backdrop-blur-md backdrop-saturate-150",
+        "bg-[#212121]/25 backdrop-blur-md backdrop-saturate-150",
         "border-b border-white/10 shadow-[0_12px_60px_-30px_rgba(124,58,237,0.45)]",
         "flex items-center justify-between",
         "px-4 lg:px-16",
