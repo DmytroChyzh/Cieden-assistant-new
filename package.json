@@ -70,7 +70,8 @@
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.183.2",
     "vaul": "^1.1.2",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "typescript": "5.9.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -80,8 +81,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "^15.4.8",
-    "tailwindcss": "^4",
-    "typescript": "5.9.3"
+    "tailwindcss": "^4"
   },
   "optionalDependencies": {
     "@tailwindcss/oxide-win32-x64-msvc": "^4.2.1",
