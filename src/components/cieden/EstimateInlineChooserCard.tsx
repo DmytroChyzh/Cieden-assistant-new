@@ -113,9 +113,9 @@ export function EstimateInlineChooserCard({ messageId }: EstimateInlineChooserCa
             <p className="text-xs font-medium text-white/60 uppercase tracking-widest">Estimate result</p>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-3">
             <p className="text-4xl font-bold text-white leading-none">
-              {finalResult.minPrice.toLocaleString()} <span className="text-white/50">–</span> {finalResult.maxPrice.toLocaleString()}
+              ${finalResult.minPrice.toLocaleString()} <span className="text-white/50">–</span> ${finalResult.maxPrice.toLocaleString()}
             </p>
           </div>
 
@@ -137,12 +137,17 @@ export function EstimateInlineChooserCard({ messageId }: EstimateInlineChooserCa
                 {PHASE_ORDER.map(({ label, Icon }) => {
                   const value = finalResult.phaseHours?.[label] ?? 0;
                   return (
-                    <div key={label} className="rounded-2xl border border-indigo-400/15 bg-gradient-to-br from-indigo-500/10 to-violet-600/[0.06] p-4 flex flex-col gap-2">
+                    <div
+                      key={label}
+                      className="rounded-2xl border border-indigo-400/15 bg-gradient-to-br from-indigo-500/10 to-violet-600/[0.06] p-4 flex flex-col gap-2"
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/15 border border-indigo-400/20 text-indigo-300">
                           <Icon className="w-4 h-4" aria-hidden />
                         </span>
-                        <span className="text-[15px] font-bold text-white/90 tabular-nums">{value}h</span>
+                        <span className="text-[15px] font-bold text-white/90 tabular-nums">
+                          {value}h
+                        </span>
                       </div>
                       <p className="text-[12px] font-semibold text-white/90">{label}</p>
                     </div>
@@ -155,6 +160,17 @@ export function EstimateInlineChooserCard({ messageId }: EstimateInlineChooserCa
           <p className="mt-4 text-xs text-white/40 leading-relaxed">
             For an accurate quote, our manager will review your project and get back within 1 business day.
           </p>
+
+          <a
+            href="https://cieden.com/contact"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full rounded-xl bg-violet-600/30 hover:bg-violet-600/45 backdrop-blur-md border border-violet-400/30 py-3 px-4 text-sm font-medium text-white transition-all cursor-pointer shadow-[0_0_20px_rgba(139,92,246,0.15),inset_0_1px_0_rgba(255,255,255,0.08)] mt-4"
+            aria-label="Contact Cieden"
+            aria-disabled={false}
+          >
+            Contact our manager
+          </a>
         </div>
       ) : (
         <div className="rounded-2xl border border-white/[0.12] bg-white/[0.04] backdrop-blur-sm px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
