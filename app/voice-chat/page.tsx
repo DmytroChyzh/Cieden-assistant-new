@@ -329,6 +329,15 @@ export default function VoiceChatPage() {
       const value = text.trim();
       if (!value) return;
 
+      // If auth is already ready but onboarding UI state is still not "done",
+      // avoid repeating sign-in. Just finish onboarding UX and show
+      // welcome quick prompts again.
+      if (canUseChat) {
+        setOnboardingStep("done");
+        pushWelcomePromptsIfMissing();
+        return;
+      }
+
       console.log("🔐 [preAuth] input:", { step: onboardingStep, valuePreview: value.slice(0, 60) });
 
       const userMessage: ChatbotMessage = {
@@ -529,7 +538,14 @@ export default function VoiceChatPage() {
         }
       }
     },
-    [onboardingStep, onboardingName, signIn, createConversation],
+    [
+      canUseChat,
+      onboardingStep,
+      onboardingName,
+      signIn,
+      createConversation,
+      pushWelcomePromptsIfMissing,
+    ],
   );
 
   // After successful client-side auth (name+email), start the actual chat immediately.
@@ -2245,9 +2261,7 @@ export default function VoiceChatPage() {
                   onProgrammaticSendReady={(sendFn) => setSendProgrammaticMessage(() => sendFn)}
                   actionHandlers={actionHandlers}
                   showSettings={showSettings}
-                  onPreAuthMessage={
-                    !canUseChat && onboardingStep !== "done" ? handlePreAuthMessage : undefined
-                  }
+                  onPreAuthMessage={onboardingStep !== "done" ? handlePreAuthMessage : undefined}
                   onRequestSelect={async (request) => {
                     console.log('🎯 Quick action selected:', request);
                     if (sendProgrammaticMessage) {
@@ -2274,7 +2288,7 @@ export default function VoiceChatPage() {
                 onContextualUpdate={(sendUpdate) => setSendContextualUpdate(() => sendUpdate)}
                 onProgrammaticSendReady={(sendFn) => setSendProgrammaticMessage(() => sendFn)}
                 onPreAuthMessage={
-                  !canUseChat && onboardingStep !== "done" ? handlePreAuthMessage : undefined
+                  onboardingStep !== "done" ? handlePreAuthMessage : undefined
                 }
                 actionHandlers={actionHandlers}
                 showSettings={showSettings}
