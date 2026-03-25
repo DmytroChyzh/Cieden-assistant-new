@@ -1,7 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, Sparkles } from "lucide-react";
+import {
+  ClipboardList,
+  Sparkles,
+  Clock3,
+  Layers3,
+  Search,
+  LayoutTemplate,
+  Palette,
+  Component,
+  Wand2,
+  FlaskConical,
+  PackageCheck,
+  MessagesSquare,
+} from "lucide-react";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { EstimateFinalResult } from "./EstimateWizardPanel";
 
@@ -69,6 +82,22 @@ export function EstimateInlineChooserCard({ messageId }: EstimateInlineChooserCa
     return "— hrs";
   })();
 
+  const PHASE_ORDER: Array<{
+    label: string;
+    Icon: any;
+  }> = [
+    { label: "Discovery", Icon: Search },
+    { label: "UX / IA", Icon: LayoutTemplate },
+    { label: "UI design", Icon: Palette },
+    { label: "Design system", Icon: Component },
+    { label: "Prototyping", Icon: Wand2 },
+    { label: "Testing & iteration", Icon: FlaskConical },
+    { label: "Handoff & support", Icon: PackageCheck },
+    { label: "PM / communication", Icon: MessagesSquare },
+  ];
+
+  const hasPhaseHours = !!finalResult && !!finalResult.phaseHours && Object.keys(finalResult.phaseHours).length > 0;
+
   const handleCancel = () => {
     setChoice(null);
     setFinalResult(null);
@@ -78,33 +107,54 @@ export function EstimateInlineChooserCard({ messageId }: EstimateInlineChooserCa
   return (
     <div className="w-full max-w-[900px] mx-auto">
       {finalResult ? (
-        <div className="rounded-2xl border border-indigo-400/20 bg-gradient-to-br from-indigo-500/[0.12] to-violet-600/[0.08] backdrop-blur-md p-4 shadow-[0_0_32px_rgba(99,102,241,0.12),inset_0_1px_0_rgba(255,255,255,0.06)]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-violet-300" aria-hidden />
-                <p className="text-sm font-semibold text-white/90">Estimate result (in chat)</p>
-              </div>
-              <p className="mt-1 text-xs text-white/45">Side panel also shows the same final numbers.</p>
-            </div>
+        <div className="rounded-2xl border border-indigo-400/20 bg-gradient-to-br from-indigo-500/[0.12] to-violet-600/[0.08] backdrop-blur-md p-5 shadow-[0_0_32px_rgba(99,102,241,0.12),inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-violet-300" aria-hidden />
+            <p className="text-xs font-medium text-white/60 uppercase tracking-widest">Estimate result</p>
           </div>
 
-          <div className="mt-3">
-            <p className="text-3xl font-bold text-white leading-none">
-              ${priceText}
+          <div className="mt-4">
+            <p className="text-4xl font-bold text-white leading-none">
+              {finalResult.minPrice.toLocaleString()} <span className="text-white/50">–</span> {finalResult.maxPrice.toLocaleString()}
             </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.07] border border-white/[0.10] px-3 py-1 text-[12px] font-medium text-white/75">
-                <ClipboardList className="w-3.5 h-3.5" aria-hidden />
-                {hoursText}
-              </span>
-              {typeof finalResult.weeks === "number" && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.07] border border-white/[0.10] px-3 py-1 text-[12px] font-medium text-white/75">
-                  {finalResult.weeks} weeks
-                </span>
-              )}
-            </div>
           </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.07] border border-white/[0.10] px-3 py-1 text-[12px] font-medium text-white/75">
+              <Clock3 className="w-3.5 h-3.5 text-sky-400" aria-hidden />
+              {typeof finalResult.weeks === "number" ? `${finalResult.weeks} weeks` : "— weeks"}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.07] border border-white/[0.10] px-3 py-1 text-[12px] font-medium text-white/75">
+              <Layers3 className="w-3.5 h-3.5 text-fuchsia-400" aria-hidden />
+              {hoursText}
+            </span>
+          </div>
+
+          {hasPhaseHours && (
+            <div className="mt-5 space-y-2">
+              <p className="text-[11px] uppercase tracking-wider text-white/40 font-semibold">Phase breakdown</p>
+              <div className="grid grid-cols-2 gap-3">
+                {PHASE_ORDER.map(({ label, Icon }) => {
+                  const value = finalResult.phaseHours?.[label] ?? 0;
+                  return (
+                    <div key={label} className="rounded-2xl border border-indigo-400/15 bg-gradient-to-br from-indigo-500/10 to-violet-600/[0.06] p-4 flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/15 border border-indigo-400/20 text-indigo-300">
+                          <Icon className="w-4 h-4" aria-hidden />
+                        </span>
+                        <span className="text-[15px] font-bold text-white/90 tabular-nums">{value}h</span>
+                      </div>
+                      <p className="text-[12px] font-semibold text-white/90">{label}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <p className="mt-4 text-xs text-white/40 leading-relaxed">
+            For an accurate quote, our manager will review your project and get back within 1 business day.
+          </p>
         </div>
       ) : (
         <div className="rounded-2xl border border-white/[0.12] bg-white/[0.04] backdrop-blur-sm px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">

@@ -66,6 +66,9 @@ export default function VoiceChatPage() {
   // (sendProgrammaticMessage is still null), we queue the last prompt and send it
   // as soon as programmatic sending becomes available (prevents "only after refresh").
   const [pendingQuickPrompt, setPendingQuickPrompt] = useState<string | null>(null);
+  // Queue "visible" estimate assistant kickoff messages when UnifiedChatInput
+  // isn't ready yet (prevents estimate assistant from getting stuck).
+  const pendingEstimateAssistantUserMessagesRef = useRef<string[]>([]);
   const creatingConversationRef = useRef(false);
   const [estimateTyping, setEstimateTyping] = useState<{ active: boolean; label: string }>({ active: false, label: "" });
   const typingHoldUntilRef = useRef<number>(0);
@@ -174,7 +177,10 @@ export default function VoiceChatPage() {
         }
 
         // Visible user message: drives the dialogue
-        if (!sendProgrammaticMessage) return;
+        if (!sendProgrammaticMessage) {
+          pendingEstimateAssistantUserMessagesRef.current.push(composed);
+          return;
+        }
         await sendProgrammaticMessage(composed);
       } catch (error) {
         console.error("Failed to send estimate panel message to assistant:", error);
@@ -184,6 +190,26 @@ export default function VoiceChatPage() {
     window.addEventListener("estimate-assistant-message", handler as EventListener);
     return () => window.removeEventListener("estimate-assistant-message", handler as EventListener);
   }, [sendProgrammaticMessage, sendContextualUpdate, conversationId, createMessage]);
+
+  // Flush queued estimate assistant "user" messages once programmatic sending is ready.
+  useEffect(() => {
+    if (!sendProgrammaticMessage) return;
+    if (pendingEstimateAssistantUserMessagesRef.current.length === 0) return;
+
+    const run = async () => {
+      while (pendingEstimateAssistantUserMessagesRef.current.length > 0) {
+        const text = pendingEstimateAssistantUserMessagesRef.current.shift();
+        if (!text) break;
+        try {
+          await sendProgrammaticMessage(text);
+        } catch (err) {
+          console.error("Failed to flush queued estimate assistant message:", err);
+        }
+      }
+    };
+
+    void run();
+  }, [sendProgrammaticMessage]);
 
   // Flush queued quick prompt once programmatic sending becomes ready.
   useEffect(() => {
@@ -965,6 +991,7 @@ export default function VoiceChatPage() {
     const handleChooseQuick = (e: Event) => {
       // Open the right-side questionnaire panel immediately.
       bumpToken();
+      pendingEstimateAssistantUserMessagesRef.current = [];
       setShowEstimateAssistantRunner(false);
       setEstimateFinalResult(null);
       setShowEstimatePanel(true);
@@ -975,6 +1002,7 @@ export default function VoiceChatPage() {
     const handleChooseAssistant = (e: Event) => {
       // No side panel while assistant is collecting info.
       bumpToken();
+      pendingEstimateAssistantUserMessagesRef.current = [];
       setShowEstimatePanel(false);
       setEstimateFinalResult(null);
       setShowEstimateInline(false);
@@ -997,6 +1025,7 @@ export default function VoiceChatPage() {
 
     const handleCancel = () => {
       bumpToken();
+      pendingEstimateAssistantUserMessagesRef.current = [];
       setShowEstimatePanel(false);
       setEstimateFinalResult(null);
       setShowEstimateInline(false);
