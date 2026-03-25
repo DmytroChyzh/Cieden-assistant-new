@@ -313,6 +313,16 @@ export default function VoiceChatPage() {
     }
   }, [canUseChat, currentUser?.name, currentUser?.email, onboardingStep, pushWelcomePromptsIfMissing]);
 
+  // Ensure conversation exists immediately after onboarding becomes "done".
+  // Without this, first-load races can leave `conversationId === null` while
+  // onboarding UI is already in the "done" state, which then breaks sending.
+  useEffect(() => {
+    if (!canUseChat) return;
+    if (onboardingStep !== "done") return;
+    if (conversationId) return;
+    void ensureConversationId();
+  }, [canUseChat, onboardingStep, conversationId, ensureConversationId]);
+
   // Handle pre-auth messages (name + email) coming from the main chat input
   const handlePreAuthMessage = useCallback(
     async (text: string) => {
