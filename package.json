@@ -70,12 +70,13 @@
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.183.2",
     "vaul": "^1.1.2",
+    "@tailwindcss/postcss": "^4",
+    "tailwindcss": "^4",
     "zod": "^3.25.76",
     "typescript": "5.9.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
     "@types/node": "20.19.35",
     "@types/react": "19.2.14",
     "@types/react-dom": "^19",
