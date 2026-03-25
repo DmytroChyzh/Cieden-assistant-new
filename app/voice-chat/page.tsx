@@ -280,10 +280,10 @@ export default function VoiceChatPage() {
   // After that, we render the main chat UI even if Convex Auth is temporarily
   // broken (guest persistence will take over).
   const shouldShowOnboarding = onboardingStep !== "done";
-  // Quick prompts should be enabled as soon as we can actually use chat (auth is ready).
-  // `onboardingStep` can briefly lag behind during first-load races, which made buttons appear
-  // but remain disabled until refresh.
-  const disableQuickPrompts = !canUseChat;
+  // Quick prompts are only enabled after onboarding is completed (name + email).
+  // Note: `canUseChat` may briefly be false on first load even when onboarding is done
+  // (auth discovery race). We still want buttons to be clickable then.
+  const disableQuickPrompts = onboardingStep !== "done";
 
   const pushWelcomePromptsIfMissing = useCallback(() => {
     setOnboardingMessages((prev) => {
