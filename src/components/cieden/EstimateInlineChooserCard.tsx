@@ -23,11 +23,12 @@ export function EstimateInlineChooserCard({ messageId }: EstimateInlineChooserCa
 
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent<EstimateFinalResult>).detail;
+      const detail = (e as CustomEvent<{ token?: number } & EstimateFinalResult>).detail;
       if (!detail) return;
 
       // Update chat card when final numbers are ready.
-      setFinalResult(detail);
+      const { token: _token, ...rest } = detail;
+      setFinalResult(rest as EstimateFinalResult);
     };
 
     window.addEventListener("estimate-final-ready", handler as EventListener);
@@ -58,6 +59,12 @@ export function EstimateInlineChooserCard({ messageId }: EstimateInlineChooserCa
     }
     return "— hrs";
   })();
+
+  const handleCancel = () => {
+    setChoice(null);
+    setFinalResult(null);
+    window.dispatchEvent(new CustomEvent("estimate-cancel"));
+  };
 
   return (
     <div className="w-full max-w-[900px] mx-auto">
@@ -104,6 +111,16 @@ export function EstimateInlineChooserCard({ messageId }: EstimateInlineChooserCa
                   ? "Questionnaire is open on the right. Fill it step-by-step."
                   : "Assistant will start asking questions in the chat."}
               </p>
+
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="mt-3 w-full rounded-xl border border-white/[0.12] bg-white/[0.04] backdrop-blur-sm px-4 py-2 text-sm font-medium text-white/70 hover:bg-white/[0.08] hover:border-white/[0.2] transition-colors cursor-pointer"
+                aria-label="Cancel estimate flow"
+                aria-disabled={false}
+              >
+                Cancel
+              </button>
             </div>
           ) : (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">

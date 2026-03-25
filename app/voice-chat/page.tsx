@@ -934,6 +934,12 @@ export default function VoiceChatPage() {
   const [showEstimateInline, setShowEstimateInline] = useState(false);
   const [estimateFinalResult, setEstimateFinalResult] = useState<EstimateFinalResult | null>(null);
   const [showEstimateAssistantRunner, setShowEstimateAssistantRunner] = useState(false);
+  const [estimateFlowToken, setEstimateFlowToken] = useState(0);
+  const estimateFlowTokenRef = useRef(estimateFlowToken);
+
+  useEffect(() => {
+    estimateFlowTokenRef.current = estimateFlowToken;
+  }, [estimateFlowToken]);
 
   // Let message renderers know whether estimate panel is open (to avoid spam cards)
   useEffect(() => {
@@ -950,8 +956,15 @@ export default function VoiceChatPage() {
       setShowEstimateInline(!!detail?.active);
     };
 
+    const bumpToken = () => {
+      const next = estimateFlowTokenRef.current + 1;
+      estimateFlowTokenRef.current = next;
+      setEstimateFlowToken(next);
+    };
+
     const handleChooseQuick = (e: Event) => {
       // Open the right-side questionnaire panel immediately.
+      bumpToken();
       setShowEstimateAssistantRunner(false);
       setEstimateFinalResult(null);
       setShowEstimatePanel(true);
@@ -961,6 +974,7 @@ export default function VoiceChatPage() {
 
     const handleChooseAssistant = (e: Event) => {
       // No side panel while assistant is collecting info.
+      bumpToken();
       setShowEstimatePanel(false);
       setEstimateFinalResult(null);
       setShowEstimateInline(false);
@@ -968,8 +982,12 @@ export default function VoiceChatPage() {
     };
 
     const handleEstimateFinal = (e: Event) => {
-      const detail = (e as CustomEvent<EstimateFinalResult>).detail;
+      const detail = (e as CustomEvent<{ token?: number } & EstimateFinalResult>).detail;
       if (!detail) return;
+
+      const token = typeof detail.token === "number" ? detail.token : null;
+      if (token !== estimateFlowTokenRef.current) return;
+
       setEstimateFinalResult(detail);
       setShowEstimatePanel(true);
       setShowEstimateInline(false);
@@ -977,14 +995,24 @@ export default function VoiceChatPage() {
       setEstimatePanelKey((prev) => prev + 1);
     };
 
+    const handleCancel = () => {
+      bumpToken();
+      setShowEstimatePanel(false);
+      setEstimateFinalResult(null);
+      setShowEstimateInline(false);
+      setShowEstimateAssistantRunner(false);
+    };
+
     window.addEventListener("estimate-inline-active-change", handleInlineActive);
     window.addEventListener("estimate-choose-quick", handleChooseQuick);
     window.addEventListener("estimate-choose-assistant", handleChooseAssistant);
+    window.addEventListener("estimate-cancel", handleCancel);
     window.addEventListener("estimate-final-ready", handleEstimateFinal);
     return () => {
       window.removeEventListener("estimate-inline-active-change", handleInlineActive);
       window.removeEventListener("estimate-choose-quick", handleChooseQuick);
       window.removeEventListener("estimate-choose-assistant", handleChooseAssistant);
+      window.removeEventListener("estimate-cancel", handleCancel);
       window.removeEventListener("estimate-final-ready", handleEstimateFinal);
     };
   }, []);
@@ -2412,7 +2440,10 @@ export default function VoiceChatPage() {
                 onEstimateFinal={(finalResult) => {
                   window.dispatchEvent(
                     new CustomEvent("estimate-final-ready", {
-                      detail: finalResult,
+                      detail: {
+                        token: estimateFlowToken,
+                        ...finalResult,
+                      },
                     }),
                   );
                 }}
@@ -2456,7 +2487,10 @@ export default function VoiceChatPage() {
                     onEstimateFinal={(finalResult) => {
                       window.dispatchEvent(
                         new CustomEvent("estimate-final-ready", {
-                          detail: finalResult,
+                          detail: {
+                            token: estimateFlowToken,
+                            ...finalResult,
+                          },
                         }),
                       );
                     }}
