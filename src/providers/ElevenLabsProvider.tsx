@@ -1183,17 +1183,32 @@ export function ElevenLabsProvider({
         textConnectionStateRef.current = 'connecting';
 
         try {
-          // Get signed URL for WebSocket connection
+          // Get signed URL for WebSocket connection.
+          // First request on a cold deployment can intermittently fail; retry briefly.
+          const fetchSignedUrl = async () => {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+            try {
+              return await fetch('/api/elevenlabs/signed-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agent_id: agentId }),
+                signal: controller.signal
+              });
+            } finally {
+              clearTimeout(timeout);
+            }
+          };
+
           console.log('[ElevenLabsProvider] Fetching signed URL for text mode');
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 15000);
-          const response = await fetch('/api/elevenlabs/signed-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ agent_id: agentId }),
-            signal: controller.signal
-          });
-          clearTimeout(timeout);
+          let response = await fetchSignedUrl();
+          if (!response.ok) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            console.warn('[ElevenLabsProvider] Signed URL first attempt failed, retrying once', {
+              status: response.status,
+            });
+            response = await fetchSignedUrl();
+          }
 
           if (!response.ok) {
             throw new Error(`Failed to get signed URL: ${response.status}`);

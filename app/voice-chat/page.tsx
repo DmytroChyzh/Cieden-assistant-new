@@ -1864,20 +1864,25 @@ export default function VoiceChatPage() {
     // Create or get conversation - only when authenticated and conversations are loaded
     async function initConversation() {
       if (!canUseChat || conversations === undefined) return;
+      if (conversationId) return;
+      if (creatingConversationRef.current) return;
 
       if (conversations.length > 0) {
         setConversationId(conversations[0]._id);
       } else {
+        creatingConversationRef.current = true;
         try {
           const id = await createConversation({ title: "Voice Chat" });
           setConversationId(id);
         } catch (error) {
           console.warn('Failed to create conversation (auth may not be ready):', error);
+        } finally {
+          creatingConversationRef.current = false;
         }
       }
     }
     initConversation();
-  }, [canUseChat, conversations, createConversation]);
+  }, [canUseChat, conversations, createConversation, conversationId]);
 
   // Handle messages from unified input
   const handleMessage = useCallback(async (text: string, source: 'voice' | 'text') => {
@@ -2380,7 +2385,10 @@ export default function VoiceChatPage() {
 
                   <div ref={messagesEndRef} className={estimateDockActive ? "h-6" : "h-8"} />
                 </div>
-              ) : ((convexMessages && convexMessages.length > 0) || (voiceStatus !== 'idle')) ? (
+              ) : (
+                (onboardingMessages.length > 0) ||
+                ((convexMessages && convexMessages.length > 0) || (voiceStatus !== 'idle'))
+              ) ? (
                 <div className="space-y-4 lg:space-y-6 w-full max-w-[min(100%,1400px)] mx-auto py-6">
 
                   {/* Onboarding messages (name/email flow) + inline welcome block */}
