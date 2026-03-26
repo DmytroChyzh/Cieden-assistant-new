@@ -335,11 +335,11 @@ export default function VoiceChatPage() {
   // We show the onboarding UI only until we finish name+email input.
   // After that, we render the main chat UI even if Convex Auth is temporarily
   // broken (guest persistence will take over).
-  const shouldShowOnboarding = onboardingStep !== "done" || !conversationId;
+  const shouldShowOnboarding = onboardingStep !== "done";
   // Quick prompts are only enabled after onboarding is completed (name + email).
   // Note: `canUseChat` may briefly be false on first load even when onboarding is done
   // (auth discovery race). We still want buttons to be clickable then.
-  const disableQuickPrompts = onboardingStep !== "done" || !conversationId;
+  const disableQuickPrompts = onboardingStep !== "done";
 
   const pushWelcomePromptsIfMissing = useCallback(() => {
     setOnboardingMessages((prev) => {
@@ -2544,7 +2544,7 @@ export default function VoiceChatPage() {
                   actionHandlers={actionHandlers}
                   showSettings={showSettings}
                   onPreAuthMessage={
-                    onboardingStep !== "done" || !conversationId
+                    onboardingStep !== "done" || (canUseChat && !conversationId)
                       ? handlePreAuthMessage
                       : undefined
                   }
@@ -2574,7 +2574,7 @@ export default function VoiceChatPage() {
                 onContextualUpdate={(sendUpdate) => setSendContextualUpdate(() => sendUpdate)}
                 onProgrammaticSendReady={(sendFn) => setSendProgrammaticMessage(() => sendFn)}
                 onPreAuthMessage={
-                  onboardingStep !== "done" || !conversationId
+                  onboardingStep !== "done" || (canUseChat && !conversationId)
                     ? handlePreAuthMessage
                     : undefined
                 }
