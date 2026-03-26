@@ -393,10 +393,10 @@ export default function VoiceChatPage() {
       // welcome quick prompts again.
       if (canUseChat) {
         // Auth can become ready slightly before conversation initialization finishes.
-        // Keep onboarding flow active until we have a concrete conversationId,
-        // otherwise first messages can be routed through guest/onboarding buffers.
+        // Do not drop the first user message in this window: queue it and flush
+        // when conversationId + programmatic sender are both ready.
         if (!conversationId) {
-          setOnboardingStep("creating");
+          setPendingQuickPrompt((prev) => prev ?? value);
           setOnboardingMessages((prev) => {
             const alreadyHasSetupNotice = prev.some((m) =>
               /setting everything up/i.test(m.content),
