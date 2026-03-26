@@ -2544,9 +2544,7 @@ export default function VoiceChatPage() {
                   actionHandlers={actionHandlers}
                   showSettings={showSettings}
                   onPreAuthMessage={
-                    onboardingStep !== "done" || (canUseChat && !conversationId)
-                      ? handlePreAuthMessage
-                      : undefined
+                    onboardingStep !== "done" ? handlePreAuthMessage : undefined
                   }
                   onRequestSelect={async (request) => {
                     console.log('🎯 Quick action selected:', request);
@@ -2574,9 +2572,7 @@ export default function VoiceChatPage() {
                 onContextualUpdate={(sendUpdate) => setSendContextualUpdate(() => sendUpdate)}
                 onProgrammaticSendReady={(sendFn) => setSendProgrammaticMessage(() => sendFn)}
                 onPreAuthMessage={
-                  onboardingStep !== "done" || (canUseChat && !conversationId)
-                    ? handlePreAuthMessage
-                    : undefined
+                  onboardingStep !== "done" ? handlePreAuthMessage : undefined
                 }
                 actionHandlers={actionHandlers}
                 showSettings={showSettings}
