@@ -335,11 +335,11 @@ export default function VoiceChatPage() {
   // We show the onboarding UI only until we finish name+email input.
   // After that, we render the main chat UI even if Convex Auth is temporarily
   // broken (guest persistence will take over).
-  const shouldShowOnboarding = onboardingStep !== "done";
+  const shouldShowOnboarding = onboardingStep !== "done" || !conversationId;
   // Quick prompts are only enabled after onboarding is completed (name + email).
   // Note: `canUseChat` may briefly be false on first load even when onboarding is done
   // (auth discovery race). We still want buttons to be clickable then.
-  const disableQuickPrompts = onboardingStep !== "done";
+  const disableQuickPrompts = onboardingStep !== "done" || !conversationId;
 
   const pushWelcomePromptsIfMissing = useCallback(() => {
     setOnboardingMessages((prev) => {
@@ -392,6 +392,30 @@ export default function VoiceChatPage() {
       // avoid repeating sign-in. Just finish onboarding UX and show
       // welcome quick prompts again.
       if (canUseChat) {
+        // Auth can become ready slightly before conversation initialization finishes.
+        // Keep onboarding flow active until we have a concrete conversationId,
+        // otherwise first messages can be routed through guest/onboarding buffers.
+        if (!conversationId) {
+          setOnboardingStep("creating");
+          setOnboardingMessages((prev) => {
+            const alreadyHasSetupNotice = prev.some((m) =>
+              /setting everything up/i.test(m.content),
+            );
+            if (alreadyHasSetupNotice) return prev;
+            return [
+              ...prev,
+              {
+                id: `onb-assistant-${Date.now()}`,
+                role: "assistant",
+                content: "Great, finalizing your chat setup...",
+                timestamp: Date.now(),
+              },
+            ];
+          });
+          void ensureConversationId();
+          return;
+        }
+
         setOnboardingStep("done");
         pushWelcomePromptsIfMissing();
         return;
@@ -599,6 +623,8 @@ export default function VoiceChatPage() {
     },
     [
       canUseChat,
+      conversationId,
+      ensureConversationId,
       onboardingStep,
       onboardingName,
       signIn,
@@ -2517,7 +2543,11 @@ export default function VoiceChatPage() {
                   onProgrammaticSendReady={(sendFn) => setSendProgrammaticMessage(() => sendFn)}
                   actionHandlers={actionHandlers}
                   showSettings={showSettings}
-                  onPreAuthMessage={onboardingStep !== "done" ? handlePreAuthMessage : undefined}
+                  onPreAuthMessage={
+                    onboardingStep !== "done" || !conversationId
+                      ? handlePreAuthMessage
+                      : undefined
+                  }
                   onRequestSelect={async (request) => {
                     console.log('🎯 Quick action selected:', request);
                     if (sendProgrammaticMessage) {
@@ -2544,7 +2574,9 @@ export default function VoiceChatPage() {
                 onContextualUpdate={(sendUpdate) => setSendContextualUpdate(() => sendUpdate)}
                 onProgrammaticSendReady={(sendFn) => setSendProgrammaticMessage(() => sendFn)}
                 onPreAuthMessage={
-                  onboardingStep !== "done" ? handlePreAuthMessage : undefined
+                  onboardingStep !== "done" || !conversationId
+                    ? handlePreAuthMessage
+                    : undefined
                 }
                 actionHandlers={actionHandlers}
                 showSettings={showSettings}
