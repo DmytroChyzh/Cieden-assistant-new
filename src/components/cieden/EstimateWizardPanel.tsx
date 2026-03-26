@@ -533,12 +533,13 @@ export function EstimateWizardPanel({
     }
 
     /** Match the Topics counter (9 required fields), not the broader filled object used elsewhere. */
-    const sessionStart = typeof estimateSessionStartedAt === "number" ? estimateSessionStartedAt : 0;
     const asked =
-      estimateSessionMessages
-        ?.filter((m) => m.role === "assistant" && m.createdAt >= sessionStart)
-        .filter((m) => typeof m.content === "string" && /\?/.test(m.content))
-        .length ?? 0;
+      typeof estimateSessionStartedAt === "number"
+        ? estimateSessionMessages
+            ?.filter((m) => m.role === "assistant" && m.createdAt >= estimateSessionStartedAt)
+            .filter((m) => typeof m.content === "string" && /\?/.test(m.content))
+            .length ?? 0
+        : 0;
 
     const percentForDock =
       total > 0 ? Math.min(99, Math.round((asked / total) * 100)) : 0;
@@ -873,11 +874,9 @@ export function EstimateWizardPanel({
     assistantKickoffSentRef.current = true;
 
     // Start a new "estimate session" so UI shows 0 until user provides fresh info.
-    // We subtract a buffer to avoid race/timestamp ordering issues.
-    // NOTE: it must be large enough to include the user's next replies even
-    // if the assistant takes time to ask questions.
-    // Large enough to include the user's next answers even if the assistant takes time.
-    const sessionStart = Math.max(0, Date.now() - 900000); // 15 minutes
+    // Use current timestamp exactly to avoid including stale assistant/user
+    // messages from earlier parts of the conversation in progress counters.
+    const sessionStart = Date.now();
     setEstimateSessionStartedAt(sessionStart);
     lastUserMsgIdRef.current = null;
 
