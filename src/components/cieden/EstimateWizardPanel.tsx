@@ -172,9 +172,13 @@ export function EstimateWizardPanel({
   const [extraNotes, setExtraNotes] = useState("");
   const [customByStep, setCustomByStep] = useState<Record<string, string>>({});
   const [assistantInputKind, setAssistantInputKind] = useState<AssistantInputKind>("file");
-  const [assistantAutostarted, setAssistantAutostarted] = useState(false);
   const [estimateSessionStartedAt, setEstimateSessionStartedAt] = useState<number | null>(null);
+  /** Must be a ref — if this lived in useEffect deps as state, cleanup fired EXIT right after kickoff. */
+  const assistantKickoffSentRef = useRef(false);
   const lastUserMsgIdRef = useRef<string | null>(null);
+  const assistantProgressSnapshotRef = useRef<string>("");
+  const lastDraftEstimateSentRef = useRef<string>("");
+  const lastEstimateStateSentRef = useRef<string>("");
 
   // Local message tracking for guest mode (when conversationId is null and Convex is skipped)
   const [localMessages, setLocalMessages] = useState<
@@ -255,6 +259,9 @@ export function EstimateWizardPanel({
   const isKickoffMessage = useCallback((content: string) => {
     return (
       /i want a preliminary design estimate/i.test(content) ||
+      /i chose\s+"work with the assistant"\s+for my estimate/i.test(content) ||
+      /please start with one question at a time/i.test(content) ||
+      /work with the assistant/i.test(content) ||
       /ask me one question at a time/i.test(content) ||
       /enter estimate mode/i.test(content) ||
       /\[estimate mode]/i.test(content)
@@ -307,8 +314,12 @@ export function EstimateWizardPanel({
   const extractedEstimateContext = useMemo(() => {
     if (!estimateAnalysisMessages) return null;
     const MAX_ANALYSIS_CHARS = 12000;
+    // In assistant-mode we intentionally have a "kickoff" user-visible message.
+    // That message MUST NOT be treated as real client answers.
     const rawUserText = estimateAnalysisMessages
       .filter((m) => m.role === "user")
+      .filter((m) => typeof m.content === "string" && m.content.trim().length > 0)
+      .filter((m) => !isKickoffMessage(m.content))
       .map((m) => m.content ?? "")
       .join("\n")
       .toLowerCase();
@@ -484,6 +495,74 @@ export function EstimateWizardPanel({
     return { percent, checks };
   }, [estimateAnalysisMessages, extractedEstimateContext, isKickoffMessage]);
 
+  /** Chat input dock: progress while “Work with the assistant” (hidden runner only). */
+  useEffect(() => {
+    if (!isHidden || mode !== "assistant") {
+      if (assistantProgressSnapshotRef.current !== "__off") {
+        assistantProgressSnapshotRef.current = "__off";
+        window.dispatchEvent(
+          new CustomEvent("estimate-assistant-progress", { detail: { active: false } }),
+        );
+      }
+      return;
+    }
+
+    const KEYS = [
+      "platform",
+      "productStage",
+      "audience",
+      "goal",
+      "specs",
+      "scope",
+      "screensCount",
+      "timeline",
+      "complexity",
+    ] as const;
+
+    const total = KEYS.length;
+    const done = !!extractedEstimateContext && extractedEstimateContext.missing.length === 0;
+
+    if (done) {
+      if (assistantProgressSnapshotRef.current !== "__done") {
+        assistantProgressSnapshotRef.current = "__done";
+        window.dispatchEvent(
+          new CustomEvent("estimate-assistant-progress", { detail: { active: false } }),
+        );
+      }
+      return;
+    }
+
+    /** Match the Topics counter (9 required fields), not the broader filled object used elsewhere. */
+    const sessionStart = typeof estimateSessionStartedAt === "number" ? estimateSessionStartedAt : 0;
+    const asked =
+      estimateSessionMessages
+        ?.filter((m) => m.role === "assistant" && m.createdAt >= sessionStart)
+        .filter((m) => typeof m.content === "string" && /\?/.test(m.content))
+        .length ?? 0;
+
+    const percentForDock =
+      total > 0 ? Math.min(99, Math.round((asked / total) * 100)) : 0;
+
+    const payload = {
+      active: true as const,
+      title: "Preliminary estimate",
+      subtitle: "Work with the assistant",
+      answered: asked,
+      total,
+      percent: percentForDock,
+    };
+    const snap = JSON.stringify(payload);
+    if (snap === assistantProgressSnapshotRef.current) return;
+    assistantProgressSnapshotRef.current = snap;
+    window.dispatchEvent(new CustomEvent("estimate-assistant-progress", { detail: payload }));
+  }, [isHidden, mode, extractedEstimateContext, estimateSessionMessages, estimateSessionStartedAt]);
+
+  useEffect(() => {
+    return () => {
+      window.dispatchEvent(new CustomEvent("estimate-assistant-progress", { detail: { active: false } }));
+    };
+  }, []);
+
   useEffect(() => {
     if (mode !== "assistant") return;
     if (!estimateSessionMessages || estimateSessionMessages.length === 0) return;
@@ -497,6 +576,10 @@ export function EstimateWizardPanel({
     if (!lastUserKey || lastUserKey === lastUserMsgIdRef.current) return;
     lastUserMsgIdRef.current = lastUserKey;
 
+    const stateSnapshot = JSON.stringify(extractedEstimateContext);
+    if (stateSnapshot === lastEstimateStateSentRef.current) return;
+    lastEstimateStateSentRef.current = stateSnapshot;
+
     window.dispatchEvent(
       new CustomEvent("estimate-assistant-message", {
         detail: {
@@ -504,7 +587,7 @@ export function EstimateWizardPanel({
           inputKind: assistantInputKind,
           text:
             "ESTIMATE STATE UPDATE (hidden):\n" +
-            JSON.stringify(extractedEstimateContext) +
+            stateSnapshot +
             "\nRules:\n" +
             "- Do NOT repeat questions for fields already filled.\n" +
             "- Ask ONE next question about ONE missing field only.\n" +
@@ -743,6 +826,10 @@ export function EstimateWizardPanel({
     // Guard: don't anchor the agent on broken draft numbers.
     if (displayedEstimate.minPrice < 300 || displayedEstimate.maxPrice < displayedEstimate.minPrice) return;
 
+    const draftSnapshot = JSON.stringify(displayedEstimate);
+    if (draftSnapshot === lastDraftEstimateSentRef.current) return;
+    lastDraftEstimateSentRef.current = draftSnapshot;
+
     window.dispatchEvent(
       new CustomEvent("estimate-assistant-message", {
         detail: {
@@ -750,7 +837,7 @@ export function EstimateWizardPanel({
           inputKind: assistantInputKind,
           text:
             "UI_DRAFT_ESTIMATE (hidden):\n" +
-            JSON.stringify(displayedEstimate) +
+            draftSnapshot +
             "\nRules:\n" +
             "- If you mention numbers (price/hours/weeks), they MUST match UI_DRAFT_ESTIMATE exactly.\n" +
             "- Prefer asking the next missing question instead of recalculating.",
@@ -761,13 +848,29 @@ export function EstimateWizardPanel({
 
   useEffect(() => {
     if (mode !== "assistant") {
-      if (assistantAutostarted) setAssistantAutostarted(false);
-      if (estimateSessionStartedAt) setEstimateSessionStartedAt(null);
+      if (assistantKickoffSentRef.current) {
+        assistantKickoffSentRef.current = false;
+        window.dispatchEvent(
+          new CustomEvent("estimate-assistant-message", {
+            detail: {
+              text:
+                "EXIT ESTIMATE MODE.\n" +
+                "If the user continues chatting, respond normally (not in estimate-only mode).",
+              inputKind: assistantInputKind,
+              visibility: "contextual",
+            },
+          }),
+        );
+      }
+      lastDraftEstimateSentRef.current = "";
+      lastEstimateStateSentRef.current = "";
+      if (estimateSessionStartedAt !== null) setEstimateSessionStartedAt(null);
       if (localMessages.length > 0) setLocalMessages([]);
       return;
     }
 
-    if (assistantAutostarted) return;
+    if (assistantKickoffSentRef.current) return;
+    assistantKickoffSentRef.current = true;
 
     // Start a new "estimate session" so UI shows 0 until user provides fresh info.
     // We subtract a buffer to avoid race/timestamp ordering issues.
@@ -789,6 +892,7 @@ export function EstimateWizardPanel({
       "- Client writes in Russian   -> respond 100% in Russian.\n" +
       "- Never mix languages. Never default to Ukrainian if the client writes in English.\n\n" +
       "=== QUESTION FLOW (ASK ONE AT A TIME) ===\n" +
+      "MAINTAIN MEMORY: The user just chose \"Work with the assistant\" in the UI. Immediately reply with your FIRST clarifying question (project type: website vs mobile vs both). Do not wait for another user message.\n" +
       "Maintain memory of everything already said - do NOT repeat answered questions.\n" +
       "Only ask for missing info. Skip questions the client already answered.\n\n" +
       "Question topics (always phrase them in the client's detected language):\n" +
@@ -826,7 +930,8 @@ export function EstimateWizardPanel({
     );
 
     // 2) Visible kickoff — simple, user-friendly
-    const kickoff = "I want a preliminary design estimate. Ask me one question at a time, starting from the basics.";
+    const kickoff =
+      "I chose \"Work with the assistant\" for my estimate. Please start with one question at a time, beginning with what kind of product this is (website, mobile app, or both).";
     window.dispatchEvent(
       new CustomEvent("estimate-assistant-message", {
         detail: {
@@ -836,22 +941,7 @@ export function EstimateWizardPanel({
         },
       }),
     );
-    setAssistantAutostarted(true);
-    return () => {
-      // When leaving assistant mode / closing panel, explicitly exit estimate mode (hidden)
-      window.dispatchEvent(
-        new CustomEvent("estimate-assistant-message", {
-          detail: {
-            text:
-              "EXIT ESTIMATE MODE.\n" +
-              "If the user continues chatting, respond normally (not in estimate-only mode).",
-            inputKind: assistantInputKind,
-            visibility: "contextual",
-          },
-        }),
-      );
-    };
-  }, [mode, assistantAutostarted, assistantInputKind]);
+  }, [mode, assistantInputKind]);
 
   const stepIds = useMemo(
     () => ["platform", "stage", "goal", "specs", "scope", "complexity", "timeline", "extra", "result"],
@@ -1111,16 +1201,16 @@ export function EstimateWizardPanel({
     >
       <div className="flex items-center justify-between px-5 py-3 shrink-0 bg-white/[0.03] backdrop-blur-sm border-b border-white/[0.08]">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-white/90">Preliminary estimate</h2>
+        <h2 className="text-sm font-semibold text-white/90">Preliminary estimate</h2>
         </div>
         {!isInline && !isHidden && (
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/50 hover:text-white cursor-pointer"
-            aria-label="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/50 hover:text-white cursor-pointer"
+          aria-label="Close"
+        >
+          <X className="w-4 h-4" />
+        </button>
         )}
       </div>
 

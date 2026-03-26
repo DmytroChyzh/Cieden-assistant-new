@@ -16,6 +16,7 @@ import { NextStepsCard } from "@/src/components/cieden/NextStepsCard";
 import { BookCallCard } from "@/src/components/cieden/BookCallCard";
 import { SessionSummaryCard } from "@/src/components/cieden/SessionSummaryCard";
 import { parseToolCall } from '@/src/utils/parseToolCall';
+import { isCiedenEstimateSessionCompleted } from "@/src/utils/ciedenEstimateSession";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ClipboardList, ChevronRight } from "lucide-react";
 import { EstimateInlineChooserCard } from "@/src/components/cieden/EstimateInlineChooserCard";
@@ -86,6 +87,13 @@ export function ToolCallMessageRenderer({
   if (toolCall?.mode === "update") return null;
   if (!toolCall) return <RegularMessage content={content} />;
 
+  if (
+    (toolName === "open_calculator" || toolName === "generate_estimate") &&
+    isCiedenEstimateSessionCompleted()
+  ) {
+    return null;
+  }
+
   // Anti-spam: prevent rendering the same tool card twice from *different* messages.
   // But do NOT break React StrictMode double-render for the same `messageId`.
   //
@@ -95,7 +103,13 @@ export function ToolCallMessageRenderer({
   const isFullProtocolToolCall =
     typeof content === "string" && content.trim().startsWith("TOOL_CALL:");
 
-  if (typeof window !== "undefined" && isFullProtocolToolCall) {
+  if (
+    typeof window !== "undefined" &&
+    isFullProtocolToolCall &&
+    toolName &&
+    toolName !== "open_calculator" &&
+    toolName !== "generate_estimate"
+  ) {
     const dedupStore =
       ((window as any).__ciedenToolCardDedup ??
         ((window as any).__ciedenToolCardDedup = {})) as Record<

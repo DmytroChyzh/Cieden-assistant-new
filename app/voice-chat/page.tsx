@@ -45,6 +45,22 @@ import {
 } from "@/src/components/cieden/SalesUi";
 import { EstimateWizardPanel, type EstimateFinalResult } from "@/src/components/cieden/EstimateWizardPanel";
 import { EstimateFinalResultSidePanel } from "@/src/components/cieden/EstimateFinalResultSidePanel";
+import {
+  markCiedenEstimateSessionCompleted,
+  resetCiedenEstimateSessionCompleted,
+} from "@/src/utils/ciedenEstimateSession";
+import { VOICE_CHAT_COMPOSER_LAYOUT } from "@/src/components/cieden/EstimateAssistantProgressDock";
+
+/**
+ * Sync before React commits so child estimate kickoff → sendProgrammaticMessage cannot
+ * run maybeInjectToolCard while this flag is still stale (children's useEffects run
+ * before the parent's flag sync effect).
+ */
+function setEstimateFlowWindowFlag(flowActive: boolean) {
+  if (typeof window === "undefined") return;
+  (window as unknown as { __ciedenEstimatePanelOpen?: boolean }).__ciedenEstimatePanelOpen =
+    flowActive;
+}
 
 export default function VoiceChatPage() {
   // Session resetter moved to dedicated component
@@ -61,6 +77,11 @@ export default function VoiceChatPage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pendingQuizContextsRef = useRef<string[]>([]);
   const [sendContextualUpdate, setSendContextualUpdate] = useState<((text: string) => void) | null>(null);
+  const sendContextualUpdateRef = useRef<((text: string) => void) | null>(null);
+  const autoScrollEnabledRef = useRef(true);
+  useEffect(() => {
+    sendContextualUpdateRef.current = sendContextualUpdate;
+  }, [sendContextualUpdate]);
   const [sendProgrammaticMessage, setSendProgrammaticMessage] = useState<((text: string) => Promise<void>) | null>(null);
   // If user clicks quick prompts before `UnifiedChatInput` finishes initializing
   // (sendProgrammaticMessage is still null), we queue the last prompt and send it
@@ -75,6 +96,7 @@ export default function VoiceChatPage() {
   const typingHoldTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [pendingAssistantBubble, setPendingAssistantBubble] = useState(false);
   const [pendingOnboardingKickoff, setPendingOnboardingKickoff] = useState(false);
+  const [estimateDockActive, setEstimateDockActive] = useState(false);
 
   const markOnboardingDoneCookie = useCallback(() => {
     // Used by middleware gating to avoid auth discovery until onboarding is done.
@@ -164,7 +186,14 @@ export default function VoiceChatPage() {
         if (payload.visibility === "contextual") {
           // Hidden guidance to the agent (no UI bubble)
           sendContextualUpdate?.(composed);
-          if (conversationId) {
+          // Avoid spamming Convex with high-frequency "hidden" estimate state updates.
+          // These updates are needed to guide the assistant, but they don't need to be persisted
+          // as system/contextual messages in the chat history.
+          const isHighFrequencyHiddenEstimate =
+            composed.includes("UI_DRAFT_ESTIMATE (hidden):") ||
+            composed.includes("ESTIMATE STATE UPDATE (hidden):");
+
+          if (conversationId && !isHighFrequencyHiddenEstimate) {
             await createMessage({
               conversationId,
               content: composed,
@@ -967,11 +996,47 @@ export default function VoiceChatPage() {
     estimateFlowTokenRef.current = estimateFlowToken;
   }, [estimateFlowToken]);
 
-  // Let message renderers know whether estimate panel is open (to avoid spam cards)
+  // Bridge + useTextInput: true while side panel is visible OR assistant-driven estimate flow is active.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    (window as unknown as { __ciedenEstimatePanelOpen?: boolean }).__ciedenEstimatePanelOpen = showEstimatePanel || showEstimateInline;
-  }, [showEstimatePanel, showEstimateInline]);
+    const flowActive =
+      showEstimatePanel || showEstimateAssistantRunner || showEstimateInline;
+    (window as unknown as { __ciedenEstimatePanelOpen?: boolean }).__ciedenEstimatePanelOpen =
+      flowActive;
+  }, [showEstimatePanel, showEstimateAssistantRunner, showEstimateInline]);
+
+  // Tell the ElevenLabs agent when the estimate side panel opens/closes (UI truth vs. last reply).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const PANEL_OPENED_MSG =
+      "[UI ESTIMATE] The estimate side panel is now visible on the right. You may refer to the questionnaire or results there.";
+
+    const PANEL_CLOSED_MSG =
+      "[UI ESTIMATE] The estimate side panel is now CLOSED (not visible). Do not say the questionnaire or results are open on the right. If the user wants a new estimate, call open_calculator or generate_estimate again.";
+
+    const ASSISTANT_RUNNER_CLOSED_MSG =
+      "[UI ESTIMATE] The user closed the estimate flow (assistant Q&A in chat). Do not assume you are still collecting estimate inputs. If they want a new estimate, call open_calculator or generate_estimate again.";
+
+    const onOpened = () => {
+      sendContextualUpdateRef.current?.(PANEL_OPENED_MSG);
+    };
+
+    const onClosed = (e: Event) => {
+      const reason = (e as CustomEvent<{ reason?: string }>).detail?.reason;
+      (window as unknown as { __ciedenEstimatePanelClosedAt?: number }).__ciedenEstimatePanelClosedAt =
+        Date.now();
+      const msg = reason === "assistant-runner" ? ASSISTANT_RUNNER_CLOSED_MSG : PANEL_CLOSED_MSG;
+      sendContextualUpdateRef.current?.(msg);
+    };
+
+    window.addEventListener("estimate-panel-opened", onOpened);
+    window.addEventListener("estimate-panel-closed", onClosed);
+    return () => {
+      window.removeEventListener("estimate-panel-opened", onOpened);
+      window.removeEventListener("estimate-panel-closed", onClosed);
+    };
+  }, []);
 
   // Inline estimate UI events (chat feed) -> side panel opening only at the final step.
   useEffect(() => {
@@ -992,20 +1057,26 @@ export default function VoiceChatPage() {
       // Open the right-side questionnaire panel immediately.
       bumpToken();
       pendingEstimateAssistantUserMessagesRef.current = [];
+      resetCiedenEstimateSessionCompleted();
+      setEstimateFlowWindowFlag(true);
       setShowEstimateAssistantRunner(false);
       setEstimateFinalResult(null);
       setShowEstimatePanel(true);
       setShowEstimateInline(false);
       setEstimatePanelKey((prev) => prev + 1);
+      window.dispatchEvent(new CustomEvent("estimate-panel-opened"));
     };
 
     const handleChooseAssistant = (e: Event) => {
       // No side panel while assistant is collecting info.
       bumpToken();
       pendingEstimateAssistantUserMessagesRef.current = [];
+      resetCiedenEstimateSessionCompleted();
+      setEstimateFlowWindowFlag(true);
       setShowEstimatePanel(false);
       setEstimateFinalResult(null);
       setShowEstimateInline(false);
+      setEstimatePanelKey((prev) => prev + 1);
       setShowEstimateAssistantRunner(true);
     };
 
@@ -1016,20 +1087,26 @@ export default function VoiceChatPage() {
       const token = typeof detail.token === "number" ? detail.token : null;
       if (token !== estimateFlowTokenRef.current) return;
 
+      markCiedenEstimateSessionCompleted();
+      setEstimateFlowWindowFlag(true);
       setEstimateFinalResult(detail);
       setShowEstimatePanel(true);
       setShowEstimateInline(false);
       setShowEstimateAssistantRunner(false);
       setEstimatePanelKey((prev) => prev + 1);
+      window.dispatchEvent(new CustomEvent("estimate-panel-opened"));
     };
 
     const handleCancel = () => {
       bumpToken();
       pendingEstimateAssistantUserMessagesRef.current = [];
+      resetCiedenEstimateSessionCompleted();
+      setEstimateFlowWindowFlag(false);
       setShowEstimatePanel(false);
       setEstimateFinalResult(null);
       setShowEstimateInline(false);
       setShowEstimateAssistantRunner(false);
+      window.dispatchEvent(new CustomEvent("estimate-panel-closed", { detail: { reason: "cancel" } }));
     };
 
     window.addEventListener("estimate-inline-active-change", handleInlineActive);
@@ -1044,6 +1121,17 @@ export default function VoiceChatPage() {
       window.removeEventListener("estimate-cancel", handleCancel);
       window.removeEventListener("estimate-final-ready", handleEstimateFinal);
     };
+  }, []);
+
+  /** Closing the final-result side panel must NOT run full estimate-cancel (chat card stays). */
+  const dismissFinalEstimatePanel = useCallback(() => {
+    setEstimateFlowWindowFlag(false);
+    setShowEstimatePanel(false);
+    setEstimateFinalResult(null);
+    setShowEstimateInline(false);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("estimate-panel-closed", { detail: { reason: "final-panel" } }));
+    }
   }, []);
 
   // Let message renderers know whether cases panel is open.
@@ -1871,11 +1959,29 @@ export default function VoiceChatPage() {
     // Voice messages already handled by existing voice system
   }, [voiceStatus, conversationId, onboardingStep]);
 
-  // Force-scroll to bottom — always (user and assistant messages).
-  // We run this a few times because message layout can finalize asynchronously.
+  // Keep chat pinned to bottom, але тільки коли користувач не скролив вгору.
+  // Це дозволяє читати попередні повідомлення і натиснути `Cancel` у режимі estimate-assistant.
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const onScroll = () => {
+      const distanceToBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      // Якщо ми не біля низу — вимикаємо автоскрол, щоб користувач міг скролити вгору.
+      autoScrollEnabledRef.current = distanceToBottom <= 60;
+    };
+
+    onScroll();
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => container.removeEventListener("scroll", onScroll);
+  }, []);
+
   const forceScrollToBottom = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
+    if (!autoScrollEnabledRef.current) return;
+
     const scrollNow = () => {
       const latest = scrollContainerRef.current;
       if (!latest) return;
@@ -1904,6 +2010,24 @@ export default function VoiceChatPage() {
     if (visibleCount > 0) forceScrollToBottom();
   }, [convexMessages, forceScrollToBottom]);
 
+  // Track whether estimate assistant dock is active to tune bottom spacer height.
+  useEffect(() => {
+    const onProgress = (e: Event) => {
+      const detail = (e as CustomEvent<{ active?: boolean }>).detail;
+      setEstimateDockActive(!!detail?.active);
+    };
+    window.addEventListener("estimate-assistant-progress", onProgress as EventListener);
+    return () => window.removeEventListener("estimate-assistant-progress", onProgress as EventListener);
+  }, []);
+
+  // When entering “Work with the assistant”, ensure we start from the very bottom.
+  useEffect(() => {
+    if (!estimateDockActive) return;
+    // Увійшов у режим estimate-assistant: гарантовано стартуємо з низу.
+    autoScrollEnabledRef.current = true;
+    forceScrollToBottom();
+  }, [estimateDockActive, forceScrollToBottom]);
+
   // Auto-scroll for onboarding/guest messages
   useEffect(() => {
     if (onboardingMessages.length > 0) {
@@ -1915,6 +2039,17 @@ export default function VoiceChatPage() {
   useEffect(() => {
     if (pendingAssistantBubble) forceScrollToBottom();
   }, [pendingAssistantBubble, forceScrollToBottom]);
+
+  /** When the estimate progress dock resizes, re-pin so the last bubble clears the card. */
+  useEffect(() => {
+    const bump = () => {
+      requestAnimationFrame(() => {
+        forceScrollToBottom();
+      });
+    };
+    window.addEventListener(VOICE_CHAT_COMPOSER_LAYOUT, bump);
+    return () => window.removeEventListener(VOICE_CHAT_COMPOSER_LAYOUT, bump);
+  }, [forceScrollToBottom]);
 
   // Final safety net: after any major stream update, pin to bottom.
   useEffect(() => {
@@ -2073,14 +2208,25 @@ export default function VoiceChatPage() {
         <ContextBridge />
         <QuizProvider conversationId={conversationId}>
         <SessionResetter />
-        <div 
-          className={`${isMobile ? 'h-full' : 'min-h-screen'} relative page-fade-in-animation`}
+        <div
+          className={cn(
+            "relative page-fade-in-animation",
+            /* Desktop: lock to viewport so main’s flex-1 + pb actually shrink the scrollport (min-h-screen alone lets content grow past the composer). */
+            isMobile ? "h-full" : "h-svh min-h-0 overflow-hidden",
+          )}
         >
         {/* Background layer - Lumina-style gradients */}
         <LuminaGradientBackground />
         
         {/* Main content layer — pt-24 so content sits below fixed Chatbot-style header */}
-        <div className={`relative z-10 h-full ${isMobile ? 'grid grid-rows-[auto,1fr,auto] min-h-0' : 'flex flex-col pt-24'}`}>
+        <div
+          className={cn(
+            "relative z-10 min-h-0",
+            isMobile
+              ? "grid h-full grid-rows-[auto,1fr,auto]"
+              : "flex h-full flex-col overflow-hidden pt-24",
+          )}
+        >
           {/* Header with full menu actions (fixed on desktop, Chatbot-style) */}
           <VoiceChatHeader
             className={isMobile ? 'relative' : undefined}
@@ -2101,31 +2247,42 @@ export default function VoiceChatPage() {
           
           {/* Chat lane wrapper: groups messages + input so input can be absolute to this lane */}
             <motion.div
-            className={cn('relative flex flex-col')}
+            className={cn("relative flex min-h-0 min-w-0 flex-1 flex-col")}
             animate={{
-              marginRight: isMobile
-                ? 0
-                : (activePanelDomain || showEstimatePanel || showAboutPanel
-                    ? "50%"
-                    : showSettings
-                    ? 360
-                    : 0),
+              /* marginRight alone does not narrow a stretched flex child — width + alignSelf do */
+              width: isMobile
+                ? "100%"
+                : activePanelDomain || showEstimatePanel || showAboutPanel
+                  ? "50%"
+                  : showSettings
+                    ? "calc(100% - 360px)"
+                    : "100%",
+              alignSelf:
+                isMobile ||
+                (!activePanelDomain &&
+                  !showEstimatePanel &&
+                  !showAboutPanel &&
+                  !showSettings)
+                  ? "stretch"
+                  : "flex-start",
+              marginRight: 0,
             }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
           >
             <main className={cn(
-                `${isMobile ? 'min-h-0 overflow-hidden' : 'flex-1'} flex flex-col`,
-                !isMobile && 'pb-[72px]'
+                `${isMobile ? "min-h-0 overflow-hidden" : "min-h-0 flex-1"} flex flex-col`,
+                !isMobile && "pb-[var(--vc-composer-bottom-inset,72px)]"
               )}>
               {/* Messages Display — scroll area ends above fixed input so new messages stay visible */}
               <div
                 ref={scrollContainerRef}
                 className={"flex-1 p-4 lg:p-6 xl:p-8 overflow-y-auto overflow-x-hidden scrollbar-chat min-h-0"}
                 style={{
-                  contain: 'layout style paint',
-                  willChange: 'scroll-position',
-                  // Keep enough room so the newest bubble sits above input.
-                  paddingBottom: 24
+                  contain: "layout style paint",
+                  willChange: "scroll-position",
+                  paddingBottom: 24,
+                  /* Keeps scrollIntoView(end) from tucking bubbles under the fixed composer stack */
+                  scrollPaddingBottom: "var(--vc-composer-bottom-inset, 0px)",
                 }}
               >
               {shouldShowOnboarding ? (
@@ -2195,7 +2352,7 @@ export default function VoiceChatPage() {
                     />
                   )}
 
-                  <div ref={messagesEndRef} className="h-28" />
+                  <div ref={messagesEndRef} className={estimateDockActive ? "h-6" : "h-8"} />
                 </div>
               ) : ((convexMessages && convexMessages.length > 0) || (voiceStatus !== 'idle')) ? (
                 <div className="space-y-4 lg:space-y-6 w-full max-w-[min(100%,1400px)] mx-auto py-6">
@@ -2314,7 +2471,7 @@ export default function VoiceChatPage() {
                     />
                   )}
                   {/* Spacer під останнім повідомленням, приблизно як висота інпуту */}
-                  <div ref={messagesEndRef} className="h-28" />
+                  <div ref={messagesEndRef} className={estimateDockActive ? "h-6" : "h-8"} />
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center flex-1 max-w-[900px] mx-auto w-full px-4 gap-6 py-12">
@@ -2464,7 +2621,14 @@ export default function VoiceChatPage() {
                 conversationId={conversationId}
                 initialMode="assistant"
                 initialStep={0}
-                onClose={() => setShowEstimateAssistantRunner(false)}
+                onClose={() => {
+                  setEstimateFlowWindowFlag(false);
+                  resetCiedenEstimateSessionCompleted();
+                  setShowEstimateAssistantRunner(false);
+                  window.dispatchEvent(
+                    new CustomEvent("estimate-panel-closed", { detail: { reason: "assistant-runner" } }),
+                  );
+                }}
                 onEstimateInlineActiveChange={(active) => setShowEstimateInline(active)}
                 onEstimateFinal={(finalResult) => {
                   window.dispatchEvent(
@@ -2488,6 +2652,10 @@ export default function VoiceChatPage() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onClick={() => {
+                    if (estimateFinalResult) {
+                      dismissFinalEstimatePanel();
+                      return;
+                    }
                     window.dispatchEvent(new CustomEvent("estimate-cancel"));
                   }}
                   className="fixed inset-0 z-40 bg-black/40 sm:hidden"
@@ -2496,9 +2664,7 @@ export default function VoiceChatPage() {
                   <EstimateFinalResultSidePanel
                     key={estimatePanelKey}
                     result={estimateFinalResult}
-                    onClose={() => {
-                      window.dispatchEvent(new CustomEvent("estimate-cancel"));
-                    }}
+                    onClose={dismissFinalEstimatePanel}
                   />
                 ) : (
                   <EstimateWizardPanel

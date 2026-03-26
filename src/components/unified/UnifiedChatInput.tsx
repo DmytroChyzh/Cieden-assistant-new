@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Id } from '@/convex/_generated/dataModel';
@@ -13,6 +13,10 @@ import { useSettings } from './hooks/useSettings';
 import type { Settings } from './hooks/useSettings';
 import { ActionHandlers } from '@/src/utils/toolBridge';
 import { useElevenLabsConversation } from '@/src/providers/ElevenLabsProvider';
+import {
+  EstimateAssistantProgressDock,
+  VOICE_CHAT_COMPOSER_LAYOUT,
+} from '@/src/components/cieden/EstimateAssistantProgressDock';
 
 interface UnifiedChatInputProps {
   conversationId?: Id<"conversations"> | null;
@@ -294,9 +298,87 @@ export function UnifiedChatInput({
   }, [voiceStatus, isRecording]);
 
   const SIDEBAR_WIDTH_PX = 360;
+  const composerRootRef = useRef<HTMLDivElement>(null);
+  /** Only while Preliminary estimate “Work with the assistant” progress dock is shown */
+  const [estimateAssistantDockActive, setEstimateAssistantDockActive] = useState(false);
+
+  useEffect(() => {
+    const onProg = (e: Event) => {
+      const d = (e as CustomEvent<{ active?: boolean }>).detail;
+      setEstimateAssistantDockActive(!!d?.active);
+    };
+    window.addEventListener("estimate-assistant-progress", onProg as EventListener);
+    return () => window.removeEventListener("estimate-assistant-progress", onProg as EventListener);
+  }, []);
+
+  /**
+   * Desktop: extra bottom inset only when the estimate progress dock is visible.
+   * Otherwise `main` uses the default 72px Tailwind fallback (normal bubble position).
+   */
+  useLayoutEffect(() => {
+    if (isMobile) {
+      document.documentElement.style.removeProperty("--vc-composer-bottom-inset");
+      return;
+    }
+
+    if (!estimateAssistantDockActive) {
+      document.documentElement.style.removeProperty("--vc-composer-bottom-inset");
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new CustomEvent(VOICE_CHAT_COMPOSER_LAYOUT));
+      });
+      return;
+    }
+
+    let raf = 0;
+    const getRoot = () =>
+      composerRootRef.current ??
+      (typeof document !== "undefined"
+        ? (document.getElementById("unified-chat-input-root") as HTMLElement | null)
+        : null);
+
+    const apply = () => {
+      const root = getRoot();
+      if (!root) return;
+      const h = root.getBoundingClientRect().height;
+      /* bottom-2 (8px) + a tiny comfort gap */
+      const inset = Math.ceil(h + 8 + 6);
+      document.documentElement.style.setProperty("--vc-composer-bottom-inset", `${inset}px`);
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        window.dispatchEvent(new CustomEvent(VOICE_CHAT_COMPOSER_LAYOUT));
+      });
+    };
+
+    const ro = new ResizeObserver(() => apply());
+    let observed: HTMLElement | null = null;
+    const syncObserve = () => {
+      const el = getRoot();
+      if (!el) return;
+      if (observed !== el) {
+        if (observed) ro.unobserve(observed);
+        ro.observe(el);
+        observed = el;
+      }
+    };
+
+    apply();
+    syncObserve();
+    const rafAttach = requestAnimationFrame(() => {
+      apply();
+      syncObserve();
+    });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      cancelAnimationFrame(rafAttach);
+      ro.disconnect();
+      document.documentElement.style.removeProperty("--vc-composer-bottom-inset");
+    };
+  }, [isMobile, mode, estimateAssistantDockActive]);
 
   return (
     <motion.div 
+      ref={composerRootRef}
       id="unified-chat-input-root"
       initial={false}
       animate={{
@@ -313,6 +395,7 @@ export function UnifiedChatInput({
     >
       {/* Full width of container (up to 900px), centered — so input is never shrunk */}
       <div className={isMobile ? "w-full" : "w-full max-w-[900px] mx-auto px-4"}>
+      <EstimateAssistantProgressDock />
       {/* Settings Panel Overlay */}
       <AnimatePresence>
         {false && (

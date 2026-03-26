@@ -1,6 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  markCiedenEstimateSessionCompleted,
+  isCiedenEstimateSessionCompleted,
+} from "@/src/utils/ciedenEstimateSession";
 import { ToolCallMessageRenderer } from "./ToolCallMessageRenderer";
 import { Id } from "@/convex/_generated/dataModel";
 import { parseToolCall } from "@/src/utils/parseToolCall";
@@ -20,6 +25,21 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
   const toolCall = parseToolCall(message.content);
   const isToolMessage = !!toolCall;
   const isUser = message.role === "user";
+
+  useEffect(() => {
+    if (message.role !== "assistant") return;
+    if (!/ESTIMATE_PANEL_RESULT:\s*\{/.test(message.content)) return;
+    markCiedenEstimateSessionCompleted();
+  }, [message._id, message.role, message.content]);
+
+  if (
+    toolCall &&
+    (toolCall.toolName === "open_calculator" || toolCall.toolName === "generate_estimate") &&
+    isCiedenEstimateSessionCompleted()
+  ) {
+    return null;
+  }
+
   const displayContent = message.content
     // Remove inline technical payloads (can appear mid-line)
     .replace(/ESTIMATE_PANEL_RESULT:\s*\{[\s\S]*?\}(?=\s|$)/g, "")

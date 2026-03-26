@@ -12,6 +12,7 @@ import {
 import { extractContextFromMessages } from '@/src/utils/agentContext';
 import { parseToolCall } from '@/src/utils/parseToolCall';
 import { getGuestIdentityFromCookie } from '@/src/utils/guestIdentity';
+import { resetCiedenEstimateSessionCompleted } from '@/src/utils/ciedenEstimateSession';
 
 interface UseTextInputProps {
   conversationId?: Id<"conversations"> | null;
@@ -66,9 +67,14 @@ export function useTextInput({
 
       const isCostIntent =
         /(estimate|estimation|calculator|pricing|price|cost|budget|ballpark)/.test(lower) ||
-        /(естимейт|естimation|оценк|расч|калькулятор|сколько стоит|сколько сто)/.test(lower);
+        /(естимейт|естімейт|(?:e|\u0435)стімейт|естimation|оценк|оцінк|оцінка|вартість|бюджет|коштує|росч|расч|калькулятор|сколько стоит|сколько сто|скільки кошт|що кошту|орієнтовн|попередн|знову естім|ще раз естім)/.test(
+          lower,
+        );
 
-      if (isEstimateOpen && !isCostIntent) return;
+      // While estimate panel OR assistant-runner is active, skip ALL client-side tool injection.
+      // Otherwise kickoff lines like "…for my estimate…" match isCostIntent and spawn a second
+      // EstimateInlineChooserCard on top of the ongoing flow.
+      if (isEstimateOpen) return;
 
       const toolCallMessage = (toolName: string) =>
         `TOOL_CALL:${toolName}:${JSON.stringify({ mode: "default" })}`;
@@ -203,7 +209,7 @@ export function useTextInput({
 
       // Cost intent: open estimate panel ASAP (like existing tool handlers).
       if (injectedTool === "open_calculator") {
-        // Inline estimate UI will appear via the TOOL_CALL card itself.
+        resetCiedenEstimateSessionCompleted();
       }
 
       const injectedContent = toolCallMessage(injectedTool);

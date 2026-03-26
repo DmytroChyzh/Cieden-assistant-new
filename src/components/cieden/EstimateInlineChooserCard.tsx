@@ -1,22 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  ClipboardList,
-  Sparkles,
-  Clock3,
-  Layers3,
-  Search,
-  LayoutTemplate,
-  Palette,
-  Component,
-  Wand2,
-  FlaskConical,
-  PackageCheck,
-  MessagesSquare,
-} from "lucide-react";
+import { ClipboardList, Sparkles } from "lucide-react";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { EstimateFinalResult } from "./EstimateWizardPanel";
+import { CiedenContactInPanel } from "./CiedenContactInPanel";
 
 type EstimateChoice = "assistant" | "quick";
 
@@ -68,36 +56,6 @@ export function EstimateInlineChooserCard({ messageId }: EstimateInlineChooserCa
     );
   };
 
-  const priceText =
-    finalResult
-      ? `${finalResult.minPrice.toLocaleString()} – ${finalResult.maxPrice.toLocaleString()}`
-      : null;
-
-  const hoursText = (() => {
-    if (!finalResult) return null;
-    if (typeof finalResult.totalHours === "number") return `${Math.round(finalResult.totalHours)} hrs`;
-    if (typeof finalResult.minHours === "number" && typeof finalResult.maxHours === "number") {
-      return `${finalResult.minHours}–${finalResult.maxHours} hrs`;
-    }
-    return "— hrs";
-  })();
-
-  const PHASE_ORDER: Array<{
-    label: string;
-    Icon: any;
-  }> = [
-    { label: "Discovery", Icon: Search },
-    { label: "UX / IA", Icon: LayoutTemplate },
-    { label: "UI design", Icon: Palette },
-    { label: "Design system", Icon: Component },
-    { label: "Prototyping", Icon: Wand2 },
-    { label: "Testing & iteration", Icon: FlaskConical },
-    { label: "Handoff & support", Icon: PackageCheck },
-    { label: "PM / communication", Icon: MessagesSquare },
-  ];
-
-  const hasPhaseHours = !!finalResult && !!finalResult.phaseHours && Object.keys(finalResult.phaseHours).length > 0;
-
   const handleCancel = () => {
     setChoice(null);
     setFinalResult(null);
@@ -119,58 +77,9 @@ export function EstimateInlineChooserCard({ messageId }: EstimateInlineChooserCa
             </p>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.07] border border-white/[0.10] px-3 py-1 text-[12px] font-medium text-white/75">
-              <Clock3 className="w-3.5 h-3.5 text-sky-400" aria-hidden />
-              {typeof finalResult.weeks === "number" ? `${finalResult.weeks} weeks` : "— weeks"}
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.07] border border-white/[0.10] px-3 py-1 text-[12px] font-medium text-white/75">
-              <Layers3 className="w-3.5 h-3.5 text-fuchsia-400" aria-hidden />
-              {hoursText}
-            </span>
-          </div>
-
-          {hasPhaseHours && (
-            <div className="mt-5 space-y-2">
-              <p className="text-[11px] uppercase tracking-wider text-white/40 font-semibold">Phase breakdown</p>
-              <div className="grid grid-cols-2 gap-3">
-                {PHASE_ORDER.map(({ label, Icon }) => {
-                  const value = finalResult.phaseHours?.[label] ?? 0;
-                  return (
-                    <div
-                      key={label}
-                      className="rounded-2xl border border-indigo-400/15 bg-gradient-to-br from-indigo-500/10 to-violet-600/[0.06] p-4 flex flex-col gap-2"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/15 border border-indigo-400/20 text-indigo-300">
-                          <Icon className="w-4 h-4" aria-hidden />
-                        </span>
-                        <span className="text-[15px] font-bold text-white/90 tabular-nums">
-                          {value}h
-                        </span>
-                      </div>
-                      <p className="text-[12px] font-semibold text-white/90">{label}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <p className="mt-4 text-xs text-white/40 leading-relaxed">
-            For an accurate quote, our manager will review your project and get back within 1 business day.
-          </p>
-
-          <a
-            href="https://cieden.com/contact"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-xl bg-violet-600/30 hover:bg-violet-600/45 backdrop-blur-md border border-violet-400/30 py-3 px-4 text-sm font-medium text-white transition-all cursor-pointer shadow-[0_0_20px_rgba(139,92,246,0.15),inset_0_1px_0_rgba(255,255,255,0.08)] mt-4"
-            aria-label="Contact Cieden"
-            aria-disabled={false}
-          >
-            Contact our manager
-          </a>
+          <CiedenContactInPanel
+            buttonClassName="flex items-center justify-center gap-2 w-full rounded-xl bg-violet-600/30 hover:bg-violet-600/45 backdrop-blur-md border border-violet-400/30 py-3 px-4 text-sm font-medium text-white transition-all cursor-pointer shadow-[0_0_20px_rgba(139,92,246,0.15),inset_0_1px_0_rgba(255,255,255,0.08)] mt-4"
+          />
         </div>
       ) : (
         <div className="rounded-2xl border border-white/[0.12] bg-white/[0.04] backdrop-blur-sm px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
