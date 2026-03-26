@@ -2348,7 +2348,7 @@ export default function VoiceChatPage() {
                                 className={`p-4 bg-white/5 rounded-lg text-left transition-colors border border-white/10 ${
                                   disableQuickPrompts
                                     ? "opacity-50 cursor-not-allowed hover:bg-white/5"
-                                    : "hover:bg-white/10"
+                                    : "hover:bg-white/10 cursor-pointer"
                                 }`}
                               >
                                 <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
@@ -2424,7 +2424,7 @@ export default function VoiceChatPage() {
                                 className={`p-4 bg-white/5 rounded-lg text-left transition-colors border border-white/10 ${
                                   disableQuickPrompts
                                     ? "opacity-50 cursor-not-allowed hover:bg-white/5"
-                                    : "hover:bg-white/10"
+                                    : "hover:bg-white/10 cursor-pointer"
                                 }`}
                               >
                                 <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
@@ -2526,7 +2526,11 @@ export default function VoiceChatPage() {
                         disabled={disableQuickPrompts}
                         aria-label={prompt.title}
                         aria-disabled={disableQuickPrompts}
-                        className="p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors border border-white/10"
+                        className={`p-4 bg-white/5 rounded-lg text-left transition-colors border border-white/10 ${
+                          disableQuickPrompts
+                            ? "opacity-50 cursor-not-allowed hover:bg-white/5"
+                            : "hover:bg-white/10 cursor-pointer"
+                        }`}
                       >
                         <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
                       </button>
