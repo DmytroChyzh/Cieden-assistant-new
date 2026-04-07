@@ -99,6 +99,7 @@ export default function VoiceChatPage() {
   const [pendingAssistantBubble, setPendingAssistantBubble] = useState(false);
   const [pendingOnboardingKickoff, setPendingOnboardingKickoff] = useState(false);
   const [estimateDockActive, setEstimateDockActive] = useState(false);
+  const LAST_CONVERSATION_STORAGE_KEY = "cieden_last_conversation_id";
 
   const markOnboardingDoneCookie = useCallback(() => {
     // Used by middleware gating to avoid auth discovery until onboarding is done.
@@ -2002,7 +2003,19 @@ export default function VoiceChatPage() {
       if (creatingConversationRef.current) return;
 
       if (conversations.length > 0) {
-        setConversationId(conversations[0]._id);
+        let selected = conversations[0]?._id ?? null;
+        if (typeof window !== "undefined") {
+          const saved = window.localStorage.getItem(LAST_CONVERSATION_STORAGE_KEY);
+          if (saved) {
+            const matched = conversations.find((c) => String(c._id) === saved);
+            if (matched?._id) {
+              selected = matched._id;
+            }
+          }
+        }
+        if (selected) {
+          setConversationId(selected);
+        }
       } else {
         creatingConversationRef.current = true;
         try {
@@ -2016,7 +2029,13 @@ export default function VoiceChatPage() {
       }
     }
     initConversation();
-  }, [canUseChat, conversations, createConversation, conversationId]);
+  }, [canUseChat, conversations, createConversation, conversationId, LAST_CONVERSATION_STORAGE_KEY]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LAST_CONVERSATION_STORAGE_KEY, String(conversationId));
+  }, [conversationId, LAST_CONVERSATION_STORAGE_KEY]);
 
   // Handle messages from unified input
   const handleMessage = useCallback(async (text: string, source: 'voice' | 'text') => {

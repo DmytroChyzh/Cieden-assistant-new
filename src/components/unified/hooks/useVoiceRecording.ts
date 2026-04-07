@@ -15,6 +15,7 @@ import { CIEDEN_FIRST_MESSAGE } from '@/src/config/ciedenAgentContext';
 import { useContextInjection } from '@/src/hooks/useContextInjection';
 import { testMicrophoneAccess, checkMediaPermissions } from '@/src/utils/debugAudio';
 import { startPerfTimer, isDiagnosticsEnabled } from '@/src/utils/perf';
+import { getGuestIdentityFromCookie } from '@/src/utils/guestIdentity';
 
 interface UseVoiceRecordingProps {
   conversationId?: Id<"conversations"> | null;
@@ -55,9 +56,15 @@ export function useVoiceRecording({
   });
 
   // Get conversation history for context
+  const guestId = getGuestIdentityFromCookie()?.guestId;
   const messages = useQuery(
     api.messages.list,
-    conversationId ? { conversationId } : "skip"
+    conversationId
+      ? {
+          conversationId,
+          ...(guestId ? { guestId } : {}),
+        }
+      : "skip"
   );
 
   // Get conversation from provider

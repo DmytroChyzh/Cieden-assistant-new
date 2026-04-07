@@ -271,11 +271,17 @@ export function useTextInput({
     isTextConnected,
     setPendingConversationHistory
   } = useElevenLabsConversation();
+  const guestId = getGuestIdentityFromCookie()?.guestId;
 
   // Get conversation history for context (used to pass dynamic variables at session start)
   const messages = useQuery(
     api.messages.list,
-    conversationId ? { conversationId } : "skip"
+    conversationId
+      ? {
+          conversationId,
+          ...(guestId ? { guestId } : {}),
+        }
+      : "skip"
   );
 
   // Persist AI responses from the ElevenLabs WebSocket

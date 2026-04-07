@@ -6,15 +6,22 @@ import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import { extractContextFromMessages } from '@/src/utils/agentContext';
 import { useElevenLabsConversation } from '@/src/providers/ElevenLabsProvider';
+import { getGuestIdentityFromCookie } from '@/src/utils/guestIdentity';
 
 interface UseContextInjectionProps {
   conversationId?: Id<"conversations"> | null;
 }
 
 export function useContextInjection({ conversationId }: UseContextInjectionProps) {
+  const guestId = getGuestIdentityFromCookie()?.guestId;
   const messages = useQuery(
     api.messages.list,
-    conversationId ? { conversationId } : "skip"
+    conversationId
+      ? {
+          conversationId,
+          ...(guestId ? { guestId } : {}),
+        }
+      : "skip"
   );
 
   const { conversation, sessionMode, sendContextualUpdateOverSocket } = useElevenLabsConversation();
