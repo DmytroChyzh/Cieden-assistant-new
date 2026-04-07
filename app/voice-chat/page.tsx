@@ -3,7 +3,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { UnifiedChatInput } from "@/src/components/unified/UnifiedChatInput";
@@ -67,6 +67,28 @@ function setEstimateFlowWindowFlag(flowActive: boolean) {
   if (typeof window === "undefined") return;
   (window as unknown as { __ciedenEstimatePanelOpen?: boolean }).__ciedenEstimatePanelOpen =
     flowActive;
+}
+
+/** Legacy injected bubble text (welcome hub replaces it in UI). */
+const VOICE_CHAT_LEGACY_SOFT_WELCOME =
+  "Hi! Welcome to Cieden. I am your AI design assistant. How would you like me to address you?";
+
+function isLikelyDefaultCiedenGreeting(content: string): boolean {
+  const t = content.trim().toLowerCase();
+  if (t.length > 700) return false;
+  if (!t.includes("cieden")) return false;
+  const hints = [
+    "design assistant",
+    "ai design assistant",
+    "how can i help",
+    "how can i help you today",
+    "welcome to cieden",
+    "i'm the cieden",
+    "i am the cieden",
+    "i can explain who cieden",
+    "how would you like me to address you",
+  ];
+  return hints.some((h) => t.includes(h));
 }
 
 export default function VoiceChatPage() {
@@ -304,7 +326,6 @@ export default function VoiceChatPage() {
   const [onboardingMessages, setOnboardingMessages] = useState<ChatbotMessage[]>([]);
   const [onboardingName, setOnboardingName] = useState("");
   const [onboardingEmail, setOnboardingEmail] = useState("");
-  const hasInjectedWelcomeRef = useRef(false);
   const hasAskedEmailRef = useRef(false);
   const rememberedNameRef = useRef(false);
   const rememberedEmailRef = useRef(false);
@@ -349,29 +370,12 @@ export default function VoiceChatPage() {
     setOnboardingEmail(normalized);
   }, []);
 
-  // Non-blocking welcome message in the normal chat stream.
-  useEffect(() => {
-    if (hasInjectedWelcomeRef.current) return;
-    if (onboardingMessages.length > 0) return;
-    hasInjectedWelcomeRef.current = true;
-    setOnboardingMessages([
-      {
-        id: `onb-${Date.now()}`,
-        role: "assistant",
-        content:
-          "Hi! Welcome to Cieden. I am your AI design assistant. How would you like me to address you?",
-        timestamp: Date.now(),
-      },
-    ]);
-  }, [onboardingMessages.length]);
-
   // If auth discovery fails but Convex still recognizes an existing session,
   // `isAuthenticated` can temporarily stay false. In that case, prefer
   // `currentUser` to decide whether to show onboarding.
   // We show the onboarding UI only until we finish name+email input.
   // After that, we render the main chat UI even if Convex Auth is temporarily
   // broken (guest persistence will take over).
-  const shouldShowOnboarding = false;
   const disableQuickPrompts = false;
 
   const pushWelcomePromptsIfMissing = useCallback(() => {
@@ -2295,7 +2299,7 @@ export default function VoiceChatPage() {
   // Final safety net: after any major stream update, pin to bottom.
   useEffect(() => {
     forceScrollToBottom();
-  }, [convexMessages?.length, onboardingMessages.length, shouldShowOnboarding, forceScrollToBottom]);
+  }, [convexMessages?.length, onboardingMessages.length, forceScrollToBottom]);
 
 
 
@@ -2373,6 +2377,35 @@ export default function VoiceChatPage() {
   const getMessageMode = useCallback((content: string): 'default' | 'update' | 'overlay' => {
     return (parseToolCall(content)?.mode) || 'default';
   }, []);
+
+  const visibleConvexChatMessages = useMemo(() => {
+    const raw = convexMessages || [];
+    const filtered = raw.filter((message) => {
+      if (message.role === "system" && message.source === "contextual") return false;
+      if (message.role === "user" && message.content.startsWith("I selected:")) return false;
+      if (/onboarding complete\./i.test((message.content || "").trim())) return false;
+      const mode = getMessageMode(message.content);
+      if (mode === "update") return false;
+      return true;
+    });
+    const toolDeduped = filtered.filter((message, index, arr) => {
+      const isTool = !!parseToolCall(message.content);
+      if (!isTool) return true;
+      const prev = index > 0 ? arr[index - 1] : null;
+      const prevIsTool = !!(prev && parseToolCall(prev.content));
+      if (prevIsTool && prev?.content === message.content) return false;
+      return true;
+    });
+    let skipGreetings = 2;
+    return toolDeduped.filter((m) => {
+      if (m.role !== "assistant") return true;
+      if (skipGreetings > 0 && isLikelyDefaultCiedenGreeting(m.content || "")) {
+        skipGreetings--;
+        return false;
+      }
+      return true;
+    });
+  }, [convexMessages, getMessageMode]);
 
   // Toggle between normal and go mode
   const toggleGoMode = useCallback(() => {
@@ -2576,202 +2609,13 @@ export default function VoiceChatPage() {
                   scrollPaddingBottom: "var(--vc-composer-bottom-inset, 0px)",
                 }}
               >
-              {shouldShowOnboarding ? (
-                <div className="space-y-4 lg:space-y-6 w-full max-w-[min(100%,1400px)] mx-auto py-6">
-
-                  {/* Render onboarding messages inline so welcome+buttons appear below them */}
-                  {onboardingMessages.map((message) => {
-                    const isToolCall = !!parseToolCall(message.content);
-                    const isInternalKickoff = /onboarding complete\./i.test(message.content.trim());
-                    const isWelcomePrompts = message.content === ONBOARDING_WELCOME_PROMPTS_TOKEN;
-                    if (isInternalKickoff) return null;
-                    if (isWelcomePrompts) {
-                      return (
-                        <div key={message.id} className="pt-4 space-y-4 w-full max-w-[900px] mx-auto">
-                          <div className="text-center">
-                            <h2 className="text-lg font-semibold text-white">Welcome — your Cieden assistant is here 👋</h2>
-                            <p className="text-white/70 text-sm mt-1">Tell me about your project or pick one of the questions below.</p>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {quickPrompts.map((prompt, index) => (
-                              <button
-                                key={index}
-                                type="button"
-                                disabled={disableQuickPrompts}
-                                aria-label={prompt.title}
-                                aria-disabled={disableQuickPrompts}
-                                onClick={() => {
-                                  if (disableQuickPrompts) return;
-                                  const value = (prompt as any).valueUk || prompt.valueEn;
-                                  sendQuickPrompt(value);
-                                }}
-                                className={`min-h-[68px] p-4 rounded-xl text-left transition-colors border border-[#6A56FF]/35 bg-[#4C3AE6]/30 flex items-center ${
-                                  disableQuickPrompts
-                                    ? "opacity-50 cursor-not-allowed hover:bg-[#4C3AE6]/30"
-                                    : "hover:bg-[#4C3AE6]/60 cursor-pointer"
-                                }`}
-                              >
-                                <h3 className="font-medium text-white leading-snug">{prompt.title}</h3>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    }
-                    if (isToolCall) {
-                      // We want tool cards to be rendered only from `convexMessages`.
-                      // During onboarding we may queue TOOL_CALL strings into `onboardingMessages`,
-                      // but showing them here creates duplicates once they also appear in Convex.
-                      return null;
-                    }
-                    return (
-                      <ChatMessage
-                        key={message.id}
-                        message={message}
-                        onQuickPrompt={disableQuickPrompts ? undefined : (text) => sendQuickPrompt(text)}
-                        userName={userDisplayName}
-                      />
-                    );
-                  })}
-
-                  {/* Typing bubble */}
-                  {pendingAssistantBubble && (
-                    <ChatMessage
-                      key="onb-typing"
-                      message={{ id: "onb-typing", role: "assistant", content: "__TYPING__", timestamp: Date.now() }}
-                      userName={userDisplayName}
-                    />
-                  )}
-
-                  <div ref={messagesEndRef} className={estimateDockActive ? "h-6" : "h-8"} />
-                </div>
-              ) : (
-                (onboardingMessages.length > 0) ||
-                ((convexMessages && convexMessages.length > 0) || (voiceStatus !== 'idle'))
-              ) ? (
-                <div className="space-y-4 lg:space-y-6 w-full max-w-[min(100%,1400px)] mx-auto py-6">
-
-                  {/* Onboarding messages (name/email flow) + inline welcome block */}
-                  {onboardingMessages.length > 0 && onboardingMessages.map((message) => {
-                    const isToolCall = !!parseToolCall(message.content);
-                    const isInternalKickoff = /onboarding complete\./i.test(message.content.trim());
-                    const isWelcomePrompts = message.content === ONBOARDING_WELCOME_PROMPTS_TOKEN;
-                    if (isInternalKickoff) return null;
-                    if (isToolCall) {
-                      // Same rule as above: tool cards only via Convex messages.
-                      return null;
-                    }
-                    if (isWelcomePrompts) {
-                      return (
-                        <div key={`onb-welcome-${message.id}`} className="space-y-4 py-2 w-full max-w-[900px] mx-auto">
-                          <div className="text-center">
-                            <h2 className="text-lg font-semibold text-white">Welcome — your Cieden assistant is here 👋</h2>
-                            <p className="text-white/70 text-sm mt-1">Tell me about your project or pick one of the questions below.</p>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {quickPrompts.map((prompt, promptIndex) => (
-                              <button
-                                key={promptIndex}
-                                type="button"
-                                disabled={disableQuickPrompts}
-                                aria-label={prompt.title}
-                                aria-disabled={disableQuickPrompts}
-                                onClick={() => {
-                                  if (disableQuickPrompts) return;
-                                  const value = (prompt as any).valueUk || prompt.valueEn;
-                                  sendQuickPrompt(value);
-                                }}
-                                className={`min-h-[68px] p-4 rounded-xl text-left transition-colors border border-[#6A56FF]/35 bg-[#4C3AE6]/30 flex items-center ${
-                                  disableQuickPrompts
-                                    ? "opacity-50 cursor-not-allowed hover:bg-[#4C3AE6]/30"
-                                    : "hover:bg-[#4C3AE6]/60 cursor-pointer"
-                                }`}
-                              >
-                                <h3 className="font-medium text-white leading-snug">{prompt.title}</h3>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div key={`onb-wrap-${message.id}`} className="space-y-4">
-                        <ChatMessage
-                          key={`onb-${message.id}`}
-                          message={message}
-                          onQuickPrompt={disableQuickPrompts ? undefined : (text) => sendQuickPrompt(text)}
-                          userName={userDisplayName}
-                        />
-                      </div>
-                    );
-                  })}
-
-                  {convexMessages
-                    .filter(message => {
-                      if (message.role === 'system' && message.source === 'contextual') return false;
-                      if (message.role === 'user' && message.content.startsWith('I selected:')) return false;
-                      // Hide internal onboarding kickoff message from the client view
-                      if (/onboarding complete\./i.test(message.content.trim())) return false;
-                      const mode = getMessageMode(message.content);
-                      if (mode === 'update') return false;
-                      return true;
-                    })
-                    .filter((message, index, arr) => {
-                      const isTool = !!parseToolCall(message.content);
-                      if (!isTool) return true;
-                      const prev = index > 0 ? arr[index - 1] : null;
-                      const prevIsTool = !!(prev && parseToolCall(prev.content));
-                      // Skip only immediate duplicates of the same tool payload.
-                      if (prevIsTool && prev?.content === message.content) return false;
-                      return true;
-                    })
-                    .map((message) => {
-                      const isToolCall = !!parseToolCall(message.content);
-                      if (isToolCall) {
-                        return (
-                          <MessageCard
-                            key={message._id}
-                            message={message}
-                            onUserAction={handleUserAction}
-                            compact={isMobile}
-                          />
-                        );
-                      }
-                      const botMsg: ChatbotMessage = {
-                        id: message._id,
-                        role: message.role as 'user' | 'assistant',
-                        content: message.content,
-                        timestamp: (message as { _creationTime?: number })._creationTime ?? Date.now(),
-                      };
-                      return (
-                        <ChatMessage
-                          key={message._id}
-                          message={botMsg}
-                          onQuickPrompt={(text) => sendQuickPrompt(text)}
-                          userName={userDisplayName}
-                        />
-                      );
-                    })}
-                  {pendingAssistantBubble && (
-                    <ChatMessage
-                      key="pending-assistant-bubble"
-                      message={{
-                        id: "pending-assistant-bubble",
-                        role: "assistant",
-                        content: "__TYPING__",
-                        timestamp: Date.now(),
-                      }}
-                      userName={userDisplayName}
-                    />
-                  )}
-                  {/* Spacer під останнім повідомленням, приблизно як висота інпуту */}
-                  <div ref={messagesEndRef} className={estimateDockActive ? "h-6" : "h-8"} />
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center flex-1 max-w-[900px] mx-auto w-full px-4 gap-6 py-12">
-                  <div className="text-center">
+              <div className="space-y-4 lg:space-y-6 w-full max-w-[min(100%,1400px)] mx-auto py-6">
+                <div className="w-full max-w-[900px] mx-auto flex flex-col items-center gap-6 pb-2">
+                  <div className="text-center px-2">
                     <h2 className="text-xl font-semibold text-white mb-2">Welcome — your Cieden assistant is here 👋</h2>
-                    <p className="text-white/70">Tell me about your project or pick one of the questions below.</p>
+                    <p className="text-white/70 text-sm sm:text-base">
+                      Tell me about your project or pick one of the questions below. How would you like me to address you?
+                    </p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-[900px]">
                     {quickPrompts.map((prompt, index) => (
@@ -2796,9 +2640,72 @@ export default function VoiceChatPage() {
                       </button>
                     ))}
                   </div>
-                  <div ref={messagesEndRef} />
                 </div>
-              )}
+
+                {onboardingMessages.map((message) => {
+                  const isToolCall = !!parseToolCall(message.content);
+                  const isInternalKickoff = /onboarding complete\./i.test(message.content.trim());
+                  const isWelcomePrompts = message.content === ONBOARDING_WELCOME_PROMPTS_TOKEN;
+                  const isLegacySoftWelcome =
+                    message.content.trim() === VOICE_CHAT_LEGACY_SOFT_WELCOME.trim();
+                  if (isInternalKickoff) return null;
+                  if (isWelcomePrompts) return null;
+                  if (isLegacySoftWelcome) return null;
+                  if (isToolCall) return null;
+                  return (
+                    <div key={`onb-wrap-${message.id}`} className="space-y-4">
+                      <ChatMessage
+                        key={`onb-${message.id}`}
+                        message={message}
+                        onQuickPrompt={(text) => sendQuickPrompt(text)}
+                        userName={userDisplayName}
+                      />
+                    </div>
+                  );
+                })}
+
+                {visibleConvexChatMessages.map((message) => {
+                  const isToolCall = !!parseToolCall(message.content);
+                  if (isToolCall) {
+                    return (
+                      <MessageCard
+                        key={message._id}
+                        message={message}
+                        onUserAction={handleUserAction}
+                        compact={isMobile}
+                      />
+                    );
+                  }
+                  const botMsg: ChatbotMessage = {
+                    id: message._id,
+                    role: message.role as "user" | "assistant",
+                    content: message.content,
+                    timestamp: (message as { _creationTime?: number })._creationTime ?? Date.now(),
+                  };
+                  return (
+                    <ChatMessage
+                      key={message._id}
+                      message={botMsg}
+                      onQuickPrompt={(text) => sendQuickPrompt(text)}
+                      userName={userDisplayName}
+                    />
+                  );
+                })}
+
+                {pendingAssistantBubble && (
+                  <ChatMessage
+                    key="pending-assistant-bubble"
+                    message={{
+                      id: "pending-assistant-bubble",
+                      role: "assistant",
+                      content: "__TYPING__",
+                      timestamp: Date.now(),
+                    }}
+                    userName={userDisplayName}
+                  />
+                )}
+                <div ref={messagesEndRef} className={estimateDockActive ? "h-6" : "h-8"} />
+              </div>
               </div>
             </main>
             
