@@ -1,0 +1,2 @@
+NEXT_PUBLIC_CONVEX_URL=https://majestic-wombat-112.eu-west-1.convex.cloud
+CONVEX_DEPLOYMENT=dev:majestic-wombat-112 # team: dmytrochyzh, project: cieden-assistant

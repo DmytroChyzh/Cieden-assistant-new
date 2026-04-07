@@ -1,0 +1,4 @@
+# Never commit environment backups — they may contain secrets.
+*.bak
+.env*
+.env.local*
