@@ -74,10 +74,10 @@
     "@tailwindcss/postcss": "^4",
     "tailwindcss": "^4",
     "zod": "^3.25.76",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "patch-package": "^8.0.1"
   },
   "devDependencies": {
-    "patch-package": "^8.0.1",
     "@eslint/eslintrc": "^3",
     "@types/node": "20.19.35",
     "@types/react": "19.2.14",
