@@ -291,12 +291,16 @@ export default function VoiceChatPage() {
     [sendProgrammaticMessage, canUseChat, conversationId, ensureConversationId],
   );
 
-  // Onboarding state for unauthenticated users (collect name + email via main chat input)
+  // Lightweight onboarding state: chat is always available immediately.
+  // We only use helper assistant prompts in-stream (non-blocking).
   type OnboardingStep = "ask_name" | "ask_email" | "creating" | "done";
-  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>("ask_name");
+  const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>("done");
   const [onboardingMessages, setOnboardingMessages] = useState<ChatbotMessage[]>([]);
   const [onboardingName, setOnboardingName] = useState("");
   const [onboardingEmail, setOnboardingEmail] = useState("");
+  const hasInjectedWelcomeRef = useRef(false);
+  const hasAskedEmailRef = useRef(false);
+  const rememberedNameRef = useRef(false);
 
   // `isAuthenticated()` discovery can fail, but for message sending we must
   // have a real authenticated Convex identity (`currentUser`).
@@ -315,21 +319,33 @@ export default function VoiceChatPage() {
     currentUser?.email ||
     "";
 
-  // Seed initial onboarding assistant message when user is not authenticated
+  // Restore preferred display name for guest/soft-onboarding flows.
   useEffect(() => {
-    if (!canUseChat && onboardingMessages.length === 0) {
-      setOnboardingMessages([
-        {
-          id: `onb-${Date.now()}`,
-          role: "assistant",
-          content:
-            "Hi! Welcome to Cieden. I'm your AI design assistant. Before we begin, could you please tell me your name?",
-          timestamp: Date.now(),
-        },
-      ]);
-      setOnboardingStep("ask_name");
-    }
-  }, [canUseChat, onboardingMessages.length]);
+    if (rememberedNameRef.current) return;
+    if (typeof window === "undefined") return;
+    const savedName = window.localStorage.getItem("cieden_preferred_name");
+    if (!savedName) return;
+    const normalized = savedName.trim();
+    if (!normalized) return;
+    rememberedNameRef.current = true;
+    setOnboardingName(normalized);
+  }, []);
+
+  // Non-blocking welcome message in the normal chat stream.
+  useEffect(() => {
+    if (hasInjectedWelcomeRef.current) return;
+    if (onboardingMessages.length > 0) return;
+    hasInjectedWelcomeRef.current = true;
+    setOnboardingMessages([
+      {
+        id: `onb-${Date.now()}`,
+        role: "assistant",
+        content:
+          "Hi! Welcome to Cieden. I am your AI design assistant. How would you like me to address you?",
+        timestamp: Date.now(),
+      },
+    ]);
+  }, [onboardingMessages.length]);
 
   // If auth discovery fails but Convex still recognizes an existing session,
   // `isAuthenticated` can temporarily stay false. In that case, prefer
@@ -337,11 +353,8 @@ export default function VoiceChatPage() {
   // We show the onboarding UI only until we finish name+email input.
   // After that, we render the main chat UI even if Convex Auth is temporarily
   // broken (guest persistence will take over).
-  const shouldShowOnboarding = onboardingStep !== "done";
-  // Quick prompts are only enabled after onboarding is completed (name + email).
-  // Note: `canUseChat` may briefly be false on first load even when onboarding is done
-  // (auth discovery race). We still want buttons to be clickable then.
-  const disableQuickPrompts = onboardingStep !== "done";
+  const shouldShowOnboarding = false;
+  const disableQuickPrompts = false;
 
   const pushWelcomePromptsIfMissing = useCallback(() => {
     setOnboardingMessages((prev) => {
@@ -383,6 +396,31 @@ export default function VoiceChatPage() {
     if (conversationId) return;
     void ensureConversationId();
   }, [canUseChat, onboardingStep, conversationId, ensureConversationId]);
+
+  // Soft contact capture: ask for email later in the conversation, without blocking chat.
+  useEffect(() => {
+    if (hasAskedEmailRef.current) return;
+    if (userEmailDisplay) return;
+    const meaningfulUserMessages = (convexMessages || []).filter(
+      (m) =>
+        m.role === "user" &&
+        !(m.role === "system" && m.source === "contextual") &&
+        !/onboarding complete\./i.test((m.content || "").trim()),
+    );
+    if (meaningfulUserMessages.length < 5) return;
+
+    hasAskedEmailRef.current = true;
+    setOnboardingMessages((prev) => [
+      ...prev,
+      {
+        id: `contact-email-${Date.now()}`,
+        role: "assistant",
+        content:
+          "If it is convenient, you can share your email and we will have an easier way to follow up with project details later. Totally optional.",
+        timestamp: Date.now(),
+      },
+    ]);
+  }, [convexMessages, userEmailDisplay]);
 
   // Handle pre-auth messages (name + email) coming from the main chat input
   const handlePreAuthMessage = useCallback(
@@ -2037,6 +2075,42 @@ export default function VoiceChatPage() {
       }
     }
 
+    // Soft name capture from natural user messages (no blocking form).
+    const normalizeName = (value: string) => value.replace(/[.,!?;:]+$/g, "").trim();
+    const extractNameFromMessage = (value: string): string | null => {
+      const compact = value.trim();
+      if (!compact) return null;
+      const patterns = [
+        /(?:my name is|call me|i am|i'm)\s+([A-Za-z][A-Za-z' -]{1,40})/i,
+        /(?:мене звати|називайте мене|я)\s+([A-Za-zА-Яа-яІіЇїЄєҐґ' -]{1,40})/i,
+      ];
+      for (const pattern of patterns) {
+        const match = compact.match(pattern);
+        if (match?.[1]) return normalizeName(match[1]);
+      }
+      // If it's the first answer right after the greeting, allow a single-word name.
+      if (!onboardingName) {
+        const single = compact.match(/^([A-Za-zА-Яа-яІіЇїЄєҐґ' -]{2,30})$/);
+        if (single?.[1]) return normalizeName(single[1]);
+      }
+      return null;
+    };
+
+    if (source === "text") {
+      const candidateName = extractNameFromMessage(text);
+      if (candidateName && candidateName !== onboardingName) {
+        setOnboardingName(candidateName);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("cieden_preferred_name", candidateName);
+        }
+        if (sendContextualUpdateRef.current) {
+          sendContextualUpdateRef.current(
+            `[USER PROFILE UPDATE] Preferred user name is "${candidateName}". Use this name naturally in future replies.`,
+          );
+        }
+      }
+    }
+
     // Show typing bubble immediately after user message
     typingHoldUntilRef.current = Date.now() + 300;
     setEstimateTyping({ active: true, label: "Assistant is typing…" });
@@ -2067,7 +2141,7 @@ export default function VoiceChatPage() {
       console.log('📤 Text message will be handled by UnifiedChatInput component');
     }
     // Voice messages already handled by existing voice system
-  }, [voiceStatus, conversationId, onboardingStep]);
+  }, [voiceStatus, conversationId, onboardingStep, onboardingName]);
 
   // Keep chat pinned to bottom, але тільки коли користувач не скролив вгору.
   // Це дозволяє читати попередні повідомлення і натиснути `Cancel` у режимі estimate-assistant.
@@ -2195,6 +2269,34 @@ export default function VoiceChatPage() {
       setClearing(false);
     }
   }, [conversationId, clearHistory, clearing]);
+
+  const handleNewChat = useCallback(async () => {
+    if (!canUseChat) return;
+    if (creatingConversationRef.current) return;
+    creatingConversationRef.current = true;
+    try {
+      const id = await createConversation({ title: "Voice Chat" });
+      setConversationId(id);
+      setOnboardingMessages((prev) => {
+        if (prev.length === 0) return prev;
+        return [
+          {
+            id: `onb-${Date.now()}`,
+            role: "assistant",
+            content: "New chat started. What would you like to discuss?",
+            timestamp: Date.now(),
+          },
+        ];
+      });
+      try {
+        window.dispatchEvent(new CustomEvent("history-cleared"));
+      } catch (_) {}
+    } catch (error) {
+      console.error("Failed to create a new chat:", error);
+    } finally {
+      creatingConversationRef.current = false;
+    }
+  }, [canUseChat, createConversation]);
   
   // Extract mode from message content via shared util
   const getMessageMode = useCallback((content: string): 'default' | 'update' | 'overlay' => {
@@ -2341,6 +2443,7 @@ export default function VoiceChatPage() {
           <VoiceChatHeader
             className={isMobile ? 'relative' : undefined}
             onSettingsOpen={() => setShowSettings(true)}
+            onNewChat={handleNewChat}
             // Clear conversation history button is intentionally hidden.
             onSignOut={async () => {
               await signOut();
@@ -2635,9 +2738,7 @@ export default function VoiceChatPage() {
                   onProgrammaticSendReady={(sendFn) => setSendProgrammaticMessage(() => sendFn)}
                   actionHandlers={actionHandlers}
                   showSettings={showSettings}
-                  onPreAuthMessage={
-                    onboardingStep !== "done" ? handlePreAuthMessage : undefined
-                  }
+                  onPreAuthMessage={undefined}
                   onRequestSelect={async (request) => {
                     console.log('🎯 Quick action selected:', request);
                     if (sendProgrammaticMessage) {
@@ -2663,9 +2764,7 @@ export default function VoiceChatPage() {
                 onStatusChange={setVoiceStatus}
                 onContextualUpdate={(sendUpdate) => setSendContextualUpdate(() => sendUpdate)}
                 onProgrammaticSendReady={(sendFn) => setSendProgrammaticMessage(() => sendFn)}
-                onPreAuthMessage={
-                  onboardingStep !== "done" ? handlePreAuthMessage : undefined
-                }
+                onPreAuthMessage={undefined}
                 actionHandlers={actionHandlers}
                 showSettings={showSettings}
                 alignLeft={

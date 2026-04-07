@@ -10,6 +10,7 @@ import { api } from "@/convex/_generated/api";
 interface HeaderMenuProps {
   onClearHistory?: () => void;
   onSignOut?: () => void;
+  onNewChat?: () => void;
   clearing?: boolean;
   userName?: string;
   userEmail?: string;
@@ -29,6 +30,7 @@ export function VoiceChatHeader({
   className,
   onClearHistory,
   onSignOut,
+  onNewChat,
   clearing,
   userName,
   userEmail,
@@ -122,6 +124,18 @@ export function VoiceChatHeader({
               )}
             </div>
             <div className="space-y-1">
+              {onNewChat && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onNewChat();
+                    setAvatarOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/10 rounded text-sm"
+                >
+                  <Trash2 className="h-4 w-4" /> New Chat
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
