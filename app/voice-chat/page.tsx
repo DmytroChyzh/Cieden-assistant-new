@@ -1186,6 +1186,17 @@ export default function VoiceChatPage() {
   }, [onboardingStep]);
 
   useEffect(() => {
+    // While name/email onboarding is active, history comes from `onboardingMessages`
+    // only. Convex can still load an existing thread (e.g. conversations[0]) whose
+    // last message is from the user — that would turn on the universal typing bubble
+    // with no follow-up assistant row → stuck dots under the welcome prompt.
+    if (onboardingStep !== "done") {
+      lastUserTypingMessageIdRef.current = null;
+      setEstimateTyping((prev) => (prev.active ? { active: false, label: "" } : prev));
+      setPendingAssistantBubble(false);
+      return;
+    }
+
     const visible = (convexMessages || []).filter(
       (m) => !(m.role === "system" && m.source === "contextual"),
     );
@@ -1230,11 +1241,14 @@ export default function VoiceChatPage() {
       setEstimateTyping((prev) => (prev.active ? { active: false, label: "" } : prev));
       setPendingAssistantBubble(false);
     }
-  }, [convexMessages]);
+  }, [convexMessages, onboardingStep]);
 
   // Fallback typing indicator: if panel is open and last visible message is from user,
   // show "thinking" bubble above input even if events are missed.
   useEffect(() => {
+    if (onboardingStep !== "done") {
+      return;
+    }
     if (!showEstimatePanel) {
       setEstimateTyping((prev) => (prev.active ? { active: false, label: "" } : prev));
       return;
@@ -1248,7 +1262,7 @@ export default function VoiceChatPage() {
     } else if (last?.role === "assistant") {
       setEstimateTyping((prev) => (prev.active ? { active: false, label: "" } : prev));
     }
-  }, [convexMessages, showEstimatePanel]);
+  }, [convexMessages, showEstimatePanel, onboardingStep]);
   // Side panel opens only when EstimateWizardPanel reports final results (inline flow completion).
 
   useEffect(() => {
