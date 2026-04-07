@@ -1,7 +1,7 @@
 {
     "type": "client",
     "name": "generate_estimate",
-    "description": "Generate a preliminary cost estimate card for a design project based on product type, complexity and scope. Use when the user asks about pricing, cost, budget, or wants an estimate for their project.",
+    "description": "Same UI as open_calculator: shows the preliminary estimate chooser IN THE CHAT (assistant path vs questionnaire; panel opens only for questionnaire). Use when the user asks about pricing, cost, budget, or a rough estimate. Call only one of open_calculator or generate_estimate per reply, not both.",
     "response_timeout_secs": 20,
     "disable_interruptions": false,
     "force_pre_tool_speech": false,

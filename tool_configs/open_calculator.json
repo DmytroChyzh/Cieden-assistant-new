@@ -1,7 +1,7 @@
 {
     "type": "client",
     "name": "open_calculator",
-    "description": "Open an interactive cost/effort estimator card. Use when the user explicitly asks for a calculator or wants to explore pricing options interactively.",
+    "description": "Open the preliminary estimate UI in the CHAT: user chooses (1) conversational estimate with the assistant in chat, or (2) step-by-step questionnaire — the right-side panel opens only after they pick the questionnaire. Use for cost, price, budget, ballpark, or calculator requests. Do not tell the user the side panel is already open before they choose questionnaire.",
     "response_timeout_secs": 20,
     "disable_interruptions": false,
     "force_pre_tool_speech": false,

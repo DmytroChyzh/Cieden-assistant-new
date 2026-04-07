@@ -21,7 +21,8 @@
     "test:agent": "agents test 'Support agent'",
     "test:agent:create": "bun .claude/skills/elevenlabs-agent-testing/scripts/agent-tests/create-agent-tests.ts",
     "test:agent:push": "agents push-tests",
-    "test:all": "bun run test:client && bun run test:agent"
+    "test:all": "bun run test:client && bun run test:agent",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@auth/core": "0.37.0",
@@ -31,7 +32,7 @@
     "@copilotkit/react-ui": "^1.5.20",
     "@copilotkit/runtime": "^1.9.3",
     "@elevenlabs/client": "^0.9.2",
-    "@elevenlabs/react": "^0.9.1",
+    "@elevenlabs/react": "^0.9.2",
     "@heroui/input": "^2.4.25",
     "@heroui/system": "^2.4.20",
     "@heroui/theme": "^2.4.20",
@@ -76,6 +77,7 @@
     "typescript": "5.9.3"
   },
   "devDependencies": {
+    "patch-package": "^8.0.1",
     "@eslint/eslintrc": "^3",
     "@types/node": "20.19.35",
     "@types/react": "19.2.14",

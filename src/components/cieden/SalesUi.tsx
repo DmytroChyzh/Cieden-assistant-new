@@ -1185,9 +1185,101 @@ export function ProcessTimelineCard() {
   );
 }
 
+export type PricingModelDetailsId = "project-based" | "team-extension" | "build-operate-transfer";
+
+type PricingModelDetails = {
+  id: PricingModelDetailsId;
+  title: string;
+  subtitle: string;
+  startingAt: string;
+  priceNote?: string;
+  bestFor: string[];
+  howItWorks: string[];
+  whatYouGet: string[];
+  accentDotClass: string;
+};
+
+const PRICING_MODEL_DETAILS: Record<PricingModelDetailsId, PricingModelDetails> = {
+  "project-based": {
+    id: "project-based",
+    title: "Project-based",
+    subtitle:
+      "You delegate the full project scope to us end-to-end, from planning and discovery to final handoff.",
+    startingAt: "$50/hour",
+    priceNote: "Designers based in USA/Canada: from $80/hour.",
+    bestFor: [
+      "You need one team to own the full design delivery.",
+      "You want clear milestones and timeline accountability.",
+      "Your internal team needs a complete design partner.",
+    ],
+    howItWorks: [
+      "We align on goals, constraints, and delivery plan.",
+      "We run discovery, UX, UI, and handoff under one flow.",
+      "You get regular progress reviews and transparent reporting.",
+    ],
+    whatYouGet: [
+      "A one-stop design journey with clear ownership.",
+      "Research-backed design decisions and rationale.",
+      "Final design files and practical next-step recommendations.",
+    ],
+    accentDotClass: "bg-violet-300",
+  },
+  "team-extension": {
+    id: "team-extension",
+    title: "Team extension",
+    subtitle:
+      "Our designers integrate into your workflows to fill skill gaps and scale delivery capacity fast.",
+    startingAt: "$7,200/month per person",
+    priceNote: "Designers based in USA/Canada: from $11,520/month.",
+    bestFor: [
+      "You already have product/dev teams and need more design bandwidth.",
+      "You want flexibility to scale team capacity up or down.",
+      "You need specific roles embedded into your roadmap.",
+    ],
+    howItWorks: [
+      "Specialists join your rituals, tools, and communication cadence.",
+      "We align weekly on priorities with your product stakeholders.",
+      "You keep control of roadmap while we expand execution capacity.",
+    ],
+    whatYouGet: [
+      "Designers who feel like part of your in-house team.",
+      "Flexible staffing with strategic design support.",
+      "Ongoing checkpoints to keep quality and outcomes consistent.",
+    ],
+    accentDotClass: "bg-sky-300",
+  },
+  "build-operate-transfer": {
+    id: "build-operate-transfer",
+    title: "Build-operate-transfer",
+    subtitle:
+      "We recruit and operate a team for your product, then transfer the team smoothly when you are ready.",
+    startingAt: "$25,000/per person",
+    bestFor: [
+      "You want speed now and long-term team ownership later.",
+      "You need help with hiring, onboarding, and delivery operations.",
+      "You plan to move the team to your payroll or EOR model.",
+    ],
+    howItWorks: [
+      "We hire and onboard the right roles for your context.",
+      "We manage day-to-day execution with regular visibility.",
+      "When ready, we transfer team and process ownership to you.",
+    ],
+    whatYouGet: [
+      "A handpicked team trained for your product needs.",
+      "Managed operations and delivery governance.",
+      "A structured and low-friction transfer path.",
+    ],
+    accentDotClass: "bg-emerald-300",
+  },
+};
+
+const openPricingModelDetailsPanel = (modelId: PricingModelDetailsId) => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("open-pricing-model-details-panel", { detail: { modelId } }));
+};
+
 /* ── Getting Started card ── */
 export function GettingStartedCard() {
-  const [activeModel, setActiveModel] = useState<"project" | "extension" | "bot">("project");
 
   return (
     <Card className="bg-transparent backdrop-blur-xl border-white/[0.08] font-[Gilroy]">
@@ -1199,7 +1291,7 @@ export function GettingStartedCard() {
       </CardHeader>
       <CardContent className="space-y-8 text-sm sm:text-[16px] text-white/70">
         <ol className="space-y-2 list-decimal list-inside text-sm sm:text-[15px]">
-          <li>Write to us (chat or form on cieden.com/contact) — briefly about your project</li>
+          <li>Write to us here in chat — briefly describe your project goals and constraints</li>
           <li>We schedule a call and ask about your vision, goals, and requirements</li>
           <li>You get a free consultation: what we can offer for your budget and timeline</li>
         </ol>
@@ -1241,15 +1333,15 @@ export function GettingStartedCard() {
                 </div>
               </div>
               <div className="mt-4 pt-3 border-t border-white/[0.08]">
-                <a
-                  href="https://cieden.com/contact"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-300 bg-transparent py-2.5 px-3 text-sm font-semibold text-violet-100 hover:border-violet-200 transition-colors"
+                <button
+                  type="button"
+                  onClick={() => openPricingModelDetailsPanel("project-based")}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-300 bg-transparent py-2.5 px-3 text-sm font-semibold text-violet-100 hover:border-violet-200 transition-colors cursor-pointer"
+                  aria-label="Learn more about Project-based model"
                 >
-                  Contact us
-                  <ExternalLink className="w-3.5 h-3.5" aria-hidden />
-                </a>
+                  Learn more
+                  <ChevronRight className="w-3.5 h-3.5" aria-hidden />
+                </button>
               </div>
             </div>
 
@@ -1281,15 +1373,15 @@ export function GettingStartedCard() {
                 </div>
               </div>
               <div className="mt-4 pt-3 border-t border-white/[0.08]">
-                <a
-                  href="https://cieden.com/contact"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-300 bg-transparent py-2.5 px-3 text-sm font-semibold text-sky-100 hover:border-sky-200 transition-colors"
+                <button
+                  type="button"
+                  onClick={() => openPricingModelDetailsPanel("team-extension")}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-300 bg-transparent py-2.5 px-3 text-sm font-semibold text-sky-100 hover:border-sky-200 transition-colors cursor-pointer"
+                  aria-label="Learn more about Team extension model"
                 >
-                  Contact us
-                  <ExternalLink className="w-3.5 h-3.5" aria-hidden />
-                </a>
+                  Learn more
+                  <ChevronRight className="w-3.5 h-3.5" aria-hidden />
+                </button>
               </div>
             </div>
 
@@ -1320,15 +1412,15 @@ export function GettingStartedCard() {
                 </div>
               </div>
               <div className="mt-4 pt-3 border-t border-white/[0.08]">
-                <a
-                  href="https://cieden.com/contact"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-transparent py-2.5 px-3 text-sm font-semibold text-emerald-100 hover:border-emerald-200 transition-colors"
+                <button
+                  type="button"
+                  onClick={() => openPricingModelDetailsPanel("build-operate-transfer")}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-transparent py-2.5 px-3 text-sm font-semibold text-emerald-100 hover:border-emerald-200 transition-colors cursor-pointer"
+                  aria-label="Learn more about Build-operate-transfer model"
                 >
-                  Contact us
-                  <ExternalLink className="w-3.5 h-3.5" aria-hidden />
-                </a>
+                  Learn more
+                  <ChevronRight className="w-3.5 h-3.5" aria-hidden />
+                </button>
               </div>
             </div>
           </div>
@@ -1336,6 +1428,181 @@ export function GettingStartedCard() {
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row gap-3" />
     </Card>
+  );
+}
+
+interface PricingModelDetailsPanelProps {
+  modelId: PricingModelDetailsId;
+  onClose: () => void;
+}
+
+export function PricingModelDetailsPanel({ modelId, onClose }: PricingModelDetailsPanelProps) {
+  const details = PRICING_MODEL_DETAILS[modelId];
+  const [showPricingPage, setShowPricingPage] = useState(false);
+  const [iframeLoading, setIframeLoading] = useState(false);
+  const [iframeError, setIframeError] = useState(false);
+  const pricingModelsUrl = "https://cieden.com/pricing-models";
+  const pricingProxyUrl = `/api/proxy-case?url=${encodeURIComponent(pricingModelsUrl)}`;
+
+  if (!details) return null;
+
+  return (
+    <motion.div
+      initial={{ x: "100%" }}
+      animate={{ x: 0 }}
+      exit={{ x: "100%" }}
+      transition={{ type: "spring", damping: 30, stiffness: 300 }}
+      className="fixed right-0 top-0 z-50 flex h-full w-full flex-col border-l border-white/[0.12] bg-[#0a0a0f]/95 backdrop-blur-2xl ring-1 ring-inset ring-white/[0.05] sm:w-1/2"
+    >
+      <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-2.5">
+        {showPricingPage ? (
+          <button
+            type="button"
+            onClick={() => {
+              setShowPricingPage(false);
+              setIframeLoading(false);
+              setIframeError(false);
+            }}
+            className="flex items-center gap-1.5 text-xs text-white/60 hover:text-white/85 transition-colors cursor-pointer"
+            aria-label="Back to model details"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to details
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className={`h-2 w-2 rounded-full ${details.accentDotClass}`} />
+            <span className="text-xs font-medium uppercase tracking-wider text-white/75">
+              Pricing model details
+            </span>
+          </div>
+        )}
+        <button
+          onClick={onClose}
+          className="rounded-lg p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+          aria-label="Close panel"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {showPricingPage ? (
+        <div className="flex-1 min-h-0 bg-white">
+          {iframeError ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+              <p className="text-sm text-slate-700">
+                We couldn&apos;t load the pricing page inside the panel.
+              </p>
+              <a
+                href={pricingModelsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
+              >
+                Open pricing page in new tab
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+              </a>
+            </div>
+          ) : (
+            <div className="flex h-full flex-col">
+              {iframeLoading && (
+                <div className="flex items-center justify-center py-10">
+                  <div className="flex items-center gap-3 text-slate-500">
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-slate-500" />
+                    <span className="text-sm">Loading pricing page...</span>
+                  </div>
+                </div>
+              )}
+              <iframe
+                src={pricingProxyUrl}
+                title="Pricing models"
+                onLoad={() => setIframeLoading(false)}
+                onError={() => {
+                  setIframeError(true);
+                  setIframeLoading(false);
+                }}
+                className={`h-full w-full border-0 bg-white ${iframeLoading ? "h-0 overflow-hidden" : ""}`}
+                sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-redirect-away"
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-drawer p-5 sm:p-6">
+            <div className="space-y-5 font-[Gilroy]">
+              <div className="space-y-2">
+                <h3 className="text-2xl font-semibold text-white/95">{details.title}</h3>
+                <p className="text-sm leading-relaxed text-white/70">{details.subtitle}</p>
+              </div>
+
+              <div className="rounded-2xl border border-white/[0.12] bg-white/[0.04] px-4 py-3">
+                <p className="text-[11px] uppercase tracking-wide text-white/45">Starting at</p>
+                <p className="mt-1 text-xl font-semibold text-white/95">{details.startingAt}</p>
+                {details.priceNote ? (
+                  <p className="mt-1 text-xs text-white/55">{details.priceNote}</p>
+                ) : null}
+              </div>
+
+              <div className="space-y-4">
+                <DetailList title="Best for" items={details.bestFor} />
+                <DetailList title="How it works" items={details.howItWorks} />
+                <DetailList title="What you get" items={details.whatYouGet} />
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-white/[0.08] bg-black/25 px-5 py-4 sm:px-6">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window === "undefined") return;
+                  window.dispatchEvent(
+                    new CustomEvent("pricing-model-compare-requested", {
+                      detail: { modelId: details.id, modelTitle: details.title },
+                    }),
+                  );
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/[0.06] px-3 py-2.5 text-sm font-semibold text-white hover:bg-white/[0.1] transition-colors cursor-pointer"
+                aria-label="Compare with other pricing models"
+              >
+                Compare with other models
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIframeError(false);
+                  setIframeLoading(true);
+                  setShowPricingPage(true);
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-300/80 bg-violet-500/20 px-3 py-2.5 text-sm font-semibold text-violet-100 hover:bg-violet-500/28 transition-colors cursor-pointer"
+                aria-label="Open full pricing page in this panel"
+              >
+                Open full pricing page
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </motion.div>
+  );
+}
+
+function DetailList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-2xl border border-white/[0.1] bg-white/[0.03] p-4">
+      <h4 className="text-sm font-semibold text-white/85">{title}</h4>
+      <ul className="mt-2 space-y-1.5 text-sm text-white/70">
+        {items.map((item) => (
+          <li key={item} className="flex items-start gap-2">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-white/70" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

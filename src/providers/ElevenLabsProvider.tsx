@@ -1332,7 +1332,7 @@ export function ElevenLabsProvider({
     })();
   }, [startText]);
 
-  const startVoice = useCallback(async (initialGreeting?: string, conversationHistory?: string) => {
+  const startVoice = useCallback(async (_initialGreeting?: string, conversationHistory?: string) => {
     if (!agentId) {
       throw new Error('NEXT_PUBLIC_ELEVENLABS_AGENT_ID is not configured');
     }
@@ -1399,12 +1399,11 @@ export function ElevenLabsProvider({
       // Start session with only the required parameters
       // Note: clientTools are defined in useConversation so they work in both text and voice modes
       let voiceConversationId: string | undefined | null = null;
-      const agentFirstMessage = conversationHistory ? '' : (initialGreeting || undefined);
-      const buildVoiceOverrides = () => {
-        const agentOverrides: { firstMessage?: string } = {
-          firstMessage: agentFirstMessage
-        };
+      // Do not send overrides.agent.firstMessage: ElevenLabs rejects the session when the agent
+      // has "first_message" overrides disabled (Analysis shows: "Override for field 'first_message' is not allowed by config").
+      // Greeting comes from the agent's configured First message in the ElevenLabs dashboard.
 
+      const buildVoiceOverrides = () => {
         const ttsOverrides: { voiceId?: string; speed?: number } = {};
 
         if (appliedVoicePreferences.voiceId) {
@@ -1416,11 +1415,8 @@ export function ElevenLabsProvider({
         }
 
         const overrides: {
-          agent: { firstMessage?: string };
           tts?: { voiceId?: string; speed?: number };
-        } = {
-          agent: agentOverrides
-        };
+        } = {};
 
         if (Object.keys(ttsOverrides).length > 0) {
           overrides.tts = ttsOverrides;

@@ -41,6 +41,8 @@ import {
   EngagementModelsCard,
   CaseStudyPanel,
   AboutPanel,
+  PricingModelDetailsPanel,
+  type PricingModelDetailsId,
   EstimateSummaryCard,
 } from "@/src/components/cieden/SalesUi";
 import { EstimateWizardPanel, type EstimateFinalResult } from "@/src/components/cieden/EstimateWizardPanel";
@@ -1008,6 +1010,7 @@ export default function VoiceChatPage() {
 
   // About Cieden side panel
   const [showAboutPanel, setShowAboutPanel] = useState(false);
+  const [activePricingModelId, setActivePricingModelId] = useState<PricingModelDetailsId | null>(null);
 
   // Estimate wizard side panel (unified for generate_estimate / open_calculator)
   const [showEstimatePanel, setShowEstimatePanel] = useState(false);
@@ -1296,6 +1299,37 @@ export default function VoiceChatPage() {
     return () => window.removeEventListener("open-about-panel", handleOpenAbout);
   }, []);
 
+  useEffect(() => {
+    const handleOpenPricingModelDetails = (e: Event) => {
+      const detail = (e as CustomEvent<{ modelId?: PricingModelDetailsId }>).detail;
+      if (!detail?.modelId) return;
+      setActivePricingModelId(detail.modelId);
+      if (sendContextualUpdateRef.current) {
+        sendContextualUpdateRef.current(
+          `User clicked 'Learn more' for ${detail.modelId.replace(/-/g, " ")} pricing model.`,
+        );
+      }
+    };
+
+    const handleCompareRequested = (e: Event) => {
+      const detail = (e as CustomEvent<{ modelTitle?: string }>).detail;
+      if (sendContextualUpdateRef.current) {
+        const targetModel = detail?.modelTitle ?? "selected model";
+        sendContextualUpdateRef.current(
+          `User wants to compare collaboration models after viewing ${targetModel}. Ask 2-3 short qualification questions and recommend best fit.`,
+        );
+      }
+      setActivePricingModelId(null);
+    };
+
+    window.addEventListener("open-pricing-model-details-panel", handleOpenPricingModelDetails);
+    window.addEventListener("pricing-model-compare-requested", handleCompareRequested);
+    return () => {
+      window.removeEventListener("open-pricing-model-details-panel", handleOpenPricingModelDetails);
+      window.removeEventListener("pricing-model-compare-requested", handleCompareRequested);
+    };
+  }, []);
+
   const closeCasesPanel = useCallback(() => {
     if (typeof window !== "undefined") {
       (window as any).__ciedenCasesPanelUserClosed = true;
@@ -1326,6 +1360,20 @@ export default function VoiceChatPage() {
       console.warn("⚠️ [tool] Failed to JSON.stringify tool params, fallback to {}.", e);
       return "{}";
     }
+  }, []);
+
+  /** Brief window to avoid stacking process/models cards right after estimate chooser (multi-tool agent bursts). */
+  const CIEDEN_ESTIMATE_PRIMARY_SUPPRESS_MS = 6000;
+  const markEstimateFlowPrimary = useCallback(() => {
+    if (typeof window === "undefined") return;
+    (window as unknown as { __ciedenEstimateFlowPrimaryAt?: number }).__ciedenEstimateFlowPrimaryAt =
+      Date.now();
+  }, []);
+  const shouldSuppressSecondarySalesCard = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    const t = (window as unknown as { __ciedenEstimateFlowPrimaryAt?: number })
+      .__ciedenEstimateFlowPrimaryAt;
+    return typeof t === "number" && Date.now() - t < CIEDEN_ESTIMATE_PRIMARY_SUPPRESS_MS;
   }, []);
 
   // Action Handlers – Cieden sales tools only (must match ElevenLabs Agent Tools)
@@ -1436,6 +1484,10 @@ export default function VoiceChatPage() {
           return 'Staying in estimate mode. I will continue asking estimate questions and updating the draft range.';
         }
 
+        if (shouldSuppressSecondarySalesCard()) {
+          return "Skipping collaboration-models card right now — the preliminary estimate chooser in the chat should stay in focus. Offer to show engagement models after they pick an estimate path.";
+        }
+
         if (!conversationId) {
           // onboarding UI path
           setOnboardingMessages((prev) => {
@@ -1471,13 +1523,14 @@ export default function VoiceChatPage() {
         const safeParams =
           params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
         const toolCallMessage = `TOOL_CALL:generate_estimate:${safeJSONStringify(safeParams)}`;
+        markEstimateFlowPrimary();
         queueToolMessageRef.current?.(toolCallMessage, {
           toolCall: true, toolName: 'generate_estimate', timestamp: Date.now()
         });
       } catch (error) {
         console.error('❌ Failed to queue generate_estimate:', error);
       }
-      return 'I\'ll show the estimate options in the chat. Answer a few questions to get a preliminary price range. For an exact quote, our manager will follow up.';
+      return 'I opened a preliminary estimate block in this chat — choose either to continue with me here or use the step-by-step questionnaire (that path opens the panel on the right). I will guide you to a rough range; a manager can refine the quote.';
     },
 
     open_calculator: async (params) => {
@@ -1486,13 +1539,14 @@ export default function VoiceChatPage() {
         const safeParams =
           params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
         const toolCallMessage = `TOOL_CALL:open_calculator:${safeJSONStringify(safeParams)}`;
+        markEstimateFlowPrimary();
         queueToolMessageRef.current?.(toolCallMessage, {
           toolCall: true, toolName: 'open_calculator', timestamp: Date.now()
         });
       } catch (error) {
         console.error('❌ Failed to queue open_calculator:', error);
       }
-      return 'I\'ll show the estimate options in the chat. Answer a few questions to get a preliminary price range.';
+      return 'I opened a preliminary estimate block in this chat — pick one: work with me in the chat, or the questionnaire (the questionnaire opens on the right after you choose it).';
     },
 
     show_about: async (params) => {
@@ -1539,6 +1593,17 @@ export default function VoiceChatPage() {
     show_process: async (params) => {
       console.log('📋 Bridge Handler - show_process called:', params);
       try {
+        if (
+          typeof window !== "undefined" &&
+          (window as unknown as { __ciedenEstimatePanelOpen?: boolean }).__ciedenEstimatePanelOpen
+        ) {
+          return 'Staying in estimate mode. I will keep the questionnaire or assistant flow focused.';
+        }
+
+        if (shouldSuppressSecondarySalesCard()) {
+          return "Skipping the process card for now — the preliminary estimate chooser in the chat is active. Summarize process briefly in text; offer to open the process card on request.";
+        }
+
         const safeParams =
           params && typeof params === "object"
             ? { ...(params as any), mode: "default" }
@@ -2283,7 +2348,7 @@ export default function VoiceChatPage() {
               /* marginRight alone does not narrow a stretched flex child — width + alignSelf do */
               width: isMobile
                 ? "100%"
-                : activePanelDomain || showEstimatePanel || showAboutPanel
+                : activePanelDomain || showEstimatePanel || showAboutPanel || !!activePricingModelId
                   ? "50%"
                   : showSettings
                     ? "calc(100% - 360px)"
@@ -2293,6 +2358,7 @@ export default function VoiceChatPage() {
                 (!activePanelDomain &&
                   !showEstimatePanel &&
                   !showAboutPanel &&
+                  !activePricingModelId &&
                   !showSettings)
                   ? "stretch"
                   : "flex-start",
@@ -2345,13 +2411,13 @@ export default function VoiceChatPage() {
                                   const value = (prompt as any).valueUk || prompt.valueEn;
                                   sendQuickPrompt(value);
                                 }}
-                                className={`p-4 bg-white/5 rounded-lg text-left transition-colors border border-white/10 ${
+                                className={`min-h-[68px] p-4 rounded-xl text-left transition-colors border border-[#6A56FF]/35 bg-[#4C3AE6]/30 flex items-center ${
                                   disableQuickPrompts
-                                    ? "opacity-50 cursor-not-allowed hover:bg-white/5"
-                                    : "hover:bg-white/10 cursor-pointer"
+                                    ? "opacity-50 cursor-not-allowed hover:bg-[#4C3AE6]/30"
+                                    : "hover:bg-[#4C3AE6]/60 cursor-pointer"
                                 }`}
                               >
-                                <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
+                                <h3 className="font-medium text-white leading-snug">{prompt.title}</h3>
                               </button>
                             ))}
                           </div>
@@ -2421,13 +2487,13 @@ export default function VoiceChatPage() {
                                   const value = (prompt as any).valueUk || prompt.valueEn;
                                   sendQuickPrompt(value);
                                 }}
-                                className={`p-4 bg-white/5 rounded-lg text-left transition-colors border border-white/10 ${
+                                className={`min-h-[68px] p-4 rounded-xl text-left transition-colors border border-[#6A56FF]/35 bg-[#4C3AE6]/30 flex items-center ${
                                   disableQuickPrompts
-                                    ? "opacity-50 cursor-not-allowed hover:bg-white/5"
-                                    : "hover:bg-white/10 cursor-pointer"
+                                    ? "opacity-50 cursor-not-allowed hover:bg-[#4C3AE6]/30"
+                                    : "hover:bg-[#4C3AE6]/60 cursor-pointer"
                                 }`}
                               >
-                                <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
+                                <h3 className="font-medium text-white leading-snug">{prompt.title}</h3>
                               </button>
                             ))}
                           </div>
@@ -2526,13 +2592,13 @@ export default function VoiceChatPage() {
                         disabled={disableQuickPrompts}
                         aria-label={prompt.title}
                         aria-disabled={disableQuickPrompts}
-                        className={`p-4 bg-white/5 rounded-lg text-left transition-colors border border-white/10 ${
+                        className={`min-h-[68px] p-4 rounded-xl text-left transition-colors border border-[#6A56FF]/35 bg-[#4C3AE6]/30 flex items-center ${
                           disableQuickPrompts
-                            ? "opacity-50 cursor-not-allowed hover:bg-white/5"
-                            : "hover:bg-white/10 cursor-pointer"
+                            ? "opacity-50 cursor-not-allowed hover:bg-[#4C3AE6]/30"
+                            : "hover:bg-[#4C3AE6]/60 cursor-pointer"
                         }`}
                       >
-                        <h3 className="font-medium text-white mb-1">{prompt.title}</h3>
+                        <h3 className="font-medium text-white leading-snug">{prompt.title}</h3>
                       </button>
                     ))}
                   </div>
@@ -2588,7 +2654,9 @@ export default function VoiceChatPage() {
                 }
                 actionHandlers={actionHandlers}
                 showSettings={showSettings}
-                alignLeft={!!activePanelDomain || !!showEstimatePanel || !!showAboutPanel}
+                alignLeft={
+                  !!activePanelDomain || !!showEstimatePanel || !!showAboutPanel || !!activePricingModelId
+                }
                 onRequestSelect={async (request) => {
                   console.log('🎯 Quick action selected:', request);
                   if (sendProgrammaticMessage) {
@@ -2728,6 +2796,25 @@ export default function VoiceChatPage() {
                     }}
                   />
                 )}
+              </>
+            )}
+          </AnimatePresence>
+
+          {/* Pricing model details side panel */}
+          <AnimatePresence>
+            {activePricingModelId && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setActivePricingModelId(null)}
+                  className="fixed inset-0 z-40 bg-black/40 sm:hidden"
+                />
+                <PricingModelDetailsPanel
+                  modelId={activePricingModelId}
+                  onClose={() => setActivePricingModelId(null)}
+                />
               </>
             )}
           </AnimatePresence>

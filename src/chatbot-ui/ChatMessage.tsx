@@ -10,6 +10,18 @@ interface ChatMessageProps {
   userName?: string;
 }
 
+const DEFAULT_SUGGESTIONS_EN = [
+  "Show your case studies",
+  "Explain your design process",
+  "How much does a project cost?",
+];
+
+const DEFAULT_SUGGESTIONS_UA = [
+  "Покажи ваші кейси",
+  "Поясни ваш процес дизайну",
+  "Скільки коштує проєкт?",
+];
+
 /**
  * One message bubble — Chatbot visual style.
  * No Theme/Language context, no VoiceSpeaker; wired for FinPilot.
@@ -56,10 +68,14 @@ export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessagePro
       ? new Date(message.timestamp)
       : message.timestamp;
   const timeStr = date && !isNaN(date.getTime()) ? format(date, "HH:mm") : "";
-  const suggestions =
+  const parsedSuggestions =
     (Array.isArray(message.suggestedAnswers) && message.suggestedAnswers.length > 0
       ? message.suggestedAnswers
       : fallbackAnswers) || [];
+  const hasUkrainian = /[іїєґІЇЄҐ]/.test(cleanContent);
+  const defaultSuggestions = hasUkrainian ? DEFAULT_SUGGESTIONS_UA : DEFAULT_SUGGESTIONS_EN;
+  const suggestions =
+    !isUser && !isTypingBubble && parsedSuggestions.length === 0 ? defaultSuggestions : parsedSuggestions;
 
   return (
     <div className="w-full py-2" style={{ display: "flex", justifyContent: "center" }}>
@@ -145,7 +161,8 @@ export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessagePro
                   key={idx}
                   type="button"
                   onClick={() => onQuickPrompt(answer)}
-                  className="px-4 py-2 rounded-xl bg-[#4C3AE6]/40 hover:bg-[#4C3AE6]/70 text-white font-medium transition-colors"
+                  aria-label={answer}
+                  className="px-4 py-2 rounded-xl bg-[#4C3AE6]/40 hover:bg-[#4C3AE6]/70 text-white font-medium transition-colors cursor-pointer"
                 >
                   {answer}
                 </button>

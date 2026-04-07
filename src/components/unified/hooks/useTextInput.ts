@@ -93,8 +93,14 @@ export function useTextInput({
 
       let injectedTool: InjectedTool | null = null;
 
+      // Cost / estimate wins over process, models, etc. on the same user message.
+      if (isCostIntent) {
+        injectedTool = "open_calculator";
+      }
+
       // About / who we are
       if (
+        !injectedTool &&
         /(who are you|tell me about yourself|tell me about cieden|about cieden|what do you do|кто ты|кто вы|что вы делаете|что ты робиш|розкажи про себе|покажи про cieden|покажи про сайден|покажи про сиден|о cиден|о cайден)/.test(
           lower,
         )
@@ -200,16 +206,13 @@ export function useTextInput({
         injectedTool = "show_engagement_models";
       }
 
-      // Cost / estimate
-      if (!injectedTool && isCostIntent) {
-        injectedTool = "open_calculator";
-      }
-
       if (!injectedTool) return;
 
       // Cost intent: open estimate panel ASAP (like existing tool handlers).
       if (injectedTool === "open_calculator") {
         resetCiedenEstimateSessionCompleted();
+        (window as unknown as { __ciedenEstimateFlowPrimaryAt?: number }).__ciedenEstimateFlowPrimaryAt =
+          Date.now();
       }
 
       const injectedContent = toolCallMessage(injectedTool);
