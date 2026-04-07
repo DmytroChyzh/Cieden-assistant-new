@@ -31,7 +31,7 @@ import { QuizProvider } from "@/src/components/quiz/QuizProvider";
 import { ElevenLabsProvider, useElevenLabsConversation } from '@/src/providers/ElevenLabsProvider';
 import { SessionResetter } from '@/src/components/voice/SessionResetter';
 import { parseToolCall } from '@/src/utils/parseToolCall';
-import { ensureGuestIdentityInCookie, getGuestIdentityFromCookie } from '@/src/utils/guestIdentity';
+import { ensureGuestIdentityInCookie, getGuestIdentityFromCookie, updateGuestIdentityInCookie } from '@/src/utils/guestIdentity';
 import LuminaGradientBackground from "@/components/LuminaGradientBackground";
 // Legacy onboarding chat kept for reference; inline onboarding is now handled directly in this page.
 // import { OnboardingChat } from "@/src/components/onboarding/OnboardingChat";
@@ -301,6 +301,7 @@ export default function VoiceChatPage() {
   const hasInjectedWelcomeRef = useRef(false);
   const hasAskedEmailRef = useRef(false);
   const rememberedNameRef = useRef(false);
+  const rememberedEmailRef = useRef(false);
 
   // `isAuthenticated()` discovery can fail, but for message sending we must
   // have a real authenticated Convex identity (`currentUser`).
@@ -329,6 +330,17 @@ export default function VoiceChatPage() {
     if (!normalized) return;
     rememberedNameRef.current = true;
     setOnboardingName(normalized);
+  }, []);
+
+  useEffect(() => {
+    if (rememberedEmailRef.current) return;
+    if (typeof window === "undefined") return;
+    const savedEmail = window.localStorage.getItem("cieden_preferred_email");
+    if (!savedEmail) return;
+    const normalized = savedEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return;
+    rememberedEmailRef.current = true;
+    setOnboardingEmail(normalized);
   }, []);
 
   // Non-blocking welcome message in the normal chat stream.
@@ -409,6 +421,9 @@ export default function VoiceChatPage() {
     );
     if (meaningfulUserMessages.length < 5) return;
 
+    const detectCyrillic = (value: string) => /[А-Яа-яІіЇїЄєҐґ]/.test(value);
+    const recentText = meaningfulUserMessages.slice(-3).map((m) => m.content || "").join(" ");
+    const promptIsUkrainian = detectCyrillic(recentText);
     hasAskedEmailRef.current = true;
     setOnboardingMessages((prev) => [
       ...prev,
@@ -416,7 +431,9 @@ export default function VoiceChatPage() {
         id: `contact-email-${Date.now()}`,
         role: "assistant",
         content:
-          "If it is convenient, you can share your email and we will have an easier way to follow up with project details later. Totally optional.",
+          promptIsUkrainian
+            ? "Якщо зручно, можете залишити email. Так нам буде легше надіслати підсумок і повернутись до деталей проєкту пізніше. Це опційно."
+            : "If it is convenient, you can share your email so we can follow up with a concise project summary later. Totally optional.",
         timestamp: Date.now(),
       },
     ]);
@@ -2100,12 +2117,28 @@ export default function VoiceChatPage() {
       const candidateName = extractNameFromMessage(text);
       if (candidateName && candidateName !== onboardingName) {
         setOnboardingName(candidateName);
+        updateGuestIdentityInCookie({ name: candidateName });
         if (typeof window !== "undefined") {
           window.localStorage.setItem("cieden_preferred_name", candidateName);
         }
         if (sendContextualUpdateRef.current) {
           sendContextualUpdateRef.current(
             `[USER PROFILE UPDATE] Preferred user name is "${candidateName}". Use this name naturally in future replies.`,
+          );
+        }
+      }
+
+      const emailMatch = text.match(/\b([^\s@]+@[^\s@]+\.[^\s@]+)\b/);
+      const candidateEmail = emailMatch?.[1]?.trim().toLowerCase();
+      if (candidateEmail && candidateEmail !== onboardingEmail) {
+        setOnboardingEmail(candidateEmail);
+        updateGuestIdentityInCookie({ email: candidateEmail });
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("cieden_preferred_email", candidateEmail);
+        }
+        if (sendContextualUpdateRef.current) {
+          sendContextualUpdateRef.current(
+            `[USER PROFILE UPDATE] User email is "${candidateEmail}". Use only for follow-up context when relevant.`,
           );
         }
       }
@@ -2141,7 +2174,7 @@ export default function VoiceChatPage() {
       console.log('📤 Text message will be handled by UnifiedChatInput component');
     }
     // Voice messages already handled by existing voice system
-  }, [voiceStatus, conversationId, onboardingStep, onboardingName]);
+  }, [voiceStatus, conversationId, onboardingStep, onboardingName, onboardingEmail]);
 
   // Keep chat pinned to bottom, але тільки коли користувач не скролив вгору.
   // Це дозволяє читати попередні повідомлення і натиснути `Cancel` у режимі estimate-assistant.
@@ -2271,11 +2304,24 @@ export default function VoiceChatPage() {
   }, [conversationId, clearHistory, clearing]);
 
   const handleNewChat = useCallback(async () => {
-    if (!canUseChat) return;
     if (creatingConversationRef.current) return;
     creatingConversationRef.current = true;
     try {
-      const id = await createConversation({ title: "Voice Chat" });
+      let id: Id<"conversations">;
+      if (canUseChat) {
+        id = await createConversation({ title: "Voice Chat" });
+      } else {
+        const guestIdentity = ensureGuestIdentityInCookie({
+          name: onboardingName || undefined,
+          email: onboardingEmail || undefined,
+        });
+        id = await createConversation({
+          title: "Voice Chat",
+          guestId: guestIdentity.guestId,
+          guestEmail: onboardingEmail || undefined,
+          guestName: onboardingName || undefined,
+        });
+      }
       setConversationId(id);
       setOnboardingMessages((prev) => {
         if (prev.length === 0) return prev;
@@ -2296,7 +2342,7 @@ export default function VoiceChatPage() {
     } finally {
       creatingConversationRef.current = false;
     }
-  }, [canUseChat, createConversation]);
+  }, [canUseChat, createConversation, onboardingEmail, onboardingName]);
   
   // Extract mode from message content via shared util
   const getMessageMode = useCallback((content: string): 'default' | 'update' | 'overlay' => {

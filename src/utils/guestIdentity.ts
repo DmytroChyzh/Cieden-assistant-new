@@ -44,3 +44,20 @@ export function ensureGuestIdentityInCookie(args: {
   return { guestId, email: args.email, name: args.name };
 }
 
+export function updateGuestIdentityInCookie(args: {
+  email?: string;
+  name?: string;
+}): GuestIdentity | null {
+  const existing = getGuestIdentityFromCookie();
+  if (!existing) return null;
+
+  if (args.email && args.email.trim()) {
+    setCookie("cieden_guest_email", args.email.trim(), 60 * 60 * 24 * 7);
+  }
+  if (args.name && args.name.trim()) {
+    setCookie("cieden_guest_name", args.name.trim(), 60 * 60 * 24 * 7);
+  }
+
+  return getGuestIdentityFromCookie();
+}
+
