@@ -61,3 +61,10 @@ export function updateGuestIdentityInCookie(args: {
   return getGuestIdentityFromCookie();
 }
 
+export function clearGuestIdentityInCookie() {
+  if (typeof document === "undefined") return;
+  document.cookie = "cieden_guest_id=; path=/; max-age=0";
+  document.cookie = "cieden_guest_email=; path=/; max-age=0";
+  document.cookie = "cieden_guest_name=; path=/; max-age=0";
+}
+

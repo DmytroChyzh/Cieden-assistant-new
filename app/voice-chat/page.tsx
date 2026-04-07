@@ -31,7 +31,12 @@ import { QuizProvider } from "@/src/components/quiz/QuizProvider";
 import { ElevenLabsProvider, useElevenLabsConversation } from '@/src/providers/ElevenLabsProvider';
 import { SessionResetter } from '@/src/components/voice/SessionResetter';
 import { parseToolCall } from '@/src/utils/parseToolCall';
-import { ensureGuestIdentityInCookie, getGuestIdentityFromCookie, updateGuestIdentityInCookie } from '@/src/utils/guestIdentity';
+import {
+  clearGuestIdentityInCookie,
+  ensureGuestIdentityInCookie,
+  getGuestIdentityFromCookie,
+  updateGuestIdentityInCookie,
+} from '@/src/utils/guestIdentity';
 import LuminaGradientBackground from "@/components/LuminaGradientBackground";
 // Legacy onboarding chat kept for reference; inline onboarding is now handled directly in this page.
 // import { OnboardingChat } from "@/src/components/onboarding/OnboardingChat";
@@ -2342,6 +2347,7 @@ export default function VoiceChatPage() {
         });
       }
       setConversationId(id);
+      hasAskedEmailRef.current = false;
       setOnboardingMessages((prev) => {
         if (prev.length === 0) return prev;
         return [
@@ -2513,6 +2519,12 @@ export default function VoiceChatPage() {
             onSignOut={async () => {
               await signOut();
               clearOnboardingDoneCookie();
+              clearGuestIdentityInCookie();
+              if (typeof window !== "undefined") {
+                window.localStorage.removeItem("cieden_preferred_name");
+                window.localStorage.removeItem("cieden_preferred_email");
+                window.localStorage.removeItem("cieden_last_conversation_id");
+              }
               // Hard reload so auth state and onboarding fully reset
               if (typeof window !== "undefined") {
                 window.location.href = "/voice-chat";
