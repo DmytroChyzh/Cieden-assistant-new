@@ -1,11 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { cn } from "@/lib/utils";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Trash2, LogOut, Settings, User } from "lucide-react";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { Trash2 } from "lucide-react";
 
 interface HeaderMenuProps {
   onClearHistory?: () => void;
@@ -32,22 +29,11 @@ export function VoiceChatHeader({
   onSignOut,
   onNewChat,
   clearing,
-  userName,
-  userEmail,
+  userName: _userName,
+  userEmail: _userEmail,
 }: VoiceChatHeaderProps) {
-  const [avatarOpen, setAvatarOpen] = useState(false);
-  const currentUser = useQuery(api.users.getCurrentUser);
-
-  const headerName =
-    userName ||
-    currentUser?.name ||
-    currentUser?.email ||
-    "Guest";
-
-  const headerEmail =
-    userEmail ||
-    currentUser?.email ||
-    "";
+  void onSettingsOpen;
+  void onSignOut;
 
   return (
     <header
@@ -73,7 +59,7 @@ export function VoiceChatHeader({
         </span>
       </div>
 
-      {/* Right: trash, avatar (user menu) */}
+      {/* Right: chat actions */}
       <div className="flex items-center gap-2 lg:gap-3">
         {onClearHistory && (
           <button
@@ -100,67 +86,16 @@ export function VoiceChatHeader({
             </svg>
           </button>
         )}
-
-        <Popover open={avatarOpen} onOpenChange={setAvatarOpen}>
-          <PopoverTrigger asChild>
-            <div
-              className="rounded-full flex items-center justify-center cursor-pointer w-8 h-8 lg:w-9 lg:h-9 border border-white/30 bg-white/10 text-white hover:bg-white/15 transition-colors"
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && setAvatarOpen((v) => !v)}
-              aria-label="User menu"
-            >
-              <User className="w-4 h-4 lg:w-[18px] lg:h-[18px]" />
-            </div>
-          </PopoverTrigger>
-          <PopoverContent
-            className="w-64 bg-slate-800/95 backdrop-blur-sm border-white/20 text-white p-2"
-            align="end"
+        {onNewChat && (
+          <button
+            type="button"
+            onClick={() => onNewChat()}
+            className="rounded-full px-3 py-1.5 text-xs lg:text-sm font-medium border border-white/30 bg-white/10 text-white hover:bg-white/15 transition-colors"
+            aria-label="New chat"
           >
-            <div className="px-3 pb-2 border-b border-white/10 mb-1">
-              <p className="text-sm font-medium truncate">{headerName}</p>
-              {headerEmail && (
-                <p className="text-xs text-white/60 truncate">{headerEmail}</p>
-              )}
-            </div>
-            <div className="space-y-1">
-              {onNewChat && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onNewChat();
-                    setAvatarOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/10 rounded text-sm"
-                >
-                  <Trash2 className="h-4 w-4" /> New Chat
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  onSettingsOpen();
-                  setAvatarOpen(false);
-                }}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/10 rounded text-sm"
-              >
-                <Settings className="h-4 w-4" /> Settings
-              </button>
-              {onSignOut && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await onSignOut();
-                    setAvatarOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/10 rounded text-sm"
-                >
-                  <LogOut className="h-4 w-4" /> Sign Out
-                </button>
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
+            New Chat
+          </button>
+        )}
       </div>
     </header>
   );

@@ -53,3 +53,38 @@ export const create = mutation({
     });
   },
 });
+
+export const updateGuestContact = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+    guestEmail: v.optional(v.string()),
+    guestName: v.optional(v.string()),
+    guestId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+
+    const identity = await ctx.auth.getUserIdentity();
+    if (identity) {
+      if (conversation.userId !== identity.subject) {
+        throw new Error("Conversation not owned by current user");
+      }
+    } else {
+      if (!args.guestId || conversation.userId !== args.guestId) {
+        throw new Error("Conversation not owned by guest");
+      }
+    }
+
+    const patch: Record<string, string | number | undefined> = {
+      lastMessageAt: Date.now(),
+    };
+    if (typeof args.guestEmail === "string") patch.guestEmail = args.guestEmail;
+    if (typeof args.guestName === "string") patch.guestName = args.guestName;
+
+    await ctx.db.patch(args.conversationId, patch);
+    return { ok: true };
+  },
+});

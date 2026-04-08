@@ -286,6 +286,28 @@ export function UnifiedChatInput({
     stopRecording();
   }, [stopRecording]);
 
+  useEffect(() => {
+    const onModeChoice = (event: Event) => {
+      const detail = (event as CustomEvent<{ mode?: "voice" | "text" }>).detail;
+      if (!detail?.mode) return;
+
+      if (detail.mode === "voice") {
+        void handleStartCall();
+        return;
+      }
+
+      // Keep user in this chat and ensure voice session is not forced.
+      if (isCallActive) {
+        handleEndCall();
+      }
+      setCurrentSessionMode("text");
+    };
+
+    window.addEventListener("voice-chat-mode-choice", onModeChoice as EventListener);
+    return () =>
+      window.removeEventListener("voice-chat-mode-choice", onModeChoice as EventListener);
+  }, [handleEndCall, handleStartCall, isCallActive]);
+
   const handleToggleMute = useCallback(() => {
     setIsMuted(prev => !prev);
     // TODO: Integrate with ElevenLabs SDK mute functionality

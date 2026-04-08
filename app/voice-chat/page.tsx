@@ -73,6 +73,16 @@ function setEstimateFlowWindowFlag(flowActive: boolean) {
 const VOICE_CHAT_LEGACY_SOFT_WELCOME =
   "Hi! Welcome to Cieden. I am your AI design assistant. How would you like me to address you?";
 
+const ADDRESS_NAME_PROMPT =
+  "How should I address you going forward?\n\nAnd what would you like to learn first?";
+const ADDRESS_NAME_PROMPT_CHOICES = [
+  "Continue by voice",
+  "Continue by text",
+];
+const EMAIL_CAPTURE_PROMPT =
+  "Would you like to share your email so we can send a concise recap and next steps?";
+const EMAIL_CAPTURE_CHOICES = ["Share email", "Skip for now"];
+
 function isLikelyDefaultCiedenGreeting(content: string): boolean {
   const t = content.trim().toLowerCase();
   if (t.length > 700) return false;
@@ -127,6 +137,10 @@ export default function VoiceChatPage() {
   const [pendingOnboardingKickoff, setPendingOnboardingKickoff] = useState(false);
   const [estimateDockActive, setEstimateDockActive] = useState(false);
   const LAST_CONVERSATION_STORAGE_KEY = "cieden_last_conversation_id";
+  /** Empty thread: 0 = first message only, 1 = + welcome grid, 2 = + name prompt (then introRevealComplete). */
+  const [introAnimStep, setIntroAnimStep] = useState(0);
+  const [introRevealComplete, setIntroRevealComplete] = useState(false);
+  const [introSessionKey, setIntroSessionKey] = useState(0);
 
   const markOnboardingDoneCookie = useCallback(() => {
     // Used by middleware gating to avoid auth discovery until onboarding is done.
@@ -167,35 +181,153 @@ export default function VoiceChatPage() {
   const canUseChat = hasCurrentUser;
   const createConversation = useMutation(api.conversations.create);
   const createMessage = useMutation(api.messages.create);
+  const updateGuestContact = useMutation(api.conversations.updateGuestContact);
   const clearHistory = useMutation(api.messages.clearForConversation);
   const guestId = getGuestIdentityFromCookie()?.guestId;
+  const conversationIdRef = useRef<Id<"conversations"> | null>(null);
   // Custom hook for Convex message integration
-  const { convexMessages } = useChatMessages({ conversationId });
+  const { convexMessages, isLoading: convexMessagesLoading } = useChatMessages({ conversationId });
+
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
+
+
+  useEffect(() => {
+    if (!conversationId || convexMessagesLoading) return;
+    if (convexMessages.length > 0) return;
+    if (introRevealComplete) return;
+
+    setIntroAnimStep(0);
+    const t1 = setTimeout(() => setIntroAnimStep(1), 550);
+    const t2 = setTimeout(() => {
+      setIntroAnimStep(2);
+      setIntroRevealComplete(true);
+    }, 1200);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [
+    conversationId,
+    convexMessagesLoading,
+    convexMessages.length,
+    introSessionKey,
+    introRevealComplete,
+  ]);
 
   // Ensure `conversationId` exists before sending any programmatic message.
   // Otherwise the model output/tool calls can land in "guest" mode and won't
   // render the tool cards until refresh.
   const ensureConversationId = useCallback(async () => {
     if (conversationId) return;
-    if (!canUseChat) return;
     if (creatingConversationRef.current) return;
 
-    // Prefer existing conversations if the query already resolved.
-    if (Array.isArray(conversations) && conversations.length > 0) {
-      setConversationId(conversations[0]._id);
+    if (canUseChat) {
+      // Prefer existing conversations if the query already resolved.
+      if (Array.isArray(conversations) && conversations.length > 0) {
+        setConversationId(conversations[0]._id);
+        return;
+      }
+
+      creatingConversationRef.current = true;
+      try {
+        const id = await createConversation({ title: "Voice Chat" });
+        setConversationId(id);
+      } catch (err) {
+        console.error("Failed to create conversation:", err);
+      } finally {
+        creatingConversationRef.current = false;
+      }
       return;
     }
 
+    // Guest fallback: ensure a persisted conversation exists.
     creatingConversationRef.current = true;
     try {
-      const id = await createConversation({ title: "Voice Chat" });
+      const guestIdentity = ensureGuestIdentityInCookie({
+        name: undefined,
+        email: undefined,
+      });
+      const id = await createConversation({
+        title: "Voice Chat",
+        guestId: guestIdentity.guestId,
+      });
       setConversationId(id);
     } catch (err) {
-      console.error("Failed to create conversation:", err);
+      console.error("Failed to create guest conversation:", err);
     } finally {
       creatingConversationRef.current = false;
     }
-  }, [conversationId, canUseChat, conversations, createConversation]);
+  }, [
+    conversationId,
+    canUseChat,
+    conversations,
+    createConversation,
+  ]);
+
+  const appendMessageToConvex = useCallback(
+    async ({
+      content,
+      role,
+      source,
+      metadata,
+    }: {
+      content: string;
+      role: "user" | "assistant" | "system";
+      source: "voice" | "text" | "contextual";
+      metadata?: any;
+    }) => {
+      let activeConversationId = conversationIdRef.current;
+
+      if (!activeConversationId) {
+        if (canUseChat) {
+          await ensureConversationId();
+          activeConversationId = conversationIdRef.current;
+        } else {
+          try {
+            const guestIdentity = ensureGuestIdentityInCookie({
+              name: undefined,
+              email: undefined,
+            });
+            const id = await createConversation({
+              title: "Voice Chat",
+              guestId: guestIdentity.guestId,
+            });
+            setConversationId(id);
+            activeConversationId = id;
+          } catch (error) {
+            console.error("❌ Failed to create guest conversation before message persist:", error);
+            return false;
+          }
+        }
+      }
+
+      if (!activeConversationId) return false;
+
+      try {
+        await createMessage({
+          conversationId: activeConversationId,
+          content,
+          role,
+          source,
+          guestId: guestId ?? undefined,
+          metadata,
+        });
+        return true;
+      } catch (error) {
+        console.error("❌ Failed to persist message to Convex:", error);
+        return false;
+      }
+    },
+    [
+      canUseChat,
+      ensureConversationId,
+      createConversation,
+      createMessage,
+      guestId,
+    ],
+  );
 
   // Listen to messages coming from the estimate side panel
   useEffect(() => {
@@ -223,13 +355,11 @@ export default function VoiceChatPage() {
             composed.includes("UI_DRAFT_ESTIMATE (hidden):") ||
             composed.includes("ESTIMATE STATE UPDATE (hidden):");
 
-          if (conversationId && !isHighFrequencyHiddenEstimate) {
-            await createMessage({
-              conversationId,
+          if (!isHighFrequencyHiddenEstimate) {
+            await appendMessageToConvex({
               content: composed,
               role: "system",
               source: "contextual",
-                guestId: guestId ?? undefined,
             });
           }
           return;
@@ -292,6 +422,32 @@ export default function VoiceChatPage() {
     (value: string) => {
       const trimmed = value.trim();
       if (!trimmed) return;
+      if (trimmed === "Continue by voice" || trimmed === "Continue by text") {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("voice-chat-mode-choice", {
+              detail: { mode: trimmed === "Continue by voice" ? "voice" : "text" },
+            }),
+          );
+        }
+        return;
+      }
+      if (trimmed === "Share email") {
+        setEmailCaptureAwaitingInput(true);
+        setEmailCapturePromptVisible(false);
+        void appendMessageToConvex({
+          role: "assistant",
+          source: "text",
+          content: "Great - please type your email in this chat.",
+        });
+        return;
+      }
+      if (trimmed === "Skip for now") {
+        setEmailCaptureDismissed(true);
+        setEmailCapturePromptVisible(false);
+        setEmailCaptureAwaitingInput(false);
+        return;
+      }
       // If user is authenticated but conversationId isn't ready yet,
       // initialize it so the send happens in the correct (Convex-backed) mode.
       // In that situation we MUST queue; otherwise we'd send in guest mode and
@@ -316,16 +472,27 @@ export default function VoiceChatPage() {
       // exposes the programmatic send function.
       setPendingQuickPrompt(trimmed);
     },
-    [sendProgrammaticMessage, canUseChat, conversationId, ensureConversationId],
+    [
+      sendProgrammaticMessage,
+      canUseChat,
+      conversationId,
+      ensureConversationId,
+      appendMessageToConvex,
+    ],
   );
 
   // Lightweight onboarding state: chat is always available immediately.
   // We only use helper assistant prompts in-stream (non-blocking).
   type OnboardingStep = "ask_name" | "ask_email" | "creating" | "done";
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>("done");
-  const [onboardingMessages, setOnboardingMessages] = useState<ChatbotMessage[]>([]);
+  // Legacy local onboarding lane is disabled: Convex is the only message source.
+  const setOnboardingMessages = useCallback((_updater: unknown) => {}, []);
   const [onboardingName, setOnboardingName] = useState("");
   const [onboardingEmail, setOnboardingEmail] = useState("");
+  const [emailCapturePromptVisible, setEmailCapturePromptVisible] = useState(false);
+  const [emailCaptureDismissed, setEmailCaptureDismissed] = useState(false);
+  const [emailCaptureAwaitingInput, setEmailCaptureAwaitingInput] = useState(false);
+  const lastSavedConversationEmailRef = useRef("");
   const hasAskedEmailRef = useRef(false);
   const rememberedNameRef = useRef(false);
   const rememberedEmailRef = useRef(false);
@@ -1957,26 +2124,22 @@ export default function VoiceChatPage() {
       console.log('💰 Balance display requested:', { balance, previousBalance, currency });
       
       // Store tool execution in Convex with structured metadata
-      if (conversationId) {
-        await createMessage({
-          conversationId,
-          content: `Balance displayed: ${new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency,
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2,
-          }).format(balance)}`,
-          role: 'assistant',
-          source: 'contextual',
-              guestId: guestId ?? undefined,
-          metadata: {
-            toolName: 'showAccountBalance',
-            toolType: 'frontend_action',
-            parameters: { balance, previousBalance, currency },
-            executedAt: Date.now()
-          }
-        });
-      }
+      await appendMessageToConvex({
+        content: `Balance displayed: ${new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency,
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2,
+        }).format(balance)}`,
+        role: 'assistant',
+        source: 'contextual',
+        metadata: {
+          toolName: 'showAccountBalance',
+          toolType: 'frontend_action',
+          parameters: { balance, previousBalance, currency },
+          executedAt: Date.now()
+        }
+      });
       
       return `Displaying current balance: ${new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -2005,27 +2168,30 @@ export default function VoiceChatPage() {
 
 
   useEffect(() => {
-    // Create or get conversation - only when authenticated and conversations are loaded
+    // Create or get conversation on mount (auth and guest modes).
     async function initConversation() {
-      if (!canUseChat || conversations === undefined) return;
       if (conversationId) return;
       if (creatingConversationRef.current) return;
 
-      if (conversations.length > 0) {
-        let selected = conversations[0]?._id ?? null;
-        if (typeof window !== "undefined") {
-          const saved = window.localStorage.getItem(LAST_CONVERSATION_STORAGE_KEY);
-          if (saved) {
-            const matched = conversations.find((c) => String(c._id) === saved);
-            if (matched?._id) {
-              selected = matched._id;
+      if (canUseChat) {
+        if (conversations === undefined) return;
+        if (conversations.length > 0) {
+          let selected = conversations[0]?._id ?? null;
+          if (typeof window !== "undefined") {
+            const saved = window.localStorage.getItem(LAST_CONVERSATION_STORAGE_KEY);
+            if (saved) {
+              const matched = conversations.find((c) => String(c._id) === saved);
+              if (matched?._id) {
+                selected = matched._id;
+              }
             }
           }
+          if (selected) {
+            setConversationId(selected);
+          }
+          return;
         }
-        if (selected) {
-          setConversationId(selected);
-        }
-      } else {
+
         creatingConversationRef.current = true;
         try {
           const id = await createConversation({ title: "Voice Chat" });
@@ -2035,10 +2201,39 @@ export default function VoiceChatPage() {
         } finally {
           creatingConversationRef.current = false;
         }
+        return;
+      }
+
+      // Guest mode: create a persisted conversation in Convex immediately.
+      creatingConversationRef.current = true;
+      try {
+        const guestIdentity = ensureGuestIdentityInCookie({
+          name: onboardingName || undefined,
+          email: onboardingEmail || undefined,
+        });
+        const id = await createConversation({
+          title: "Voice Chat",
+          guestId: guestIdentity.guestId,
+          guestEmail: onboardingEmail || undefined,
+          guestName: onboardingName || undefined,
+        });
+        setConversationId(id);
+      } catch (error) {
+        console.warn("Failed to create guest conversation:", error);
+      } finally {
+        creatingConversationRef.current = false;
       }
     }
     initConversation();
-  }, [canUseChat, conversations, createConversation, conversationId, LAST_CONVERSATION_STORAGE_KEY]);
+  }, [
+    canUseChat,
+    conversations,
+    createConversation,
+    conversationId,
+    LAST_CONVERSATION_STORAGE_KEY,
+    onboardingEmail,
+    onboardingName,
+  ]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -2057,67 +2252,11 @@ export default function VoiceChatPage() {
     // in the onboarding ChatWindow.
     // Allow guest persistence even if Convex Auth discovery is failing.
 
-    // TEMP guest mode: conversationId may be null while we temporarily disable auth.
-    // We still want to display user/assistant messages in UI.
+    // Single-channel mode: avoid local onboarding message lane.
+    // If conversation is not ready yet, try to initialize it and skip this transient message.
     if (!conversationId) {
-      const GUEST_USER_PREFIX = "__GUEST_USER__:";
-      const GUEST_AI_PREFIX = "__GUEST_AI__:";
-
-      if (text.startsWith(GUEST_USER_PREFIX)) {
-        const actualText = text.slice(GUEST_USER_PREFIX.length);
-        // Hide internal kickoff prompt from user-visible onboarding stream
-        if (/onboarding complete\./i.test(actualText.trim())) return;
-        setOnboardingMessages((prev) => [
-          ...prev,
-          {
-            id: `guest-user-${Date.now()}`,
-            role: "user",
-            content: actualText,
-            timestamp: Date.now(),
-          },
-        ]);
-        requestAnimationFrame(() => forceScrollToBottom());
-        text = actualText;
-        // During name/email collection the assistant reply is already injected by
-        // handlePreAuthMessage — do NOT show the typing bubble here.
-        if (onboardingStep === "ask_name" || onboardingStep === "ask_email") return;
-        // Forward to EstimateWizardPanel local tracker if the panel is open
-        if ((window as any).__ciedenEstimatePanelOpen === true) {
-          window.dispatchEvent(
-            new CustomEvent("estimate-local-user-message", {
-              detail: { content: actualText, role: "user", createdAt: Date.now() },
-            }),
-          );
-        }
-      } else if (text.startsWith(GUEST_AI_PREFIX)) {
-        const actualText = text.slice(GUEST_AI_PREFIX.length);
-
-        // During onboarding (ask_name / ask_email) we want to show only our
-        // pre-auth assistant prompts. Ignore agent "greeting"/auto messages.
-        if (onboardingStep !== "done") {
-          setPendingAssistantBubble(false);
-          setEstimateTyping({ active: false, label: "" });
-          return;
-        }
-
-        setPendingAssistantBubble(false);
-        setEstimateTyping({ active: false, label: "" });
-        // Tool cards should be rendered from persisted Convex messages only.
-        // If we also append TOOL_CALL payloads to onboardingMessages, duplicates appear.
-        if (parseToolCall(actualText)) {
-          return;
-        }
-        setOnboardingMessages((prev) => [
-          ...prev,
-          {
-            id: `guest-ai-${Date.now()}`,
-            role: "assistant",
-            content: actualText,
-            timestamp: Date.now(),
-          },
-        ]);
-        return;
-      }
+      await ensureConversationId();
+      return;
     }
 
     // Soft name capture from natural user messages (no blocking form).
@@ -2161,6 +2300,16 @@ export default function VoiceChatPage() {
       if (candidateEmail && candidateEmail !== onboardingEmail) {
         setOnboardingEmail(candidateEmail);
         updateGuestIdentityInCookie({ email: candidateEmail });
+        if (emailCaptureAwaitingInput) {
+          setEmailCaptureAwaitingInput(false);
+          setEmailCaptureDismissed(true);
+          setEmailCapturePromptVisible(false);
+          void appendMessageToConvex({
+            role: "assistant",
+            source: "text",
+            content: "Perfect, thanks! I saved your email for follow-up.",
+          });
+        }
         if (typeof window !== "undefined") {
           window.localStorage.setItem("cieden_preferred_email", candidateEmail);
         }
@@ -2186,8 +2335,7 @@ export default function VoiceChatPage() {
       // Estimate UI will appear via the TOOL_CALL card (inline) once tool injection happens.
     }
 
-    // Forward user message to EstimateWizardPanel local tracker (authenticated mode)
-    // Guest mode forwarding happens above in the GUEST_USER_PREFIX branch
+    // Forward user message to EstimateWizardPanel local tracker
     if (conversationId && (window as any).__ciedenEstimatePanelOpen === true && text) {
       window.dispatchEvent(
         new CustomEvent("estimate-local-user-message", {
@@ -2202,7 +2350,15 @@ export default function VoiceChatPage() {
       console.log('📤 Text message will be handled by UnifiedChatInput component');
     }
     // Voice messages already handled by existing voice system
-  }, [voiceStatus, conversationId, onboardingStep, onboardingName, onboardingEmail]);
+  }, [
+    voiceStatus,
+    conversationId,
+    ensureConversationId,
+    onboardingName,
+    onboardingEmail,
+    emailCaptureAwaitingInput,
+    appendMessageToConvex,
+  ]);
 
   // Keep chat pinned to bottom, але тільки коли користувач не скролив вгору.
   // Це дозволяє читати попередні повідомлення і натиснути `Cancel` у режимі estimate-assistant.
@@ -2273,13 +2429,6 @@ export default function VoiceChatPage() {
     forceScrollToBottom();
   }, [estimateDockActive, forceScrollToBottom]);
 
-  // Auto-scroll for onboarding/guest messages
-  useEffect(() => {
-    if (onboardingMessages.length > 0) {
-      forceScrollToBottom();
-    }
-  }, [onboardingMessages.length, forceScrollToBottom]);
-
   // Keep typing bubble visible above input.
   useEffect(() => {
     if (pendingAssistantBubble) forceScrollToBottom();
@@ -2299,7 +2448,7 @@ export default function VoiceChatPage() {
   // Final safety net: after any major stream update, pin to bottom.
   useEffect(() => {
     forceScrollToBottom();
-  }, [convexMessages?.length, onboardingMessages.length, forceScrollToBottom]);
+  }, [convexMessages?.length, forceScrollToBottom]);
 
 
 
@@ -2319,6 +2468,17 @@ export default function VoiceChatPage() {
       }
 
       console.log(`🧹 Cleared conversation history`, { totalDeleted });
+
+      setIntroRevealComplete(false);
+      setIntroAnimStep(0);
+      setIntroSessionKey((k) => k + 1);
+      setShowIntroHubPinned(false);
+      setShowIntroAddressPinned(false);
+      setPinnedFirstAssistantMessage(null);
+      setEmailCapturePromptVisible(false);
+      setEmailCaptureDismissed(false);
+      setEmailCaptureAwaitingInput(false);
+      lastSavedConversationEmailRef.current = "";
 
       // Notify provider subtree to restart sessions fresh
       try {
@@ -2350,19 +2510,19 @@ export default function VoiceChatPage() {
           guestName: onboardingName || undefined,
         });
       }
+      setIntroRevealComplete(false);
+      setIntroAnimStep(0);
+      setIntroSessionKey((k) => k + 1);
+      setShowIntroHubPinned(false);
+      setShowIntroAddressPinned(false);
+      setPinnedFirstAssistantMessage(null);
+      setEmailCapturePromptVisible(false);
+      setEmailCaptureDismissed(false);
+      setEmailCaptureAwaitingInput(false);
+      lastSavedConversationEmailRef.current = "";
       setConversationId(id);
       hasAskedEmailRef.current = false;
-      setOnboardingMessages((prev) => {
-        if (prev.length === 0) return prev;
-        return [
-          {
-            id: `onb-${Date.now()}`,
-            role: "assistant",
-            content: "New chat started. What would you like to discuss?",
-            timestamp: Date.now(),
-          },
-        ];
-      });
+      setOnboardingMessages([]);
       try {
         window.dispatchEvent(new CustomEvent("history-cleared"));
       } catch (_) {}
@@ -2396,16 +2556,156 @@ export default function VoiceChatPage() {
       if (prevIsTool && prev?.content === message.content) return false;
       return true;
     });
-    let skipGreetings = 2;
-    return toolDeduped.filter((m) => {
-      if (m.role !== "assistant") return true;
-      if (skipGreetings > 0 && isLikelyDefaultCiedenGreeting(m.content || "")) {
-        skipGreetings--;
-        return false;
-      }
-      return true;
+    return toolDeduped;
+  }, [convexMessages, getMessageMode]);
+
+  const emptyLoadedThread = Boolean(
+    conversationId &&
+      !convexMessagesLoading &&
+      convexMessages.length === 0,
+  );
+  const preUserPhaseMessages = useMemo(() => {
+    const raw = convexMessages || [];
+    return raw.filter((m) => {
+      if (m.role === "system" && m.source === "contextual") return false;
+      if (/onboarding complete\./i.test((m.content || "").trim())) return false;
+      const mode = getMessageMode(m.content);
+      if (mode === "update") return false;
+      return m.role === "assistant" || m.role === "user";
     });
   }, [convexMessages, getMessageMode]);
+  const hasVisibleUserMessages = preUserPhaseMessages.some((m) => m.role === "user");
+  const hasVisibleAssistantMessages = preUserPhaseMessages.some((m) => m.role === "assistant");
+  const preUserFirstAssistantMessage = preUserPhaseMessages.find((m) => m.role === "assistant") || null;
+  const preUserFirstAssistantId = preUserFirstAssistantMessage?._id ?? null;
+  /** Fresh voice-started thread: first assistant message exists, user has not replied yet. */
+  const isPreUserReplyPhase = Boolean(
+    conversationId &&
+      !convexMessagesLoading &&
+      hasVisibleAssistantMessages &&
+      !hasVisibleUserMessages,
+  );
+  const [postFirstMessageStep, setPostFirstMessageStep] = useState<0 | 1 | 2>(0);
+  const [showIntroHubPinned, setShowIntroHubPinned] = useState(false);
+  const [showIntroAddressPinned, setShowIntroAddressPinned] = useState(false);
+  const [pinnedFirstAssistantMessage, setPinnedFirstAssistantMessage] = useState<{
+    id: string;
+    content: string;
+    timestamp: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isPreUserReplyPhase || !preUserFirstAssistantId) {
+      setPostFirstMessageStep(0);
+      return;
+    }
+    // Strict order for new chats:
+    // 0 = first message only, 1 = + welcome hub, 2 = + address message.
+    setPostFirstMessageStep(0);
+    const t1 = setTimeout(() => setPostFirstMessageStep(1), 280);
+    const t2 = setTimeout(() => setPostFirstMessageStep(2), 640);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [isPreUserReplyPhase, preUserFirstAssistantId]);
+
+  useEffect(() => {
+    if (postFirstMessageStep >= 1) setShowIntroHubPinned(true);
+    if (postFirstMessageStep >= 2) setShowIntroAddressPinned(true);
+  }, [postFirstMessageStep]);
+
+  useEffect(() => {
+    if (!preUserFirstAssistantMessage || pinnedFirstAssistantMessage) return;
+    setPinnedFirstAssistantMessage({
+      id: preUserFirstAssistantMessage._id,
+      content: preUserFirstAssistantMessage.content,
+      timestamp:
+        (preUserFirstAssistantMessage as { _creationTime?: number })._creationTime ??
+        Date.now(),
+    });
+  }, [preUserFirstAssistantMessage, pinnedFirstAssistantMessage]);
+  const introAnimationRunning = Boolean(
+    emptyLoadedThread && !introRevealComplete,
+  );
+  /** Sticky staged intro: show during empty-thread animation, then keep after messages arrive until new chat. */
+  const allowIntroStickyBlocks = Boolean(
+    conversationId &&
+      !convexMessagesLoading &&
+      (introRevealComplete || introAnimationRunning),
+  );
+  const showIntroSynthHub = Boolean(
+    (isPreUserReplyPhase && !!preUserFirstAssistantId && postFirstMessageStep >= 1) ||
+      showIntroHubPinned,
+  );
+  const showIntroSynthAddress = Boolean(
+    (isPreUserReplyPhase && !!preUserFirstAssistantId && postFirstMessageStep >= 2) ||
+      showIntroAddressPinned,
+  );
+  /** Threads that already had Convex history: full welcome hub above messages (no staged replay). */
+  const showReturningWelcomeHub = Boolean(
+    conversationId &&
+      !convexMessagesLoading &&
+      convexMessages.length > 0 &&
+      !introRevealComplete &&
+      !showIntroHubPinned &&
+      !showIntroAddressPinned &&
+      !pinnedFirstAssistantMessage,
+  );
+
+  useEffect(() => {
+    if (!conversationId || convexMessagesLoading) return;
+    if (emailCapturePromptVisible || emailCaptureDismissed || onboardingEmail) return;
+
+    const userCount = visibleConvexChatMessages.filter((m) => m.role === "user").length;
+    const hasUsefulAssistantReply = visibleConvexChatMessages.some(
+      (m) => m.role === "assistant" && !isLikelyDefaultCiedenGreeting(m.content || ""),
+    );
+    const hasToolCard = (convexMessages || []).some((m) => !!parseToolCall(m.content || ""));
+
+    if (userCount >= 2 && (hasUsefulAssistantReply || hasToolCard)) {
+      setEmailCapturePromptVisible(true);
+    }
+  }, [
+    conversationId,
+    convexMessagesLoading,
+    emailCapturePromptVisible,
+    emailCaptureDismissed,
+    onboardingEmail,
+    visibleConvexChatMessages,
+    convexMessages,
+  ]);
+
+  useEffect(() => {
+    if (!conversationId || !onboardingEmail) return;
+    if (lastSavedConversationEmailRef.current === onboardingEmail) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        await updateGuestContact({
+          conversationId,
+          guestEmail: onboardingEmail,
+          guestName: onboardingName || undefined,
+          guestId: guestId ?? undefined,
+        });
+        if (!cancelled) {
+          lastSavedConversationEmailRef.current = onboardingEmail;
+        }
+      } catch (error) {
+        console.error("Failed to persist conversation guest contact:", error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    conversationId,
+    onboardingEmail,
+    onboardingName,
+    guestId,
+    updateGuestContact,
+  ]);
 
   // Toggle between normal and go mode
   const toggleGoMode = useCallback(() => {
@@ -2440,36 +2740,22 @@ export default function VoiceChatPage() {
       if (sendContextualUpdate) {
         sendContextualUpdate(text);
         // Also persist contextual update for traceability (hidden from UI rendering)
-        if (conversationId) {
-          try {
-            await createMessage({
-              conversationId,
-              content: text,
-              role: 'system',
-              source: 'contextual',
-              guestId: guestId ?? undefined,
-            });
-            console.log('🗂️ Saved contextual update to Convex (CLOSE_QUIZ_MODAL)');
-          } catch (error) {
-            console.error('❌ Failed to save contextual update message:', error);
-          }
-        }
+        await appendMessageToConvex({
+          content: text,
+          role: "system",
+          source: "contextual",
+        });
+        console.log('🗂️ Saved contextual update to Convex (CLOSE_QUIZ_MODAL)');
       }
-    } else if (conversationId && !!parseToolCall(text)) {
+    } else if (!!parseToolCall(text)) {
       // Tool calls should be saved to Convex as new messages (even if protocol is partial)
       console.log('💾 Saving tool call to Convex:', text);
-      try {
-        await createMessage({
-          conversationId,
-          content: text,
-          role: 'assistant',
-          source: 'contextual',
-          guestId: guestId ?? undefined,
-        });
-        console.log('✅ Tool call message saved to Convex');
-      } catch (error) {
-        console.error('❌ Failed to save tool call message:', error);
-      }
+      await appendMessageToConvex({
+        content: text,
+        role: "assistant",
+        source: "contextual",
+      });
+      console.log('✅ Tool call message saved to Convex');
     } else if (text.startsWith('Selected "') && sendProgrammaticMessage) {
       // For user selections in quiz, send as a programmatic USER message so the agent replies
       // Format: "I selected [Option] for [Question]"
@@ -2487,22 +2773,14 @@ export default function VoiceChatPage() {
       // Regular contextual updates go to voice system
       sendContextualUpdate(text);
       // Also persist contextual update for traceability (hidden from UI rendering)
-      if (conversationId) {
-        try {
-          await createMessage({
-            conversationId,
-            content: text,
-            role: 'system',
-            source: 'contextual',
-            guestId: guestId ?? undefined,
-          });
-          console.log('🗂️ Saved contextual update to Convex');
-        } catch (error) {
-          console.error('❌ Failed to save contextual update message:', error);
-        }
-      }
+      await appendMessageToConvex({
+        content: text,
+        role: "system",
+        source: "contextual",
+      });
+      console.log('🗂️ Saved contextual update to Convex');
     }
-  }, [conversationId, createMessage, sendContextualUpdate, sendProgrammaticMessage]);
+  }, [appendMessageToConvex, sendContextualUpdate, sendProgrammaticMessage]);
 
   // Auth discovery disabled for temporary guest-mode debugging.
 
@@ -2610,61 +2888,191 @@ export default function VoiceChatPage() {
                 }}
               >
               <div className="space-y-4 lg:space-y-6 w-full max-w-[min(100%,1400px)] mx-auto py-6">
-                <div className="w-full max-w-[900px] mx-auto flex flex-col items-center gap-6 pb-2">
-                  <div className="text-center px-2">
-                    <h2 className="text-xl font-semibold text-white mb-2">Welcome — your Cieden assistant is here 👋</h2>
-                    <p className="text-white/70 text-sm sm:text-base">
-                      Tell me about your project or pick one of the questions below. How would you like me to address you?
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-[900px]">
-                    {quickPrompts.map((prompt, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => {
-                          if (disableQuickPrompts) return;
-                          const value = (prompt as any).valueUk || prompt.valueEn;
-                          sendQuickPrompt(value);
-                        }}
-                        disabled={disableQuickPrompts}
-                        aria-label={prompt.title}
-                        aria-disabled={disableQuickPrompts}
-                        className={`min-h-[68px] p-4 rounded-xl text-left transition-colors border border-[#6A56FF]/35 bg-[#4C3AE6]/30 flex items-center ${
-                          disableQuickPrompts
-                            ? "opacity-50 cursor-not-allowed hover:bg-[#4C3AE6]/30"
-                            : "hover:bg-[#4C3AE6]/60 cursor-pointer"
-                        }`}
-                      >
-                        <h3 className="font-medium text-white leading-snug">{prompt.title}</h3>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {onboardingMessages.map((message) => {
-                  const isToolCall = !!parseToolCall(message.content);
-                  const isInternalKickoff = /onboarding complete\./i.test(message.content.trim());
-                  const isWelcomePrompts = message.content === ONBOARDING_WELCOME_PROMPTS_TOKEN;
-                  const isLegacySoftWelcome =
-                    message.content.trim() === VOICE_CHAT_LEGACY_SOFT_WELCOME.trim();
-                  if (isInternalKickoff) return null;
-                  if (isWelcomePrompts) return null;
-                  if (isLegacySoftWelcome) return null;
-                  if (isToolCall) return null;
-                  return (
-                    <div key={`onb-wrap-${message.id}`} className="space-y-4">
+                <AnimatePresence initial={false} mode="sync">
+                  {pinnedFirstAssistantMessage && (
+                    <motion.div
+                      key={`intro-step-first-${pinnedFirstAssistantMessage.id}`}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.28, ease: "easeOut" }}
+                    >
                       <ChatMessage
-                        key={`onb-${message.id}`}
-                        message={message}
+                        key={`pre-user-first-${pinnedFirstAssistantMessage.id}`}
+                        message={{
+                          id: pinnedFirstAssistantMessage.id,
+                          role: "assistant",
+                          content: pinnedFirstAssistantMessage.content,
+                          timestamp: pinnedFirstAssistantMessage.timestamp,
+                        }}
+                        userName={userDisplayName}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <AnimatePresence initial={false} mode="sync">
+                  {showIntroSynthHub && (
+                    <motion.div
+                      key="intro-step-welcome-grid"
+                      initial={{ opacity: 0, y: 14, scale: 0.985 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.34, ease: "easeOut" }}
+                      className="w-full max-w-[900px] mx-auto flex flex-col items-center gap-6 pb-2"
+                    >
+                      <div className="text-center px-2">
+                        <h2 className="text-xl font-semibold text-white mb-2">
+                          Welcome — your Cieden assistant is here 👋
+                        </h2>
+                        <p className="text-white/70 text-sm sm:text-base">
+                          Tell me about your project or pick one of the questions below.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-[900px]">
+                        {quickPrompts.map((prompt, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => {
+                              if (disableQuickPrompts) return;
+                              const value = (prompt as any).valueUk || prompt.valueEn;
+                              sendQuickPrompt(value);
+                            }}
+                            disabled={disableQuickPrompts}
+                            aria-label={prompt.title}
+                            aria-disabled={disableQuickPrompts}
+                            className={`min-h-[68px] p-4 rounded-xl text-left transition-colors border border-[#6A56FF]/35 bg-[#4C3AE6]/30 flex items-center ${
+                              disableQuickPrompts
+                                ? "opacity-50 cursor-not-allowed hover:bg-[#4C3AE6]/30"
+                                : "hover:bg-[#4C3AE6]/60 cursor-pointer"
+                            }`}
+                          >
+                            <h3 className="font-medium text-white leading-snug">{prompt.title}</h3>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <AnimatePresence initial={false} mode="sync">
+                  {showIntroSynthAddress && (
+                    <motion.div
+                      key="intro-step-address"
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.28, ease: "easeOut" }}
+                      className="space-y-4 w-full max-w-[900px] mx-auto"
+                    >
+                      <ChatMessage
+                        key="intro-address-name-prompt"
+                        message={{
+                          id: "intro-address-name-prompt",
+                          role: "assistant",
+                          content: ADDRESS_NAME_PROMPT,
+                          timestamp: Date.now(),
+                          suggestedAnswers: ADDRESS_NAME_PROMPT_CHOICES,
+                        }}
                         onQuickPrompt={(text) => sendQuickPrompt(text)}
                         userName={userDisplayName}
                       />
-                    </div>
-                  );
-                })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
-                {visibleConvexChatMessages.map((message) => {
+                <AnimatePresence initial={false} mode="sync">
+                  {emailCapturePromptVisible && !onboardingEmail && (
+                    <motion.div
+                      key="email-capture-prompt"
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      transition={{ duration: 0.28, ease: "easeOut" }}
+                      className="space-y-4 w-full max-w-[900px] mx-auto"
+                    >
+                      <ChatMessage
+                        message={{
+                          id: "email-capture-prompt",
+                          role: "assistant",
+                          content: EMAIL_CAPTURE_PROMPT,
+                          timestamp: Date.now(),
+                          suggestedAnswers: EMAIL_CAPTURE_CHOICES,
+                        }}
+                        onQuickPrompt={(text) => sendQuickPrompt(text)}
+                        userName={userDisplayName}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {showReturningWelcomeHub && (
+                  <div className="w-full max-w-[900px] mx-auto flex flex-col items-center gap-6 pb-2">
+                    <div className="text-center px-2">
+                      <h2 className="text-xl font-semibold text-white mb-2">
+                        Welcome — your Cieden assistant is here 👋
+                      </h2>
+                      <p className="text-white/70 text-sm sm:text-base">
+                        Tell me about your project or pick one of the questions below. How would you like me to address you?
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-[900px]">
+                      {quickPrompts.map((prompt, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => {
+                            if (disableQuickPrompts) return;
+                            const value = (prompt as any).valueUk || prompt.valueEn;
+                            sendQuickPrompt(value);
+                          }}
+                          disabled={disableQuickPrompts}
+                          aria-label={prompt.title}
+                          aria-disabled={disableQuickPrompts}
+                          className={`min-h-[68px] p-4 rounded-xl text-left transition-colors border border-[#6A56FF]/35 bg-[#4C3AE6]/30 flex items-center ${
+                            disableQuickPrompts
+                              ? "opacity-50 cursor-not-allowed hover:bg-[#4C3AE6]/30"
+                              : "hover:bg-[#4C3AE6]/60 cursor-pointer"
+                          }`}
+                        >
+                          <h3 className="font-medium text-white leading-snug">{prompt.title}</h3>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {visibleConvexChatMessages.map((message, index) => {
+                  const normalizeIntroText = (value: string) =>
+                    value
+                      .toLowerCase()
+                      .replace(/\s+/g, " ")
+                      .replace(/[—–-]/g, "-")
+                      .trim();
+                  if (
+                    pinnedFirstAssistantMessage &&
+                    message._id === pinnedFirstAssistantMessage.id
+                  ) {
+                    return null;
+                  }
+                  if (
+                    pinnedFirstAssistantMessage &&
+                    message.role === "assistant" &&
+                    normalizeIntroText(message.content || "") ===
+                      normalizeIntroText(pinnedFirstAssistantMessage.content || "")
+                  ) {
+                    // Hide exact duplicate of the already displayed first assistant intro.
+                    return null;
+                  }
+                  if (
+                    pinnedFirstAssistantMessage &&
+                    message.role === "assistant" &&
+                    isLikelyDefaultCiedenGreeting(message.content || "")
+                  ) {
+                    // After the first intro is pinned, suppress repeated greeting/introduction replies.
+                    return null;
+                  }
                   const isToolCall = !!parseToolCall(message.content);
                   if (isToolCall) {
                     return (
@@ -2682,11 +3090,20 @@ export default function VoiceChatPage() {
                     content: message.content,
                     timestamp: (message as { _creationTime?: number })._creationTime ?? Date.now(),
                   };
+                  const hasAnyUserBefore = visibleConvexChatMessages
+                    .slice(0, index)
+                    .some((m) => m.role === "user");
+                  const disableQuickPromptsForFirstGreeting =
+                    message.role === "assistant" && !hasAnyUserBefore;
                   return (
                     <ChatMessage
                       key={message._id}
                       message={botMsg}
-                      onQuickPrompt={(text) => sendQuickPrompt(text)}
+                      onQuickPrompt={
+                        disableQuickPromptsForFirstGreeting
+                          ? undefined
+                          : (text) => sendQuickPrompt(text)
+                      }
                       userName={userDisplayName}
                     />
                   );
