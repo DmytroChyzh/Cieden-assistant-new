@@ -22,7 +22,8 @@
     "test:agent:create": "bun .claude/skills/elevenlabs-agent-testing/scripts/agent-tests/create-agent-tests.ts",
     "test:agent:push": "agents push-tests",
     "test:all": "bun run test:client && bun run test:agent",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "kb:sync": "node scripts/sync-cieden-kb.mjs"
   },
   "dependencies": {
     "@auth/core": "0.37.0",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useLayoutEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PhoneSlash } from '@phosphor-icons/react';
 import { Microphone, MicrophoneSlash, PaperPlaneRight } from '@phosphor-icons/react';
@@ -87,7 +87,14 @@ export function NormalMode({
   }, [textInput, contentMinHeight, containerPaddingVertical, containerHeight, baseMinHeight]);
 
 
-  // Determine if user has typed any text
+  useEffect(() => {
+    const focusHandler = () => {
+      textareaRef.current?.focus();
+    };
+    window.addEventListener("focus-chat-input", focusHandler);
+    return () => window.removeEventListener("focus-chat-input", focusHandler);
+  }, []);
+
   const hasText = textInput.trim().length > 0;
 
   const placeholderText = isMobile

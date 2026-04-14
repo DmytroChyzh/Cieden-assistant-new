@@ -11,6 +11,8 @@ import {
   SupportCard,
   CASES,
 } from "@/src/components/cieden/SalesUi";
+import SimilarCasesResultCard from "@/src/components/cieden/SimilarCasesResultCard";
+import type { FindSimilarCasesToolPayload } from "@/src/lib/case-studies/types";
 import { ProjectBriefCard } from "@/src/components/cieden/ProjectBriefCard";
 import { NextStepsCard } from "@/src/components/cieden/NextStepsCard";
 import { BookCallCard } from "@/src/components/cieden/BookCallCard";
@@ -57,6 +59,14 @@ export function ToolCallMessageRenderer({
 
   const desiredDomain =
     toolName === "show_cases" ? findDomainFromFilter((data as any)?.filter) : null;
+
+  const similarCasesDedupKey =
+    toolName === "find_similar_cases" &&
+    data &&
+    typeof data === "object" &&
+    Array.isArray((data as FindSimilarCasesToolPayload).results)
+      ? (data as FindSimilarCasesToolPayload).results.map((r) => r.id).join(",")
+      : "";
 
   // Auto-open cases panel only once per tool message.
   // IMPORTANT: never dispatch in render, otherwise the user can't close the panel.
@@ -119,7 +129,11 @@ export function ToolCallMessageRenderer({
 
     const keyBase = toolName ?? "unknown_tool";
     const key =
-      toolName === "show_cases" ? `${keyBase}:${desiredDomain ?? "all"}` : keyBase;
+      toolName === "show_cases"
+        ? `${keyBase}:${desiredDomain ?? "all"}`
+        : toolName === "find_similar_cases"
+          ? `${keyBase}:${similarCasesDedupKey || "none"}`
+          : keyBase;
 
     const now = Date.now();
     const last = dedupStore[key];
@@ -186,6 +200,20 @@ export function ToolCallMessageRenderer({
           <BestCaseCard />
         </div>
       );
+
+    case "find_similar_cases": {
+      const payload = data as FindSimilarCasesToolPayload;
+      if (!payload?.results?.length) {
+        return (
+          <div className="text-sm text-white/60 italic" aria-live="polite">
+            No similar cases were returned for this message.
+          </div>
+        );
+      }
+      return (
+        <SimilarCasesResultCard payload={payload} onUserAction={onUserAction} />
+      );
+    }
 
     case "show_engagement_models":
       return (

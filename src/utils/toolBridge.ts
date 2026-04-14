@@ -15,6 +15,7 @@ export interface ToolCallEvent {
 export interface ActionHandlers {
   show_cases?: (params: ShowCasesParams) => Promise<string> | string;
   show_best_case?: (params: ShowBestCaseParams) => Promise<string> | string;
+  find_similar_cases?: (params: FindSimilarCasesParams) => Promise<string> | string;
   show_engagement_models?: (params: ShowEngagementModelsParams) => Promise<string> | string;
   generate_estimate?: (params: GenerateEstimateParams) => Promise<string> | string;
   open_calculator?: (params: OpenCalculatorParams) => Promise<string> | string;
@@ -142,6 +143,13 @@ export interface ShowBestCaseParams {
   mode?: 'update' | 'overlay';
 }
 
+/** Pass the user's product summary (from conversation) for hybrid case retrieval. */
+export interface FindSimilarCasesParams {
+  product_description?: string;
+  user_product_summary?: string;
+  mode?: 'update' | 'overlay';
+}
+
 export interface ShowEngagementModelsParams {
   mode?: 'update' | 'overlay';
 }
@@ -266,6 +274,14 @@ export async function bridgeElevenLabsToolToCopilot(
           actionHandlers.show_best_case(toolCall.parameters as ShowBestCaseParams)
         );
 
+      case 'find_similar_cases':
+        if (!actionHandlers.find_similar_cases) {
+          throw new Error('find_similar_cases handler not registered');
+        }
+        return await Promise.resolve(
+          actionHandlers.find_similar_cases(toolCall.parameters as FindSimilarCasesParams)
+        );
+
       case 'show_engagement_models':
         if (!actionHandlers.show_engagement_models) {
           throw new Error('show_engagement_models handler not registered');
@@ -382,6 +398,7 @@ export function validateToolParameters(toolName: string, parameters: unknown): b
   switch(toolName) {
     case 'show_cases':
     case 'show_best_case':
+    case 'find_similar_cases':
     case 'show_case_details':
     case 'show_engagement_models':
     case 'open_calculator':

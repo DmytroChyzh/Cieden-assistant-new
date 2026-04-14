@@ -15,6 +15,7 @@ import type * as context from "../context.js";
 import type * as conversations from "../conversations.js";
 import type * as documents from "../documents.js";
 import type * as http from "../http.js";
+import type * as kb from "../kb.js";
 import type * as messages from "../messages.js";
 import type * as quizResponses from "../quizResponses.js";
 import type * as quizzes from "../quizzes.js";
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   conversations: typeof conversations;
   documents: typeof documents;
   http: typeof http;
+  kb: typeof kb;
   messages: typeof messages;
   quizResponses: typeof quizResponses;
   quizzes: typeof quizzes;

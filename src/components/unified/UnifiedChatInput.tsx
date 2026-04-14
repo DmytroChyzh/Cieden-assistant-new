@@ -96,8 +96,10 @@ export function UnifiedChatInput({
   }, [sessionMode]);
 
   useEffect(() => {
+    const voiceId = settings.voice || null;
+    console.log('[UnifiedChatInput] Syncing voice preference to provider:', { settingsVoice: settings.voice, resolvedVoiceId: voiceId, speed: settings.speed });
     setProviderVoicePreferences({
-      voiceId: settings.voice ?? null,
+      voiceId,
       speed: typeof settings.speed === 'number' ? settings.speed : null
     });
   }, [settings.voice, settings.speed, setProviderVoicePreferences]);
@@ -296,11 +298,13 @@ export function UnifiedChatInput({
         return;
       }
 
-      // Keep user in this chat and ensure voice session is not forced.
       if (isCallActive) {
         handleEndCall();
       }
       setCurrentSessionMode("text");
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("focus-chat-input"));
+      }, 120);
     };
 
     window.addEventListener("voice-chat-mode-choice", onModeChoice as EventListener);

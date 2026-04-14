@@ -343,22 +343,22 @@ export function EstimateWizardPanel({
     const productStage =
       /(redesign|revamp|rebuild)/.test(userText) || /(редизайн|перероб|переработ)/.test(userText)
         ? "redesign"
-        : /(from scratch|new product|mvp)/.test(userText) || /(з нуля|знуля|новий продукт|новый продукт|mvp|мвп)/.test(userText)
+        : /(from scratch|new product|new project|mvp|start from)/.test(userText) || /(з нуля|знуля|новий продукт|новий проєкт|новий проект|новый продукт|новый проект|mvp|мвп)/.test(userText)
           ? "from_scratch"
           : null;
 
     const audience =
-      /(b2b)/.test(userText) || /(b2b)/.test(userText)
+      /(b2b|бізнес|бизнес|компан|business|corporate|enterprise)/.test(userText)
         ? "b2b"
-        : /(b2c)/.test(userText) || /(b2c)/.test(userText)
+        : /(b2c|покупц|покупател|клієнт|клиент|споживач|потребител|customer|consumer|individual|кінцев)/.test(userText)
           ? "b2c"
           : /(internal|внутрішн|внутренн)/.test(userText)
             ? "internal"
             : null;
 
     const hasGoal =
-      /(goal|objective|want to|need to|problem)/.test(userText) ||
-      /(ціль|мета|хочу|потрібно|проблем)/.test(userText);
+      /(goal|objective|want to|need to|problem|sell|buy|shop|store|market|ecommerce|e-commerce)/.test(userText) ||
+      /(ціль|мета|хочу|потрібно|проблем|продаж|продавати|купувати|магазин|маркетплейс|інтернет-магазин|інтернет магазин|торгов)/.test(userText);
 
     const hasScope =
       /(screen|screens|page|pages|flow|flows|feature|features|catalog|filter|profile|checkout|order|map)/.test(userText) ||
@@ -373,8 +373,8 @@ export function EstimateWizardPanel({
       /(бріф|бриф|тз|тзшка|вимог|специфікац|спецификац|документац|документаци|фигма|прототип|прототипы|презентац|презентац|макети|макет)/.test(userText);
 
     const hasTimeline =
-      /(week|weeks|month|months|deadline|asap|timeline)/.test(userText) ||
-      /(тиж|недел|місяц|месяц|дедлайн|термін|срок|asap)/.test(userText);
+      /(week|weeks|month|months|deadline|asap|timeline|\d+\s*m(onth|o))/.test(userText) ||
+      /(тиж|недел|місяц|месяц|дедлайн|термін|срок|asap|\d+\s*міс)/.test(userText);
 
     const hasIntegrations =
       /(integration|integrations|api|payment|stripe|paypal|apple pay|google pay|map|maps)/.test(userText) ||
@@ -520,7 +520,11 @@ export function EstimateWizardPanel({
     ] as const;
 
     const total = KEYS.length;
-    const done = !!extractedEstimateContext && extractedEstimateContext.missing.length === 0;
+    const contextDone = !!extractedEstimateContext && extractedEstimateContext.missing.length === 0;
+    const agentDone = estimateSessionMessages?.some(
+      (m) => m.role === "assistant" && /ESTIMATE_PANEL_RESULT:\s*\{/.test(m.content ?? "")
+    );
+    const done = contextDone || agentDone;
 
     if (done) {
       if (assistantProgressSnapshotRef.current !== "__done") {
@@ -532,23 +536,29 @@ export function EstimateWizardPanel({
       return;
     }
 
-    /** Match the Topics counter (9 required fields), not the broader filled object used elsewhere. */
-    const asked =
+    const userAnswerCount =
       typeof estimateSessionStartedAt === "number"
         ? estimateSessionMessages
-            ?.filter((m) => m.role === "assistant" && m.createdAt >= estimateSessionStartedAt)
-            .filter((m) => typeof m.content === "string" && /\?/.test(m.content))
+            ?.filter((m) => m.role === "user" && m.createdAt >= estimateSessionStartedAt)
+            .filter((m) => typeof m.content === "string" && m.content.trim().length > 0)
+            .filter((m) => !isKickoffMessage(m.content ?? ""))
             .length ?? 0
         : 0;
 
+    const filledByRegex = extractedEstimateContext
+      ? KEYS.filter((k) => !!(extractedEstimateContext.filled as Record<string, boolean>)[k]).length
+      : 0;
+
+    const answered = Math.max(filledByRegex, Math.min(userAnswerCount, total));
+
     const percentForDock =
-      total > 0 ? Math.min(99, Math.round((asked / total) * 100)) : 0;
+      total > 0 ? Math.min(99, Math.round((answered / total) * 100)) : 0;
 
     const payload = {
       active: true as const,
       title: "Preliminary estimate",
       subtitle: "Work with the assistant",
-      answered: asked,
+      answered,
       total,
       percent: percentForDock,
     };
@@ -909,12 +919,11 @@ export function EstimateWizardPanel({
       "* approximate total hours\n" +
       "* breakdown by phase\n\n" +
       "STRICT RULES:\n" +
-      "- Until you know platform/type (web/app), only ask questions.\n" +
-      "- As soon as platform/type is known, you MAY show a preliminary price range + hours.\n" +
-      "- The range should be wide initially and tighten as more info is provided.\n" +
-      "- WHILE IN ESTIMATE MODE you MUST NOT call sales/case tools (show_cases, show_best_case, show_engagement_models).\n" +
-      "- When you mention numbers, they MUST match UI_DRAFT_ESTIMATE exactly.\n\n" +
-      "After you have the required fields: output the final range, weeks, total hours, and hours by phase.\n\n" +
+      "- Ask questions ONE at a time. After each answer briefly acknowledge what you understood, then ask the NEXT question.\n" +
+      "- Do NOT show any price numbers, cost ranges, hours, or estimates UNTIL all questions are answered.\n" +
+      "- Do NOT call any sales/case tools (show_cases, show_best_case, show_engagement_models) while in estimate mode.\n" +
+      "- Only after collecting ALL required answers, deliver the FINAL estimate with numbers.\n\n" +
+      "After you have ALL the required fields: output the final range, weeks, total hours, and hours by phase.\n\n" +
       "IMPORTANT: When you are ready with the FINAL numbers, include ONE extra line in your reply exactly like this:\n" +
       'ESTIMATE_PANEL_RESULT:{"minPrice":12345,"maxPrice":23456,"weeks":6,"totalHours":240,"phaseHours":{"Discovery":20,"UX / IA":40,"UI design":80,"Design system":30,"Prototyping":20,"Testing & iteration":25,"Handoff & support":15,"PM / communication":10}}';
 
@@ -1035,19 +1044,49 @@ export function EstimateWizardPanel({
       return;
     }
 
-    if (mode === "assistant" && estimateProgress.percent === 100 && displayedEstimate) {
-      hasReportedFinalRef.current = true;
-      onEstimateFinal({
-        minPrice: displayedEstimate.minPrice,
-        maxPrice: displayedEstimate.maxPrice,
-        weeks: displayedEstimate.weeks,
-        totalHours: displayedEstimate.totalHours,
-        phaseHours: displayedEstimate.phaseHours,
-      });
+    if (mode === "assistant") {
+      const isProgressComplete = estimateProgress.percent === 100 && !!displayedEstimate;
+      const hasAgentFinalResult = estimateSessionMessages?.some(
+        (m) => m.role === "assistant" && /ESTIMATE_PANEL_RESULT:\s*\{/.test(m.content ?? "")
+      );
+
+      if (isProgressComplete || hasAgentFinalResult) {
+        hasReportedFinalRef.current = true;
+
+        if (hasAgentFinalResult) {
+          const lastAgentResult = [...(estimateSessionMessages ?? [])].reverse()
+            .find((m) => m.role === "assistant" && /ESTIMATE_PANEL_RESULT:\s*\{/.test(m.content ?? ""));
+          const match = lastAgentResult?.content?.match(/ESTIMATE_PANEL_RESULT:\s*(\{[\s\S]*?\})/);
+          if (match) {
+            try {
+              const parsed = JSON.parse(match[1]);
+              onEstimateFinal({
+                minPrice: parsed.minPrice ?? displayedEstimate?.minPrice ?? 0,
+                maxPrice: parsed.maxPrice ?? displayedEstimate?.maxPrice ?? 0,
+                weeks: parsed.weeks ?? displayedEstimate?.weeks ?? 0,
+                totalHours: parsed.totalHours ?? displayedEstimate?.totalHours ?? 0,
+                phaseHours: parsed.phaseHours ?? displayedEstimate?.phaseHours ?? {},
+              });
+              return;
+            } catch {}
+          }
+        }
+
+        if (displayedEstimate) {
+          onEstimateFinal({
+            minPrice: displayedEstimate.minPrice,
+            maxPrice: displayedEstimate.maxPrice,
+            weeks: displayedEstimate.weeks,
+            totalHours: displayedEstimate.totalHours,
+            phaseHours: displayedEstimate.phaseHours,
+          });
+        }
+      }
     }
   }, [
     displayedEstimate,
     estimateProgress.percent,
+    estimateSessionMessages,
     isResultStep,
     mode,
     onEstimateFinal,

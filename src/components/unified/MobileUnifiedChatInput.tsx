@@ -74,6 +74,14 @@ export function MobileUnifiedChatInput({
     const activeStates = ['connecting', 'listening', 'speaking'];
     setIsCallActive(activeStates.includes(voiceStatus));
   }, [voiceStatus]);
+
+  useEffect(() => {
+    const focusHandler = () => {
+      inputRef.current?.focus();
+    };
+    window.addEventListener("focus-chat-input", focusHandler);
+    return () => window.removeEventListener("focus-chat-input", focusHandler);
+  }, []);
   
   const {
     textInput,

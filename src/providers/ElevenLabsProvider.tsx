@@ -1446,7 +1446,8 @@ export function ElevenLabsProvider({
 
         const overrides1 = buildVoiceOverrides();
         try {
-          console.log('[startVoice] Attempt 1 overrides payload', overrides1);
+          console.log('[startVoice] Attempt 1 overrides payload', JSON.stringify(overrides1));
+          console.log('[startVoice] voicePreferences at call time:', JSON.stringify(appliedVoicePreferences));
         } catch {}
 
         timer1.mark('startSession_call');
@@ -1610,24 +1611,89 @@ export function ElevenLabsProvider({
     }
   }, [startVoice, stopVoice, voicePreferences, waitForNoTransition]);
 
-  const sendVoiceMessage = useCallback(async (message: string) => {
-    if (sessionModeRef.current !== 'voice') {
-      console.warn('Cannot send voice message: not in voice mode');
-      return;
-    }
+  /** Pull site KB excerpts into the agent via contextual update (feature-flagged). */
+  const injectSiteKbContextIfEnabled = useCallback(
+    async (userText: string) => {
+      if (process.env.NEXT_PUBLIC_CIEDEN_KB_CONTEXT !== 'true') return;
+      const t = userText.trim();
+      if (t.length < 3) return;
+      if (
+        t.startsWith('TOOL_CALL:') ||
+        t.startsWith('[ESTIMATE') ||
+        t.startsWith('__GUEST_') ||
+        t.includes('[ESTIMATE MODE]')
+      ) {
+        return;
+      }
 
-    if (voiceRef.current?.getStatus() !== 'connected') {
-      console.warn('Cannot send voice message: not connected');
-      return;
-    }
+      let contextBlock: string | undefined;
+      try {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        if (!origin) return;
+        const res = await fetch(`${origin}/api/kb/search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: t, limit: 8 }),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { contextBlock?: string };
+        contextBlock = data.contextBlock?.trim();
+      } catch {
+        return;
+      }
+      if (!contextBlock) return;
 
-    console.log('📤 Sending voice message:', message);
-    try {
-      voiceRef.current?.sendUserMessage(truncateForTransport(message));
-    } catch (error) {
-      console.error('Failed to send voice message:', error);
-    }
-  }, []);
+      const isTextMode = sessionModeRef.current === 'text';
+      const activeConv = (
+        isTextMode
+          ? textConversation
+          : (voiceRef.current?.getConversation() ?? textConversation)
+      ) as ConversationLike;
+
+      if (activeConv.status !== 'connected') return;
+
+      const payload = truncateForTransport(contextBlock);
+      if (typeof activeConv.sendContextualUpdate === 'function') {
+        activeConv.sendContextualUpdate(payload);
+      } else if (isTextMode && typeof activeConv.sendUserMessage === 'function') {
+        try {
+          activeConv.sendUserMessage(`[CONTEXT_UPDATE]: ${payload}`);
+        } catch {
+          /* ignore */
+        }
+      }
+    },
+    [textConversation],
+  );
+
+  const sendVoiceMessage = useCallback(
+    async (message: string) => {
+      if (sessionModeRef.current !== 'voice') {
+        console.warn('Cannot send voice message: not in voice mode');
+        return;
+      }
+
+      if (voiceRef.current?.getStatus() !== 'connected') {
+        console.warn('Cannot send voice message: not connected');
+        return;
+      }
+
+      const trimmed = message.trim();
+      try {
+        await injectSiteKbContextIfEnabled(trimmed);
+      } catch {
+        /* optional KB */
+      }
+
+      console.log('📤 Sending voice message:', message);
+      try {
+        voiceRef.current?.sendUserMessage(truncateForTransport(message));
+      } catch (error) {
+        console.error('Failed to send voice message:', error);
+      }
+    },
+    [injectSiteKbContextIfEnabled],
+  );
 
   const sendTextMessage = useCallback(async (message: string): Promise<boolean> => {
     // Shortcut: if user types a tool name (e.g. "show_cases", "show balance"), run that tool only — don't also send to agent to avoid duplicate cards
@@ -1641,6 +1707,12 @@ export function ElevenLabsProvider({
       } catch (e) {
         console.error('Tool shortcut failed:', e);
       }
+    }
+
+    try {
+      await injectSiteKbContextIfEnabled(trimmed);
+    } catch {
+      /* optional KB */
     }
 
     // Support sending text while in voice mode via WebRTC
@@ -1691,7 +1763,14 @@ export function ElevenLabsProvider({
       return false;
     }
     return true; // queued successfully
-  }, [actionHandlers, enqueueMessage, startText, startVoice, textConversation]);
+  }, [
+    actionHandlers,
+    enqueueMessage,
+    injectSiteKbContextIfEnabled,
+    startText,
+    startVoice,
+    textConversation,
+  ]);
 
   // NOTE: We intentionally avoid ending sessions in a generic effect cleanup because
   // React StrictMode and HMR can trigger cleanup immediately after connect in dev.

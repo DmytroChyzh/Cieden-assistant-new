@@ -206,6 +206,89 @@ export function useTextInput({
         injectedTool = "show_engagement_models";
       }
 
+      /** Hybrid case matching: inject full TOOL_CALL payload when user asks for “similar” work. */
+      let forcedInjectContent: string | null = null;
+      let forcedToolName: string | null = null;
+      if (
+        !injectedTool &&
+        /(similar to my product|like my product|comparable (work|projects)|analogous|anything similar|closest case|relevant case|схож(?:е|ий|а|і) на мій|що ви робили схоже|подібн(?:ий|і) проект|приклади схож|щось схоже|аналог)/i.test(
+          text,
+        )
+      ) {
+        try {
+          const res = await fetch("/api/case-studies/match", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: text }),
+          });
+          const data = await res.json();
+          if (res.ok && Array.isArray(data.results)) {
+            const payload = {
+              productDescription: text,
+              results: data.results.map(
+                (r: {
+                  case: {
+                    id: string;
+                    title: string;
+                    domain: string[];
+                    description: string;
+                    url: string;
+                    highlight?: string;
+                    image?: string;
+                  };
+                  matchReasons: string[];
+                  relevanceScore: number;
+                  narrativeExcerpt?: string;
+                }) => ({
+                  ...r.case,
+                  matchReasons: r.matchReasons,
+                  relevanceScore: r.relevanceScore,
+                  narrativeExcerpt: r.narrativeExcerpt,
+                }),
+              ),
+              overallConfidence: data.overallConfidence,
+              lowConfidence: data.lowConfidence,
+              semanticAvailable: data.semanticAvailable,
+              mode: "default",
+            };
+            forcedInjectContent = `TOOL_CALL:find_similar_cases:${JSON.stringify(payload)}`;
+            forcedToolName = "find_similar_cases";
+          }
+        } catch {
+          /* rely on model tool call */
+        }
+      }
+
+      if (forcedInjectContent && forcedToolName) {
+        if (conversationId) {
+          try {
+            const guestId = getGuestIdentityFromCookie()?.guestId;
+            const persistPayload = {
+              conversationId,
+              content: forcedInjectContent,
+              role: "assistant" as const,
+              source: "voice" as const,
+              metadata: {
+                elevenLabsAgent: true,
+                forcedTool: forcedToolName,
+                timestamp: Date.now(),
+              },
+              guestId: guestId ?? undefined,
+            };
+            window.setTimeout(() => {
+              void createMessage(persistPayload).catch(() => {});
+            }, 450);
+          } catch {
+            /* ignore */
+          }
+        } else if (isGuestFlow) {
+          window.setTimeout(() => {
+            onMessage?.(`__GUEST_AI__:${forcedInjectContent}`);
+          }, 450);
+        }
+        return;
+      }
+
       if (!injectedTool) return;
 
       // Cost intent: open estimate panel ASAP (like existing tool handlers).
@@ -526,31 +609,32 @@ export function useTextInput({
 
     try {
       console.log('📝 Sending specific message via ElevenLabs:', trimmed);
-      await maybeInjectToolCardForUserIntent(trimmed);
 
       const isEstimatePayload =
         trimmed.startsWith("[ESTIMATE MODE]") || trimmed.includes("[ESTIMATE MODE]");
       const transportText = isEstimatePayload ? truncateForTransport(trimmed) : trimmed;
 
-      // Optimistically reflect in UI
-      onMessage?.(trimmed);
+      if (!isEstimatePayload) {
+        onMessage?.(trimmed);
 
-      // Persist user message immediately for chat history
-      try {
-        const guestId = getGuestIdentityFromCookie()?.guestId;
-        await createMessage({
-          conversationId,
-          content: trimmed,
-          role: 'user',
-          source: 'text',
-          metadata: {
-            via: sessionMode === 'voice' ? 'webrtc' : 'websocket',
-            timestamp: Date.now()
-          },
-          guestId: guestId ?? undefined,
-        });
-      } catch (error) {
-        console.error('Failed to persist user text message:', error);
+        try {
+          const guestId = getGuestIdentityFromCookie()?.guestId;
+          await createMessage({
+            conversationId,
+            content: trimmed,
+            role: 'user',
+            source: 'text',
+            metadata: {
+              via: sessionMode === 'voice' ? 'webrtc' : 'websocket',
+              timestamp: Date.now()
+            },
+            guestId: guestId ?? undefined,
+          });
+        } catch (error) {
+          console.error('Failed to persist user text message:', error);
+        }
+
+        await maybeInjectToolCardForUserIntent(trimmed);
       }
 
       if (sessionMode !== 'voice') {
@@ -582,12 +666,19 @@ export function useTextInput({
         }
       }
 
-      let didSend = await sendViaProvider(transportText);
-      if (!didSend && sessionMode === 'text') {
-        // Retry once after brief delay (SDK status may be syncing)
-        console.log('⚠️ First send attempt failed, retrying after 100ms...');
-        await new Promise(resolve => setTimeout(resolve, 100));
+      const maxRetries = isEstimatePayload ? 3 : 1;
+      let didSend = false;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
         didSend = await sendViaProvider(transportText);
+        if (didSend) break;
+        if (attempt < maxRetries && sessionMode === 'text') {
+          const delay = attempt === 0 ? 100 : 300 * attempt;
+          console.log(`⚠️ Send attempt ${attempt + 1} failed, retrying after ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          if (!isTextConnected) {
+            await startText();
+          }
+        }
       }
 
       if (!didSend) {
@@ -599,7 +690,9 @@ export function useTextInput({
       console.error('Failed to send ElevenLabs text message:', error);
       const message =
         error instanceof Error ? error.message : typeof error === 'string' ? error : 'ElevenLabs text transport failed';
-      onDailyLimitReached?.({ code: 0, reason: message });
+      if (!isEstimatePayload) {
+        onDailyLimitReached?.({ code: 0, reason: message });
+      }
       return;
     }
   }, [conversationId, onMessage, createMessage, maybeInjectToolCardForUserIntent, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory]);

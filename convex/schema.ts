@@ -192,4 +192,18 @@ export default defineSchema({
     .index("by_session", ["sessionId"])
     .index("by_conversation", ["conversationId"])
     .index("by_user", ["userId"]),
+
+  /** Plain-text chunks from cieden.com (main site + handbook) for RAG / sales assistant. */
+  kbChunks: defineTable({
+    sourceUrl: v.string(),
+    title: v.string(),
+    section: v.union(v.literal("main"), v.literal("handbook")),
+    chunkIndex: v.number(),
+    text: v.string(),
+    contentHash: v.string(),
+    fetchedAt: v.number(),
+    embedding: v.optional(v.array(v.number())),
+  })
+    .index("by_sourceUrl", ["sourceUrl"])
+    .index("by_section", ["section"]),
 });

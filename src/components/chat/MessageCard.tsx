@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   markCiedenEstimateSessionCompleted,
@@ -26,11 +26,47 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
   const isToolMessage = !!toolCall;
   const isUser = message.role === "user";
 
+  const hasEstimateResult = !isUser && /ESTIMATE_PANEL_RESULT:\s*\{/.test(message.content);
+
   useEffect(() => {
     if (message.role !== "assistant") return;
     if (!/ESTIMATE_PANEL_RESULT:\s*\{/.test(message.content)) return;
     markCiedenEstimateSessionCompleted();
   }, [message._id, message.role, message.content]);
+
+  const estimateResultData = useMemo(() => {
+    if (!hasEstimateResult) return null;
+    const match = message.content.match(/ESTIMATE_PANEL_RESULT:\s*(\{[\s\S]*?\})/);
+    if (!match) return null;
+    try { return JSON.parse(match[1]); } catch { return null; }
+  }, [hasEstimateResult, message.content]);
+
+  const openEstimatePanel = useCallback(() => {
+    if (!estimateResultData) return;
+    window.dispatchEvent(
+      new CustomEvent("estimate-final-ready", {
+        detail: {
+          token: (window as any).__estimateFlowTokenRef ?? 0,
+          minPrice: estimateResultData.minPrice ?? 0,
+          maxPrice: estimateResultData.maxPrice ?? 0,
+          weeks: estimateResultData.weeks ?? 0,
+          totalHours: estimateResultData.totalHours ?? 0,
+          phaseHours: estimateResultData.phaseHours ?? {},
+        },
+      }),
+    );
+  }, [estimateResultData]);
+
+  const displayContent = message.content
+    .replace(/ESTIMATE_PANEL_RESULT:\s*\{[\s\S]*?\}(?=\s|$)/g, "")
+    .replace(/\[ESTIMATE\s+(?:MODE|PANEL)\][^\n]*\n?/gi, "")
+    .replace(/(?:^|\n)\s*(?:ENTER\s+)?ESTIMATE\s+MODE[^\n]*\n?/gi, "\n")
+    .replace(/(?:^|\n)\s*EXIT\s+ESTIMATE\s+MODE[^\n]*\n?/gi, "\n")
+    .split("\n")
+    .map((l) => l.trimEnd())
+    .filter((l, idx, arr) => !(l.trim() === "" && (arr[idx - 1]?.trim() === "")))
+    .join("\n")
+    .trim();
 
   if (
     toolCall &&
@@ -39,19 +75,6 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
   ) {
     return null;
   }
-
-  const displayContent = message.content
-    // Remove inline technical payloads (can appear mid-line)
-    .replace(/ESTIMATE_PANEL_RESULT:\s*\{[\s\S]*?\}(?=\s|$)/g, "")
-    .replace(/\[ESTIMATE\s+(?:MODE|PANEL)\][^\n]*\n?/gi, "")
-    .replace(/(?:^|\n)\s*(?:ENTER\s+)?ESTIMATE\s+MODE[^\n]*\n?/gi, "\n")
-    .replace(/(?:^|\n)\s*EXIT\s+ESTIMATE\s+MODE[^\n]*\n?/gi, "\n")
-    // Cleanup extra blank lines after removals
-    .split("\n")
-    .map((l) => l.trimEnd())
-    .filter((l, idx, arr) => !(l.trim() === "" && (arr[idx - 1]?.trim() === "")))
-    .join("\n")
-    .trim();
 
   // Chatbot-style bubbles for regular text messages (user/assistant)
   if (!isToolMessage && (message.role === "user" || message.role === "assistant")) {
@@ -123,6 +146,19 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
                   {displayContent}
                 </p>
               </div>
+              {hasEstimateResult && estimateResultData && (
+                <button
+                  onClick={openEstimatePanel}
+                  className="mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600/80 to-indigo-600/80 hover:from-purple-500/90 hover:to-indigo-500/90 text-white text-sm font-medium shadow-lg ring-1 ring-white/15 transition-all duration-200 hover:shadow-purple-500/20 hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" />
+                    <path d="M8 21h8" /><path d="M12 17v4" />
+                    <path d="M7 8h2m4 0h4M7 12h10" />
+                  </svg>
+                  {/[іїєґІЇЄҐ]/.test(displayContent) ? "Переглянути деталі оцінки" : "View estimate details"}
+                </button>
+              )}
             </div>
           </div>
         </div>

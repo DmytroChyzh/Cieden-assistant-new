@@ -3,7 +3,7 @@
 import { bridgeElevenLabsToolToCopilot, type ActionHandlers } from '@/src/utils/toolBridge';
 
 /**
- * Client tools for ElevenLabs agent – Cieden sales assistant (12 tools).
+ * Client tools for ElevenLabs agent – Cieden sales assistant (13 tools).
  * Must match the tools configured in the ElevenLabs dashboard.
  *
  * @param actionHandlers - Action handlers from parent component
@@ -24,6 +24,13 @@ export function createClientTools(actionHandlers: ActionHandlers | null): Record
       console.log('⭐ Tool: show_best_case', params);
       return bridgeElevenLabsToolToCopilot(
         { name: 'show_best_case', parameters: params, timestamp: Date.now() },
+        actionHandlers
+      ) as Promise<string | number | void>;
+    },
+    find_similar_cases: async (params: unknown): Promise<string | number | void> => {
+      console.log('🔎 Tool: find_similar_cases', params);
+      return bridgeElevenLabsToolToCopilot(
+        { name: 'find_similar_cases', parameters: params, timestamp: Date.now() },
         actionHandlers
       ) as Promise<string | number | void>;
     },

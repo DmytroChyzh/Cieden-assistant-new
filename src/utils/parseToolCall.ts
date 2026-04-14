@@ -31,6 +31,7 @@ const KNOWN_TOOL_NAMES = new Set([
   'show_next_steps',
   'book_call',
   'show_session_summary',
+  'find_similar_cases',
 ]);
 
 export function parseToolCall(content: string):

@@ -56,6 +56,7 @@ import {
   markCiedenEstimateSessionCompleted,
   resetCiedenEstimateSessionCompleted,
 } from "@/src/utils/ciedenEstimateSession";
+import type { FindSimilarCasesToolPayload } from "@/src/lib/case-studies/types";
 import { VOICE_CHAT_COMPOSER_LAYOUT } from "@/src/components/cieden/EstimateAssistantProgressDock";
 
 /**
@@ -79,6 +80,28 @@ const ADDRESS_NAME_PROMPT_CHOICES = [
   "Continue by voice",
   "Continue by text",
 ];
+
+/** Shorter English intro (legacy) — still treated as duplicate of static bubble if the agent sends it. */
+const VOICE_CHAT_HARDCODED_INTRO_LEGACY =
+  "Hi! I'm Cieden AI Assistant – your helper for everything related to Cieden: our company, portfolio, news, pricing, and services. We can talk by voice (it's faster) or by text – whichever is more convenient for you.";
+
+/** First on-screen bubble only (not ElevenLabs `first_message`). Mirrors the richer Ukrainian `CIEDEN_FIRST_MESSAGE`. */
+const VOICE_CHAT_HARDCODED_INTRO =
+  "Hi! I'm Cieden AI Assistant. Let me introduce myself: I help with UI/UX design, how we work, our portfolio, and ballpark project estimates. I'm also your guide to Cieden — our company, news, pricing, and services.\n\nWe can talk by voice (it's faster) or by text — whichever is more convenient for you.";
+
+/** Shown directly above the 6 quick-prompt buttons (with subtitle under it). */
+const VOICE_CHAT_WELCOME_TITLE = "Welcome — your Cieden assistant is here 👋";
+
+const VOICE_CHAT_WELCOME_SUBTITLE =
+  "Tell me about your project, pick a question below, or start voice/text using the controls.";
+
+const VOICE_CHAT_RETURNING_WELCOME_SUBTITLE =
+  "Tell me about your project or pick one of the questions below. How would you like me to address you?";
+
+/** Shown above the 6 quick-pick buttons after the user has sent at least one message (onboarding header is hidden). */
+const VOICE_CHAT_QUICK_PROMPTS_FOLLOWUP_HINT =
+  "Pick another topic below, or keep typing or using voice.";
+
 const EMAIL_CAPTURE_PROMPT =
   "Would you like to share your email so we can send a concise recap and next steps?";
 const EMAIL_CAPTURE_CHOICES = ["Share email", "Skip for now"];
@@ -99,6 +122,23 @@ function isLikelyDefaultCiedenGreeting(content: string): boolean {
     "how would you like me to address you",
   ];
   return hints.some((h) => t.includes(h));
+}
+
+/** Same copy as static intro(s) (dash/space tolerant) — hide duplicate agent bubble. */
+function matchesHardcodedStaticIntro(content: string): boolean {
+  const n = (s: string) =>
+    s
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      // Unicode hyphen / dashes / minus (agent copy often uses a different dash than our strings)
+      .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")
+      .replace(/['']/g, "'");
+  const nc = n(content);
+  return (
+    nc === n(VOICE_CHAT_HARDCODED_INTRO) ||
+    nc === n(VOICE_CHAT_HARDCODED_INTRO_LEGACY)
+  );
 }
 
 export default function VoiceChatPage() {
@@ -141,6 +181,10 @@ export default function VoiceChatPage() {
   const [introAnimStep, setIntroAnimStep] = useState(0);
   const [introRevealComplete, setIntroRevealComplete] = useState(false);
   const [introSessionKey, setIntroSessionKey] = useState(0);
+  const [staticIntroTimestamp, setStaticIntroTimestamp] = useState(() => Date.now());
+  useEffect(() => {
+    setStaticIntroTimestamp(Date.now());
+  }, [introSessionKey]);
 
   const markOnboardingDoneCookie = useCallback(() => {
     // Used by middleware gating to avoid auth discovery until onboarding is done.
@@ -162,6 +206,78 @@ export default function VoiceChatPage() {
   const isAgentSpeaking = voiceStatus === 'speaking';
   
   const { settings, updateSettings } = useSettings();
+  const [showVoicePickerCard, setShowVoicePickerCard] = useState(false);
+  const [pickerSelectedVoice, setPickerSelectedVoice] = useState<string>("");
+  const [pickerConfirmedVoice, setPickerConfirmedVoice] = useState<string | null>(null);
+  const [previewLoadingVoice, setPreviewLoadingVoice] = useState<string | null>(null);
+  const [previewPlayingVoice, setPreviewPlayingVoice] = useState<string | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewCacheRef = useRef<Record<string, string>>({});
+
+  const VOICE_OPTIONS = [
+    { id: '', name: 'Jessica', label: 'Default' },
+    { id: 'zubqz6JC54rePKNCKZLG', name: 'Jess', label: 'Custom' },
+    { id: 'ys3XeJJA4ArWMhRpcX1D', name: 'Sue', label: 'Custom' },
+    { id: 'bu5eKETbFKC8G702EAU4', name: 'Liam', label: 'Custom' },
+    { id: 'wSO34DbFKBGmeCNpJL5K', name: 'JW', label: 'Custom' },
+  ];
+
+  const stopPreviewAudio = useCallback(() => {
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current.currentTime = 0;
+    }
+    setPreviewPlayingVoice(null);
+  }, []);
+
+  const playVoicePreview = useCallback(async (voiceId: string) => {
+    stopPreviewAudio();
+    if (!voiceId) return;
+
+    setPreviewLoadingVoice(voiceId);
+    try {
+      let blobUrl = previewCacheRef.current[voiceId];
+      if (!blobUrl) {
+        const res = await fetch("/api/elevenlabs/voice-preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ voiceId }),
+        });
+        if (!res.ok) throw new Error("Preview fetch failed");
+        const blob = await res.blob();
+        blobUrl = URL.createObjectURL(blob);
+        previewCacheRef.current[voiceId] = blobUrl;
+      }
+
+      const audio = new Audio(blobUrl);
+      previewAudioRef.current = audio;
+      audio.onended = () => setPreviewPlayingVoice(null);
+      audio.onerror = () => setPreviewPlayingVoice(null);
+      setPreviewPlayingVoice(voiceId);
+      await audio.play();
+    } catch (err) {
+      console.error("Voice preview error:", err);
+    } finally {
+      setPreviewLoadingVoice(null);
+    }
+  }, [stopPreviewAudio]);
+
+  const handleVoicePickerSelect = useCallback(() => {
+    stopPreviewAudio();
+    console.log('[VoicePicker] Selected voice:', pickerSelectedVoice || '(default)');
+    updateSettings({ voice: pickerSelectedVoice });
+    setPickerConfirmedVoice(pickerSelectedVoice);
+    setTimeout(() => {
+      console.log('[VoicePicker] Dispatching voice-chat-mode-choice after settings sync');
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("voice-chat-mode-choice", {
+            detail: { mode: "voice" },
+          }),
+        );
+      }
+    }, 800);
+  }, [pickerSelectedVoice, stopPreviewAudio, updateSettings]);
 
   const quickPrompts = [
     { title: "What does Cieden do?", valueEn: "What does Cieden do? Tell me about your company and services." },
@@ -192,6 +308,9 @@ export default function VoiceChatPage() {
     conversationIdRef.current = conversationId;
   }, [conversationId]);
 
+
+  const introPersistedRef = useRef(false);
+  const addressPromptPersistedRef = useRef(false);
 
   useEffect(() => {
     if (!conversationId || convexMessagesLoading) return;
@@ -329,6 +448,18 @@ export default function VoiceChatPage() {
     ],
   );
 
+  useEffect(() => {
+    if (!conversationId || convexMessagesLoading) return;
+    if (introPersistedRef.current) return;
+    if (convexMessages.length > 0) return;
+    introPersistedRef.current = true;
+    void appendMessageToConvex({
+      content: VOICE_CHAT_HARDCODED_INTRO,
+      role: "assistant",
+      source: "text",
+    });
+  }, [conversationId, convexMessagesLoading, convexMessages.length, appendMessageToConvex]);
+
   // Listen to messages coming from the estimate side panel
   useEffect(() => {
     const handler = async (event: Event) => {
@@ -346,11 +477,13 @@ export default function VoiceChatPage() {
 
       try {
         if (payload.visibility === "contextual") {
-          // Hidden guidance to the agent (no UI bubble)
-          sendContextualUpdate?.(composed);
-          // Avoid spamming Convex with high-frequency "hidden" estimate state updates.
-          // These updates are needed to guide the assistant, but they don't need to be persisted
-          // as system/contextual messages in the chat history.
+          const trySendContextual = () => sendContextualUpdate?.(composed);
+          trySendContextual();
+          // Retry contextual if SDK might not be connected yet (estimate kickoff race)
+          if (composed.includes("ESTIMATE MODE")) {
+            setTimeout(() => trySendContextual(), 500);
+            setTimeout(() => trySendContextual(), 1500);
+          }
           const isHighFrequencyHiddenEstimate =
             composed.includes("UI_DRAFT_ESTIMATE (hidden):") ||
             composed.includes("ESTIMATE STATE UPDATE (hidden):");
@@ -422,11 +555,17 @@ export default function VoiceChatPage() {
     (value: string) => {
       const trimmed = value.trim();
       if (!trimmed) return;
-      if (trimmed === "Continue by voice" || trimmed === "Continue by text") {
+      if (trimmed === "Continue by voice") {
+        setPickerSelectedVoice(settings.voice ?? "");
+        setPickerConfirmedVoice(null);
+        setShowVoicePickerCard(true);
+        return;
+      }
+      if (trimmed === "Continue by text") {
         if (typeof window !== "undefined") {
           window.dispatchEvent(
             new CustomEvent("voice-chat-mode-choice", {
-              detail: { mode: trimmed === "Continue by voice" ? "voice" : "text" },
+              detail: { mode: "text" },
             }),
           );
         }
@@ -1255,6 +1394,9 @@ export default function VoiceChatPage() {
 
   useEffect(() => {
     estimateFlowTokenRef.current = estimateFlowToken;
+    if (typeof window !== "undefined") {
+      (window as any).__estimateFlowTokenRef = estimateFlowToken;
+    }
   }, [estimateFlowToken]);
 
   // Bridge + useTextInput: true while side panel is visible OR assistant-driven estimate flow is active.
@@ -1356,6 +1498,7 @@ export default function VoiceChatPage() {
       setShowEstimateAssistantRunner(false);
       setEstimatePanelKey((prev) => prev + 1);
       window.dispatchEvent(new CustomEvent("estimate-panel-opened"));
+      window.dispatchEvent(new CustomEvent("estimate-assistant-progress", { detail: { active: false } }));
     };
 
     const handleCancel = () => {
@@ -1384,14 +1527,16 @@ export default function VoiceChatPage() {
     };
   }, []);
 
-  /** Closing the final-result side panel must NOT run full estimate-cancel (chat card stays). */
+  /** Closing the final-result side panel. Keep session marked as completed so old chooser cards stay hidden. */
   const dismissFinalEstimatePanel = useCallback(() => {
     setEstimateFlowWindowFlag(false);
     setShowEstimatePanel(false);
     setEstimateFinalResult(null);
     setShowEstimateInline(false);
+    setShowEstimateAssistantRunner(false);
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("estimate-panel-closed", { detail: { reason: "final-panel" } }));
+      window.dispatchEvent(new CustomEvent("estimate-assistant-progress", { detail: { active: false } }));
     }
   }, []);
 
@@ -1709,6 +1854,101 @@ export default function VoiceChatPage() {
         console.error('❌ Failed to queue show_best_case:', error);
       }
       return 'Showing our flagship case study on screen.';
+    },
+
+    find_similar_cases: async (params) => {
+      console.log("🔎 Bridge Handler - find_similar_cases called:", params);
+      const p = params as {
+        product_description?: string;
+        user_product_summary?: string;
+        mode?: string;
+      };
+      const desc =
+        [p.product_description, p.user_product_summary].find(
+          (s) => typeof s === "string" && s.trim().length > 0,
+        )?.trim() ?? "";
+      if (!desc) {
+        return "Call find_similar_cases again with product_description: a short summary of the user's product in their own words (or yours).";
+      }
+      try {
+        if (typeof window !== "undefined") {
+          const isEstimateOpen = (window as unknown as { __ciedenEstimatePanelOpen?: boolean })
+            .__ciedenEstimatePanelOpen;
+          if (isEstimateOpen) {
+            return "We're in estimate mode — finish the estimate first, then we can match similar portfolio cases.";
+          }
+        }
+        const res = await fetch("/api/case-studies/match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: desc }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(typeof data?.error === "string" ? data.error : "match_failed");
+        }
+        const ranked = data.results as Array<{
+          case: {
+            id: string;
+            title: string;
+            domain: string[];
+            description: string;
+            url: string;
+            highlight?: string;
+            image?: string;
+          };
+          matchReasons: string[];
+          relevanceScore: number;
+          narrativeExcerpt?: string;
+        }>;
+        const payload: FindSimilarCasesToolPayload = {
+          productDescription: desc,
+          results: ranked.map((r) => ({
+            ...r.case,
+            matchReasons: r.matchReasons,
+            relevanceScore: r.relevanceScore,
+            narrativeExcerpt: r.narrativeExcerpt,
+          })),
+          overallConfidence: data.overallConfidence,
+          lowConfidence: data.lowConfidence,
+          semanticAvailable: data.semanticAvailable,
+          mode: "default",
+        };
+        const toolCallMessage = `TOOL_CALL:find_similar_cases:${safeJSONStringify(payload)}`;
+        if (!conversationId) {
+          setOnboardingMessages((prev) => {
+            if (prev.some((m) => m.content === toolCallMessage)) return prev;
+            return [
+              ...prev,
+              {
+                id: `onb-tool-${toolCallMessage}-${Date.now()}`,
+                role: "assistant",
+                content: toolCallMessage,
+                timestamp: Date.now(),
+              },
+            ];
+          });
+        } else {
+          window.setTimeout(() => {
+            queueToolMessageRef.current?.(toolCallMessage, {
+              toolCall: true,
+              toolName: "find_similar_cases",
+              timestamp: Date.now(),
+            });
+          }, 200);
+        }
+        const titles = payload.results.map((r) => r.title).join("; ");
+        const hasStories = payload.results.some((r) => r.narrativeExcerpt?.trim());
+        const storyHint = hasStories
+          ? " Each case on screen includes a long excerpt from the official cieden.com case page — use that text (and the link) to explain what we did; don’t invent details not in the excerpt."
+          : "";
+        return payload.lowConfidence
+          ? `Closest portfolio matches (moderate confidence): ${titles}. They’re on screen with “why matched” notes.${storyHint} If none fit, ask industry and platform.`
+          : `Closest Cieden cases to what you described: ${titles}.${storyHint} Don’t invent other project names.`;
+      } catch (error) {
+        console.error("❌ Failed find_similar_cases:", error);
+        return "I couldn’t load case matches from the server. Offer show_cases or ask one clarifying question (industry + platform).";
+      }
     },
 
     show_engagement_models: async (params) => {
@@ -2472,6 +2712,8 @@ export default function VoiceChatPage() {
       setIntroRevealComplete(false);
       setIntroAnimStep(0);
       setIntroSessionKey((k) => k + 1);
+      introPersistedRef.current = false;
+      addressPromptPersistedRef.current = false;
       setShowIntroHubPinned(false);
       setShowIntroAddressPinned(false);
       setPinnedFirstAssistantMessage(null);
@@ -2513,6 +2755,8 @@ export default function VoiceChatPage() {
       setIntroRevealComplete(false);
       setIntroAnimStep(0);
       setIntroSessionKey((k) => k + 1);
+      introPersistedRef.current = false;
+      addressPromptPersistedRef.current = false;
       setShowIntroHubPinned(false);
       setShowIntroAddressPinned(false);
       setPinnedFirstAssistantMessage(null);
@@ -2546,11 +2790,19 @@ export default function VoiceChatPage() {
       if (/onboarding complete\./i.test((message.content || "").trim())) return false;
       const mode = getMessageMode(message.content);
       if (mode === "update") return false;
+      const c = message.content || "";
+      if (message.role === "user" && /^\[ESTIMATE\s+(MODE|PANEL)\]/i.test(c.trim())) return false;
       return true;
     });
     const toolDeduped = filtered.filter((message, index, arr) => {
       const isTool = !!parseToolCall(message.content);
-      if (!isTool) return true;
+      if (!isTool) {
+        if (index > 0 && message.role === "assistant") {
+          const prev = arr[index - 1];
+          if (prev && prev.role === "assistant" && prev.content === message.content) return false;
+        }
+        return true;
+      }
       const prev = index > 0 ? arr[index - 1] : null;
       const prevIsTool = !!(prev && parseToolCall(prev.content));
       if (prevIsTool && prev?.content === message.content) return false;
@@ -2575,8 +2827,18 @@ export default function VoiceChatPage() {
     });
   }, [convexMessages, getMessageMode]);
   const hasVisibleUserMessages = preUserPhaseMessages.some((m) => m.role === "user");
+  /** Until the user sends anything: show hardcoded intro + quick prompts, then agent “first” bubble below. */
+  const showIntroQuickPath = Boolean(
+    conversationId && !convexMessagesLoading && !hasVisibleUserMessages,
+  );
+  /** Same 6 buttons as onboarding, but kept at the bottom of the thread after the first user message. */
+  const showFollowUpQuickPromptGrid = Boolean(
+    conversationId && !convexMessagesLoading && hasVisibleUserMessages,
+  );
   const hasVisibleAssistantMessages = preUserPhaseMessages.some((m) => m.role === "assistant");
-  const preUserFirstAssistantMessage = preUserPhaseMessages.find((m) => m.role === "assistant") || null;
+  const preUserFirstAssistantMessage = preUserPhaseMessages.find(
+    (m) => m.role === "assistant" && !matchesHardcodedStaticIntro(m.content || ""),
+  ) || null;
   const preUserFirstAssistantId = preUserFirstAssistantMessage?._id ?? null;
   /** Fresh voice-started thread: first assistant message exists, user has not replied yet. */
   const isPreUserReplyPhase = Boolean(
@@ -2599,8 +2861,7 @@ export default function VoiceChatPage() {
       setPostFirstMessageStep(0);
       return;
     }
-    // Strict order for new chats:
-    // 0 = first message only, 1 = + welcome hub, 2 = + address message.
+    // Stagger: 0 = agent bubble only, 1–2 = reveal name/mode prompt (quick grid is separate UI).
     setPostFirstMessageStep(0);
     const t1 = setTimeout(() => setPostFirstMessageStep(1), 280);
     const t2 = setTimeout(() => setPostFirstMessageStep(2), 640);
@@ -2617,6 +2878,9 @@ export default function VoiceChatPage() {
 
   useEffect(() => {
     if (!preUserFirstAssistantMessage || pinnedFirstAssistantMessage) return;
+    if (matchesHardcodedStaticIntro(preUserFirstAssistantMessage.content || "")) {
+      return;
+    }
     setPinnedFirstAssistantMessage({
       id: preUserFirstAssistantMessage._id,
       content: preUserFirstAssistantMessage.content,
@@ -2628,25 +2892,19 @@ export default function VoiceChatPage() {
   const introAnimationRunning = Boolean(
     emptyLoadedThread && !introRevealComplete,
   );
-  /** Sticky staged intro: show during empty-thread animation, then keep after messages arrive until new chat. */
-  const allowIntroStickyBlocks = Boolean(
-    conversationId &&
-      !convexMessagesLoading &&
-      (introRevealComplete || introAnimationRunning),
-  );
-  const showIntroSynthHub = Boolean(
-    (isPreUserReplyPhase && !!preUserFirstAssistantId && postFirstMessageStep >= 1) ||
-      showIntroHubPinned,
-  );
   const showIntroSynthAddress = Boolean(
     (isPreUserReplyPhase && !!preUserFirstAssistantId && postFirstMessageStep >= 2) ||
       showIntroAddressPinned,
   );
-  /** Threads that already had Convex history: full welcome hub above messages (no staged replay). */
+
+  /** Returning user with existing history but no user messages yet: welcome hub above Convex messages.
+   *  Never show when showIntroQuickPath or showFollowUpQuickPromptGrid is active (would duplicate buttons). */
   const showReturningWelcomeHub = Boolean(
     conversationId &&
       !convexMessagesLoading &&
       convexMessages.length > 0 &&
+      !hasVisibleUserMessages &&
+      !showIntroQuickPath &&
       !introRevealComplete &&
       !showIntroHubPinned &&
       !showIntroAddressPinned &&
@@ -2888,14 +3146,75 @@ export default function VoiceChatPage() {
                 }}
               >
               <div className="space-y-4 lg:space-y-6 w-full max-w-[min(100%,1400px)] mx-auto py-6">
+                {conversationId && !convexMessagesLoading && (
+                  <div className="space-y-6 w-full max-w-[900px] mx-auto">
+                    <motion.div
+                      initial={{ opacity: 0, y: 18 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.45, ease: "easeOut", delay: 0.05 }}
+                    >
+                      <ChatMessage
+                        message={{
+                          id: `voice-chat-static-intro-${introSessionKey}`,
+                          role: "assistant",
+                          content: VOICE_CHAT_HARDCODED_INTRO,
+                          timestamp: staticIntroTimestamp,
+                        }}
+                        userName={userDisplayName}
+                      />
+                    </motion.div>
+                    <motion.div
+                      className="pt-1 space-y-3"
+                      initial={{ opacity: 0, y: 18 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.45, ease: "easeOut", delay: 0.3 }}
+                    >
+                      <div className="text-center px-2 space-y-2">
+                        <h2 className="text-xl font-semibold text-white">
+                          {VOICE_CHAT_WELCOME_TITLE}
+                        </h2>
+                        <p className="text-white/70 text-sm sm:text-base leading-snug">
+                          {VOICE_CHAT_WELCOME_SUBTITLE}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
+                      {quickPrompts.map((prompt, index) => (
+                        <motion.button
+                          key={`intro-grid-${introSessionKey}-${index}`}
+                          type="button"
+                          initial={{ opacity: 0, y: 14, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          transition={{ duration: 0.35, ease: "easeOut", delay: 0.45 + index * 0.06 }}
+                          onClick={() => {
+                            if (disableQuickPrompts) return;
+                            const value = (prompt as any).valueUk || prompt.valueEn;
+                            sendQuickPrompt(value);
+                          }}
+                          disabled={disableQuickPrompts}
+                          aria-label={prompt.title}
+                          aria-disabled={disableQuickPrompts}
+                          className={`min-h-[68px] p-4 rounded-xl text-left transition-colors border border-[#6A56FF]/35 bg-[#4C3AE6]/30 flex items-center ${
+                            disableQuickPrompts
+                              ? "opacity-50 cursor-not-allowed hover:bg-[#4C3AE6]/30"
+                              : "hover:bg-[#4C3AE6]/60 cursor-pointer"
+                          }`}
+                        >
+                          <h3 className="font-medium text-white leading-snug">{prompt.title}</h3>
+                        </motion.button>
+                      ))}
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
                 <AnimatePresence initial={false} mode="sync">
-                  {pinnedFirstAssistantMessage && (
+                  {pinnedFirstAssistantMessage &&
+                    !matchesHardcodedStaticIntro(pinnedFirstAssistantMessage.content) && (
                     <motion.div
                       key={`intro-step-first-${pinnedFirstAssistantMessage.id}`}
-                      initial={{ opacity: 0, y: 12 }}
+                      initial={{ opacity: 0, y: 16 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 8 }}
-                      transition={{ duration: 0.28, ease: "easeOut" }}
+                      transition={{ duration: 0.4, ease: "easeOut" }}
                     >
                       <ChatMessage
                         key={`pre-user-first-${pinnedFirstAssistantMessage.id}`}
@@ -2904,80 +3223,146 @@ export default function VoiceChatPage() {
                           role: "assistant",
                           content: pinnedFirstAssistantMessage.content,
                           timestamp: pinnedFirstAssistantMessage.timestamp,
-                        }}
-                        userName={userDisplayName}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <AnimatePresence initial={false} mode="sync">
-                  {showIntroSynthHub && (
-                    <motion.div
-                      key="intro-step-welcome-grid"
-                      initial={{ opacity: 0, y: 14, scale: 0.985 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      transition={{ duration: 0.34, ease: "easeOut" }}
-                      className="w-full max-w-[900px] mx-auto flex flex-col items-center gap-6 pb-2"
-                    >
-                      <div className="text-center px-2">
-                        <h2 className="text-xl font-semibold text-white mb-2">
-                          Welcome — your Cieden assistant is here 👋
-                        </h2>
-                        <p className="text-white/70 text-sm sm:text-base">
-                          Tell me about your project or pick one of the questions below.
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-[900px]">
-                        {quickPrompts.map((prompt, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => {
-                              if (disableQuickPrompts) return;
-                              const value = (prompt as any).valueUk || prompt.valueEn;
-                              sendQuickPrompt(value);
-                            }}
-                            disabled={disableQuickPrompts}
-                            aria-label={prompt.title}
-                            aria-disabled={disableQuickPrompts}
-                            className={`min-h-[68px] p-4 rounded-xl text-left transition-colors border border-[#6A56FF]/35 bg-[#4C3AE6]/30 flex items-center ${
-                              disableQuickPrompts
-                                ? "opacity-50 cursor-not-allowed hover:bg-[#4C3AE6]/30"
-                                : "hover:bg-[#4C3AE6]/60 cursor-pointer"
-                            }`}
-                          >
-                            <h3 className="font-medium text-white leading-snug">{prompt.title}</h3>
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <AnimatePresence initial={false} mode="sync">
-                  {showIntroSynthAddress && (
-                    <motion.div
-                      key="intro-step-address"
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      transition={{ duration: 0.28, ease: "easeOut" }}
-                      className="space-y-4 w-full max-w-[900px] mx-auto"
-                    >
-                      <ChatMessage
-                        key="intro-address-name-prompt"
-                        message={{
-                          id: "intro-address-name-prompt",
-                          role: "assistant",
-                          content: ADDRESS_NAME_PROMPT,
-                          timestamp: Date.now(),
                           suggestedAnswers: ADDRESS_NAME_PROMPT_CHOICES,
                         }}
                         onQuickPrompt={(text) => sendQuickPrompt(text)}
                         userName={userDisplayName}
                       />
+                    </motion.div>
+                  )}
+                  {!pinnedFirstAssistantMessage && conversationId && !convexMessagesLoading && !hasVisibleUserMessages && (
+                    <motion.div
+                      key="first-msg-typing"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3, delay: 0.8 }}
+                    >
+                      <ChatMessage
+                        message={{
+                          id: "first-msg-typing",
+                          role: "assistant",
+                          content: "__TYPING__",
+                          timestamp: Date.now(),
+                        }}
+                        userName={userDisplayName}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <AnimatePresence initial={false} mode="sync">
+                  {showVoicePickerCard && (
+                    <motion.div
+                      key="voice-picker-card"
+                      initial={{ opacity: 0, y: 16, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.97 }}
+                      transition={{ duration: 0.25, ease: "easeOut" }}
+                      className="w-full max-w-[900px] mx-auto"
+                    >
+                      <div className="rounded-3xl bg-white/5 backdrop-blur-xl ring-1 ring-white/10 shadow-lg px-6 py-5 space-y-4">
+                        {pickerConfirmedVoice !== null ? (
+                          <>
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-[#4C3AE6]/30">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#4C3AE6]">
+                                  <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                              </div>
+                              <div>
+                                <h3 className="text-white font-semibold text-base">
+                                  {VOICE_OPTIONS.find(v => v.id === pickerConfirmedVoice)?.name ?? "Jessica"}
+                                </h3>
+                                <p className="text-white/50 text-xs">Voice selected — connecting...</p>
+                              </div>
+                            </div>
+                            <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
+                              <motion.div
+                                className="h-full bg-[#4C3AE6] rounded-full"
+                                initial={{ width: "0%" }}
+                                animate={{ width: "100%" }}
+                                transition={{ duration: 0.5, ease: "easeOut" }}
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/70">
+                                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                <line x1="12" x2="12" y1="19" y2="22"/>
+                              </svg>
+                              <h3 className="text-white font-semibold text-base">Choose a voice</h3>
+                            </div>
+                            <p className="text-white/60 text-sm">Tap a voice to preview it, then press Select to start.</p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {VOICE_OPTIONS.map((voice) => {
+                                const isSelected = pickerSelectedVoice === voice.id;
+                                const isLoading = previewLoadingVoice === voice.id;
+                                const isPlaying = previewPlayingVoice === voice.id;
+                                return (
+                                  <motion.button
+                                    key={voice.id}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => {
+                                      setPickerSelectedVoice(voice.id);
+                                      if (voice.id) {
+                                        void playVoicePreview(voice.id);
+                                      } else {
+                                        stopPreviewAudio();
+                                      }
+                                    }}
+                                    className={`relative flex flex-col items-center gap-1.5 px-4 py-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+                                      isSelected
+                                        ? "bg-[#4C3AE6]/40 border-[#4C3AE6] text-white ring-2 ring-[#4C3AE6]/30 shadow-md shadow-[#4C3AE6]/20 scale-[1.02]"
+                                        : "bg-white/[0.03] border-white/10 text-white/60 hover:bg-white/10 hover:border-white/30 hover:text-white hover:shadow-sm hover:scale-[1.01]"
+                                    }`}
+                                  >
+                                    {isSelected && !isLoading && !isPlaying && (
+                                      <span className="absolute top-2 right-2 flex items-center justify-center w-4 h-4 rounded-full bg-[#4C3AE6]">
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                      </span>
+                                    )}
+                                    {isLoading && (
+                                      <span className="absolute top-2 right-2 h-4 w-4 rounded-full border-2 border-[#4C3AE6]/40 border-t-[#4C3AE6] animate-spin" />
+                                    )}
+                                    {isPlaying && !isLoading && (
+                                      <span className="absolute top-2 right-2 flex gap-[2px] items-end h-4">
+                                        <span className="w-[3px] bg-[#4C3AE6] rounded-full animate-pulse" style={{ height: "50%", animationDelay: "0ms" }} />
+                                        <span className="w-[3px] bg-[#4C3AE6] rounded-full animate-pulse" style={{ height: "100%", animationDelay: "150ms" }} />
+                                        <span className="w-[3px] bg-[#4C3AE6] rounded-full animate-pulse" style={{ height: "65%", animationDelay: "300ms" }} />
+                                      </span>
+                                    )}
+                                    <span className="font-medium text-sm">{voice.name}</span>
+                                    <span className="text-[11px] opacity-50">{voice.label}</span>
+                                  </motion.button>
+                                );
+                              })}
+                            </div>
+                            <div className="flex items-center gap-3 pt-1">
+                              <motion.button
+                                whileTap={{ scale: 0.97 }}
+                                onClick={handleVoicePickerSelect}
+                                className="flex items-center gap-2 px-7 py-3 rounded-2xl bg-gradient-to-r from-[#4C3AE6] to-[#7645D9] hover:from-[#5B4AF0] hover:to-[#8855E8] text-white font-semibold text-sm shadow-lg shadow-[#4C3AE6]/25 transition-all duration-200"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                                Select voice
+                              </motion.button>
+                              <button
+                                type="button"
+                                onClick={() => { stopPreviewAudio(); setShowVoicePickerCard(false); }}
+                                className="px-4 py-3 rounded-2xl text-white/50 hover:text-white/80 hover:bg-white/5 text-sm transition-all duration-200"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -3007,49 +3392,20 @@ export default function VoiceChatPage() {
                   )}
                 </AnimatePresence>
 
-                {showReturningWelcomeHub && (
-                  <div className="w-full max-w-[900px] mx-auto flex flex-col items-center gap-6 pb-2">
-                    <div className="text-center px-2">
-                      <h2 className="text-xl font-semibold text-white mb-2">
-                        Welcome — your Cieden assistant is here 👋
-                      </h2>
-                      <p className="text-white/70 text-sm sm:text-base">
-                        Tell me about your project or pick one of the questions below. How would you like me to address you?
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-[900px]">
-                      {quickPrompts.map((prompt, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => {
-                            if (disableQuickPrompts) return;
-                            const value = (prompt as any).valueUk || prompt.valueEn;
-                            sendQuickPrompt(value);
-                          }}
-                          disabled={disableQuickPrompts}
-                          aria-label={prompt.title}
-                          aria-disabled={disableQuickPrompts}
-                          className={`min-h-[68px] p-4 rounded-xl text-left transition-colors border border-[#6A56FF]/35 bg-[#4C3AE6]/30 flex items-center ${
-                            disableQuickPrompts
-                              ? "opacity-50 cursor-not-allowed hover:bg-[#4C3AE6]/30"
-                              : "hover:bg-[#4C3AE6]/60 cursor-pointer"
-                          }`}
-                        >
-                          <h3 className="font-medium text-white leading-snug">{prompt.title}</h3>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 {visibleConvexChatMessages.map((message, index) => {
                   const normalizeIntroText = (value: string) =>
                     value
                       .toLowerCase()
                       .replace(/\s+/g, " ")
-                      .replace(/[—–-]/g, "-")
+                      .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")
                       .trim();
+                  if (
+                    message.role === "assistant" &&
+                    matchesHardcodedStaticIntro(message.content || "")
+                  ) {
+                    return null;
+                  }
                   if (
                     pinnedFirstAssistantMessage &&
                     message._id === pinnedFirstAssistantMessage.id
@@ -3062,7 +3418,6 @@ export default function VoiceChatPage() {
                     normalizeIntroText(message.content || "") ===
                       normalizeIntroText(pinnedFirstAssistantMessage.content || "")
                   ) {
-                    // Hide exact duplicate of the already displayed first assistant intro.
                     return null;
                   }
                   if (
@@ -3070,7 +3425,6 @@ export default function VoiceChatPage() {
                     message.role === "assistant" &&
                     isLikelyDefaultCiedenGreeting(message.content || "")
                   ) {
-                    // After the first intro is pinned, suppress repeated greeting/introduction replies.
                     return null;
                   }
                   const isToolCall = !!parseToolCall(message.content);
@@ -3095,12 +3449,17 @@ export default function VoiceChatPage() {
                     .some((m) => m.role === "user");
                   const disableQuickPromptsForFirstGreeting =
                     message.role === "assistant" && !hasAnyUserBefore;
+                  const isEstimateActive = showEstimateAssistantRunner || showEstimatePanel;
+                  const isEstimateMessage = message.role === "assistant" &&
+                    ((message.content || "").includes("[ESTIMATE") || (message.metadata as any)?.estimateFlow);
+                  const suppressSuggestions =
+                    disableQuickPromptsForFirstGreeting || isEstimateActive || isEstimateMessage;
                   return (
                     <ChatMessage
                       key={message._id}
                       message={botMsg}
                       onQuickPrompt={
-                        disableQuickPromptsForFirstGreeting
+                        suppressSuggestions
                           ? undefined
                           : (text) => sendQuickPrompt(text)
                       }
