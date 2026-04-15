@@ -90,7 +90,7 @@ export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessagePro
           >
             {isUser ? (
               <>
-                <span>{userName || "You"}</span>
+                <span>{userName || "Client"}</span>
                 <svg className="ml-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="7" r="4" />
                   <path d="M5.5 21a7.5 7.5 0 0 1 13 0" />

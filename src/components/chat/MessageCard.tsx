@@ -26,7 +26,21 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
   const isToolMessage = !!toolCall;
   const isUser = message.role === "user";
 
-  const hasEstimateResult = !isUser && /ESTIMATE_PANEL_RESULT:\s*\{/.test(message.content);
+  const hasExplicitEstimateResult = !isUser && /ESTIMATE_PANEL_RESULT:\s*\{/.test(message.content);
+
+  // Also detect final estimate text (no ESTIMATE_PANEL_RESULT marker, but has estimate content)
+  const looksLikeFinalEstimate = useMemo(() => {
+    if (isUser || hasExplicitEstimateResult) return false;
+    if (message.content.length < 150) return false;
+    if (message.content.trim().endsWith("?")) return false;
+    const lower = message.content.toLowerCase();
+    const hasEstimateWords = /(попередн|preliminary|оцінк|estimate|вартіст|cost|бюджет|budget|підсум|summar)/i.test(lower);
+    const hasNumbers = /\$\s?\d|\d[\d,.\s]*(usd|грн|eur)/.test(lower) || /\d{2,}/.test(message.content);
+    return hasEstimateWords && hasNumbers;
+  }, [isUser, hasExplicitEstimateResult, message.content]);
+
+  const hasCachedEstimate = typeof window !== "undefined" && !!(window as any).__lastEstimateFinalResult;
+  const showEstimateButton = hasExplicitEstimateResult || (looksLikeFinalEstimate && hasCachedEstimate);
 
   useEffect(() => {
     if (message.role !== "assistant") return;
@@ -35,25 +49,17 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
   }, [message._id, message.role, message.content]);
 
   const estimateResultData = useMemo(() => {
-    if (!hasEstimateResult) return null;
+    if (!hasExplicitEstimateResult) return null;
     const match = message.content.match(/ESTIMATE_PANEL_RESULT:\s*(\{[\s\S]*?\})/);
     if (!match) return null;
     try { return JSON.parse(match[1]); } catch { return null; }
-  }, [hasEstimateResult, message.content]);
+  }, [hasExplicitEstimateResult, message.content]);
 
   const openEstimatePanel = useCallback(() => {
-    if (!estimateResultData) return;
+    const data = estimateResultData ?? (window as any).__lastEstimateFinalResult;
+    if (!data) return;
     window.dispatchEvent(
-      new CustomEvent("estimate-final-ready", {
-        detail: {
-          token: (window as any).__estimateFlowTokenRef ?? 0,
-          minPrice: estimateResultData.minPrice ?? 0,
-          maxPrice: estimateResultData.maxPrice ?? 0,
-          weeks: estimateResultData.weeks ?? 0,
-          totalHours: estimateResultData.totalHours ?? 0,
-          phaseHours: estimateResultData.phaseHours ?? {},
-        },
-      }),
+      new CustomEvent("estimate-reopen", { detail: data }),
     );
   }, [estimateResultData]);
 
@@ -68,9 +74,11 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
     .join("\n")
     .trim();
 
+  // Don't hide open_calculator cards — EstimateInlineChooserCard handles its own
+  // completed/cancelled/active state per-session. Only hide generate_estimate dupes.
   if (
     toolCall &&
-    (toolCall.toolName === "open_calculator" || toolCall.toolName === "generate_estimate") &&
+    toolCall.toolName === "generate_estimate" &&
     isCiedenEstimateSessionCompleted()
   ) {
     return null;
@@ -146,7 +154,7 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
                   {displayContent}
                 </p>
               </div>
-              {hasEstimateResult && estimateResultData && (
+              {showEstimateButton && (
                 <button
                   onClick={openEstimatePanel}
                   className="mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600/80 to-indigo-600/80 hover:from-purple-500/90 hover:to-indigo-500/90 text-white text-sm font-medium shadow-lg ring-1 ring-white/15 transition-all duration-200 hover:shadow-purple-500/20 hover:scale-[1.02] active:scale-[0.98]"

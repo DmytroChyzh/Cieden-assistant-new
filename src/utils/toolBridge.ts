@@ -256,6 +256,17 @@ export async function bridgeElevenLabsToolToCopilot(
       throw new Error('Invalid tool call: missing name or parameters');
     }
 
+    // Block UI tools during estimate assistant flow (pure Q&A calculator)
+    const ESTIMATE_ALLOWED_TOOLS = ['generate_estimate', 'open_calculator'];
+    if (
+      typeof window !== 'undefined' &&
+      (window as any).__ciedenEstimatePanelOpen === true &&
+      !ESTIMATE_ALLOWED_TOOLS.includes(toolCall.name)
+    ) {
+      console.log('🚫 Tool blocked during estimate flow:', toolCall.name);
+      return 'Tool not available during estimate flow';
+    }
+
     // Route to appropriate handler based on tool name (Cieden sales tools only)
     switch(toolCall.name) {
       case 'show_cases':

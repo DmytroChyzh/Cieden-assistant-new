@@ -877,11 +877,25 @@ export function ElevenLabsProvider({
         currentConnectionState: textConnectionStateRef.current
       });
 
-      // Ignore stale disconnects - if we're connecting/connected, this is an old event
-      // This prevents delayed disconnect events from previous sessions (e.g., when switching voice→text)
-      // from resetting the state of a fresh, active text session
-      if (textConnectionStateRef.current !== 'idle') {
-        console.warn('⚠️ Ignoring stale disconnect event (text connection is active/connecting)');
+      // If we thought we were connected but the socket died, reset state
+      // so the next sendTextMessage triggers a fresh startText().
+      if (textConnectionStateRef.current === 'connected') {
+        console.warn('⚠️ Text WebSocket dropped while connected — resetting to allow reconnect');
+        textConnectionStateRef.current = 'idle';
+        isTextConnectedRef.current = false;
+        setIsTextConnected(false);
+        textDynVarsAppliedRef.current = false;
+        if (sessionModeRef.current === 'text') {
+          setSessionMode('idle');
+          sessionModeRef.current = 'idle';
+        }
+        resolveWaiters(textDisconnectWaitersRef);
+        return;
+      }
+
+      // Ignore stale disconnects while connecting (old session teardown)
+      if (textConnectionStateRef.current === 'connecting') {
+        console.warn('⚠️ Ignoring disconnect event during connecting phase');
         return;
       }
 
@@ -895,7 +909,6 @@ export function ElevenLabsProvider({
         sessionModeRef.current = 'idle';
       }
 
-      // Reset VAD state when text session fully disconnects
       if (!isUnmountingRef.current) {
         setVadScore(0);
         setIsUserSpeakingVAD(false);
@@ -1709,10 +1722,13 @@ export function ElevenLabsProvider({
       }
     }
 
-    try {
-      await injectSiteKbContextIfEnabled(trimmed);
-    } catch {
-      /* optional KB */
+    const isEstimate = trimmed.includes('[ESTIMATE MODE]') || trimmed.includes('ESTIMATE MODE');
+    if (!isEstimate) {
+      try {
+        await injectSiteKbContextIfEnabled(trimmed);
+      } catch {
+        /* optional KB */
+      }
     }
 
     // Support sending text while in voice mode via WebRTC

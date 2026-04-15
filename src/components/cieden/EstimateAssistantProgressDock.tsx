@@ -38,10 +38,7 @@ export function EstimateAssistantProgressDock() {
 
   const title = detail.title ?? "Preliminary estimate";
   const subtitle = detail.subtitle ?? "Work with the assistant";
-  const answered = detail.answered ?? 0;
-  const total = detail.total ?? 9;
   const percent = Math.min(100, Math.max(0, detail.percent ?? 0));
-  const remaining = Math.max(0, total - answered);
 
   return (
     <div className="w-full pb-2">
@@ -53,11 +50,8 @@ export function EstimateAssistantProgressDock() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-[11px] sm:text-xs text-white/60 mt-3 mb-1.5">
-          <span className="tabular-nums">
-            Question <span className="text-white/80 font-medium">{answered}</span> / {total}
-          </span>
-          <span className="tabular-nums">{percent}% complete</span>
+        <div className="flex items-center justify-end text-[11px] sm:text-xs text-white/60 mt-3 mb-1.5">
+          <span className="tabular-nums">{percent}%</span>
         </div>
 
         <div className="h-2 rounded-full bg-white/10 overflow-hidden" aria-hidden>
@@ -66,13 +60,6 @@ export function EstimateAssistantProgressDock() {
             style={{ width: `${percent}%` }}
           />
         </div>
-
-        {remaining > 0 ? (
-          <p className="text-[11px] text-white/45 mt-2">
-            About <span className="text-white/65 font-medium">{remaining}</span> more
-            {remaining === 1 ? " topic" : " topics"} to cover with the assistant
-          </p>
-        ) : null}
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { UnifiedChatInput } from "@/src/components/unified/UnifiedChatInput";
@@ -55,6 +55,10 @@ import { EstimateFinalResultSidePanel } from "@/src/components/cieden/EstimateFi
 import {
   markCiedenEstimateSessionCompleted,
   resetCiedenEstimateSessionCompleted,
+  isCiedenEstimateSessionCompleted,
+  cancelEstimateSession,
+  completeEstimateSession,
+  getActiveEstimateSessionId,
 } from "@/src/utils/ciedenEstimateSession";
 import type { FindSimilarCasesToolPayload } from "@/src/lib/case-studies/types";
 import { VOICE_CHAT_COMPOSER_LAYOUT } from "@/src/components/cieden/EstimateAssistantProgressDock";
@@ -68,6 +72,33 @@ function setEstimateFlowWindowFlag(flowActive: boolean) {
   if (typeof window === "undefined") return;
   (window as unknown as { __ciedenEstimatePanelOpen?: boolean }).__ciedenEstimatePanelOpen =
     flowActive;
+}
+
+/** Assistant bubble that carries the final estimate summary (not mid-flow questions). */
+function looksLikeAssistantFinalEstimateContent(content: string | undefined): boolean {
+  if (!content) return false;
+  if (/ESTIMATE_PANEL_RESULT:\s*\{/i.test(content)) return true;
+  const trimmed = content.trim();
+  if (trimmed.length < 60) return false;
+  if (trimmed.endsWith("?")) return false;
+  const lower = content.toLowerCase();
+  // Strong closing lines (UA/EN) — models often send these without $ or 3+ digit totals.
+  const strongClosing =
+    /ось\s+попередн|попередн\w*\s+оцінк|підготувал[аи]\s+попередн|підготував\s+попередн|для\s+вашого\s+проект/i.test(
+      lower,
+    ) ||
+    /here\s+is\s+(a\s+)?preliminary|preliminary\s+estimate\s+for|i\s+('?ve|have)\s+prepared\s+(a\s+)?preliminary/i.test(
+      lower,
+    );
+  if (strongClosing) return true;
+  const hasEstimateWords =
+    /(попередн|preliminary|оцінк|estimate|вартіст|cost|бюджет|budget|підсум|summar|годин|hours|тижн|weeks|phase|range)/i.test(
+      lower,
+    );
+  const hasNumbers =
+    /\$\s?\d|\d[\d,.\s]*(usd|грн|eur)|\d+\s*[-–]\s*\d+/i.test(lower) ||
+    /\d{2,}/.test(content);
+  return hasEstimateWords && hasNumbers;
 }
 
 /** Legacy injected bubble text (welcome hub replaces it in UI). */
@@ -102,9 +133,14 @@ const VOICE_CHAT_RETURNING_WELCOME_SUBTITLE =
 const VOICE_CHAT_QUICK_PROMPTS_FOLLOWUP_HINT =
   "Pick another topic below, or keep typing or using voice.";
 
+/** User-visible user messages (same filters as estimate-mode lines) before we require email. */
+const EMAIL_CAPTURE_MIN_USER_MESSAGES = 5;
+
 const EMAIL_CAPTURE_PROMPT =
-  "Would you like to share your email so we can send a concise recap and next steps?";
-const EMAIL_CAPTURE_CHOICES = ["Share email", "Skip for now"];
+  "You've already sent several messages. To improve follow-up and let our team review this thread, please share your work email below.";
+const EMAIL_CAPTURE_CHOICES = ["Share email"];
+
+const EMAIL_INLINE_RE = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/;
 
 function isLikelyDefaultCiedenGreeting(content: string): boolean {
   const t = content.trim().toLowerCase();
@@ -162,6 +198,8 @@ export default function VoiceChatPage() {
     sendContextualUpdateRef.current = sendContextualUpdate;
   }, [sendContextualUpdate]);
   const [sendProgrammaticMessage, setSendProgrammaticMessage] = useState<((text: string) => Promise<void>) | null>(null);
+  const sendProgrammaticMessageRef = useRef<((text: string) => Promise<void>) | null>(null);
+  useEffect(() => { sendProgrammaticMessageRef.current = sendProgrammaticMessage; }, [sendProgrammaticMessage]);
   // If user clicks quick prompts before `UnifiedChatInput` finishes initializing
   // (sendProgrammaticMessage is still null), we queue the last prompt and send it
   // as soon as programmatic sending becomes available (prevents "only after refresh").
@@ -169,6 +207,7 @@ export default function VoiceChatPage() {
   // Queue "visible" estimate assistant kickoff messages when UnifiedChatInput
   // isn't ready yet (prevents estimate assistant from getting stuck).
   const pendingEstimateAssistantUserMessagesRef = useRef<string[]>([]);
+  const pendingEstimateContextualMessagesRef = useRef<string[]>([]);
   const creatingConversationRef = useRef(false);
   const [estimateTyping, setEstimateTyping] = useState<{ active: boolean; label: string }>({ active: false, label: "" });
   const typingHoldUntilRef = useRef<number>(0);
@@ -303,6 +342,14 @@ export default function VoiceChatPage() {
   const conversationIdRef = useRef<Id<"conversations"> | null>(null);
   // Custom hook for Convex message integration
   const { convexMessages, isLoading: convexMessagesLoading } = useChatMessages({ conversationId });
+  const convexMessagesRef = useRef(convexMessages);
+  useEffect(() => {
+    convexMessagesRef.current = convexMessages;
+  }, [convexMessages]);
+
+  /** Count user rows like visibleConvexChatMessages (for email gate + quick prompts). */
+  const visibleUserMessageCountForEmailRef = useRef(0);
+  const emailRequiredGateRef = useRef(false);
 
   useEffect(() => {
     conversationIdRef.current = conversationId;
@@ -460,7 +507,8 @@ export default function VoiceChatPage() {
     });
   }, [conversationId, convexMessagesLoading, convexMessages.length, appendMessageToConvex]);
 
-  // Listen to messages coming from the estimate side panel
+  // Listen to messages coming from the estimate side panel.
+  // Uses refs instead of state to always have the latest function references.
   useEffect(() => {
     const handler = async (event: Event) => {
       if (!('detail' in event)) return;
@@ -468,42 +516,43 @@ export default function VoiceChatPage() {
       const payload = anyEvent.detail;
       if (!payload?.text) return;
 
-      const prefix =
-        payload.inputKind === "file"
-          ? "[ESTIMATE MODE] The user may attach a brief/spec. Focus ONLY on gathering missing inputs for estimation and producing a preliminary design estimate."
-          : "[ESTIMATE MODE] Focus ONLY on gathering missing inputs for estimation and producing a preliminary design estimate.";
-
-      const composed = `${prefix}\n\n${payload.text}`;
+      const composed = `[ESTIMATE MODE]\n${payload.text}`;
 
       try {
         if (payload.visibility === "contextual") {
-          const trySendContextual = () => sendContextualUpdate?.(composed);
-          trySendContextual();
-          // Retry contextual if SDK might not be connected yet (estimate kickoff race)
-          if (composed.includes("ESTIMATE MODE")) {
-            setTimeout(() => trySendContextual(), 500);
-            setTimeout(() => trySendContextual(), 1500);
+          const ctxFn = sendContextualUpdateRef.current;
+          if (ctxFn) {
+            ctxFn(composed);
+          } else {
+            pendingEstimateContextualMessagesRef.current.push(composed);
           }
-          const isHighFrequencyHiddenEstimate =
-            composed.includes("UI_DRAFT_ESTIMATE (hidden):") ||
-            composed.includes("ESTIMATE STATE UPDATE (hidden):");
 
-          if (!isHighFrequencyHiddenEstimate) {
-            await appendMessageToConvex({
-              content: composed,
-              role: "system",
-              source: "contextual",
-            });
-          }
+          await appendMessageToConvex({
+            content: composed,
+            role: "system",
+            source: "contextual",
+          });
           return;
         }
 
-        // Visible user message: drives the dialogue
-        if (!sendProgrammaticMessage) {
-          pendingEstimateAssistantUserMessagesRef.current.push(composed);
-          return;
+        // Visible user message: drives the dialogue.
+        // Try sending immediately, retry with delays if not ready yet.
+        const trySend = async (): Promise<boolean> => {
+          const fn = sendProgrammaticMessageRef.current;
+          if (!fn) return false;
+          await fn(composed);
+          return true;
+        };
+
+        if (await trySend()) return;
+
+        // Not ready — wait and retry
+        for (const delay of [500, 1500, 3000]) {
+          await new Promise(r => setTimeout(r, delay));
+          if (await trySend()) return;
         }
-        await sendProgrammaticMessage(composed);
+
+        console.error("❌ Failed to send estimate kickoff after retries — sendProgrammaticMessage still null");
       } catch (error) {
         console.error("Failed to send estimate panel message to assistant:", error);
       }
@@ -511,27 +560,16 @@ export default function VoiceChatPage() {
 
     window.addEventListener("estimate-assistant-message", handler as EventListener);
     return () => window.removeEventListener("estimate-assistant-message", handler as EventListener);
-  }, [sendProgrammaticMessage, sendContextualUpdate, conversationId, createMessage]);
+  }, []);
 
-  // Flush queued estimate assistant "user" messages once programmatic sending is ready.
+  // Flush queued contextual messages once sendContextualUpdate becomes available
   useEffect(() => {
-    if (!sendProgrammaticMessage) return;
-    if (pendingEstimateAssistantUserMessagesRef.current.length === 0) return;
-
-    const run = async () => {
-      while (pendingEstimateAssistantUserMessagesRef.current.length > 0) {
-        const text = pendingEstimateAssistantUserMessagesRef.current.shift();
-        if (!text) break;
-        try {
-          await sendProgrammaticMessage(text);
-        } catch (err) {
-          console.error("Failed to flush queued estimate assistant message:", err);
-        }
-      }
-    };
-
-    void run();
-  }, [sendProgrammaticMessage]);
+    if (!sendContextualUpdate) return;
+    while (pendingEstimateContextualMessagesRef.current.length > 0) {
+      const text = pendingEstimateContextualMessagesRef.current.shift();
+      if (text) sendContextualUpdate(text);
+    }
+  }, [sendContextualUpdate]);
 
   // Flush queued quick prompt once programmatic sending becomes ready.
   useEffect(() => {
@@ -555,6 +593,20 @@ export default function VoiceChatPage() {
     (value: string) => {
       const trimmed = value.trim();
       if (!trimmed) return;
+
+      if (
+        emailRequiredGateRef.current &&
+        trimmed !== "Share email" &&
+        !EMAIL_INLINE_RE.test(trimmed) &&
+        !trimmed.includes("[ESTIMATE MODE]")
+      ) {
+        setEmailComposerGateNotice(
+          "Щоб продовжити, введіть ваш робочий email у полі нижче (можна надіслати одним рядком разом із повідомленням).",
+        );
+        window.setTimeout(() => setEmailComposerGateNotice(null), 9000);
+        return;
+      }
+
       if (trimmed === "Continue by voice") {
         setPickerSelectedVoice(settings.voice ?? "");
         setPickerConfirmedVoice(null);
@@ -579,12 +631,6 @@ export default function VoiceChatPage() {
           source: "text",
           content: "Great - please type your email in this chat.",
         });
-        return;
-      }
-      if (trimmed === "Skip for now") {
-        setEmailCaptureDismissed(true);
-        setEmailCapturePromptVisible(false);
-        setEmailCaptureAwaitingInput(false);
         return;
       }
       // If user is authenticated but conversationId isn't ready yet,
@@ -631,8 +677,57 @@ export default function VoiceChatPage() {
   const [emailCapturePromptVisible, setEmailCapturePromptVisible] = useState(false);
   const [emailCaptureDismissed, setEmailCaptureDismissed] = useState(false);
   const [emailCaptureAwaitingInput, setEmailCaptureAwaitingInput] = useState(false);
+  const [emailComposerGateNotice, setEmailComposerGateNotice] = useState<string | null>(null);
   const lastSavedConversationEmailRef = useRef("");
   const hasAskedEmailRef = useRef(false);
+  const [emailRequiredGate, setEmailRequiredGate] = useState(false);
+  useEffect(() => {
+    const raw = convexMessages || [];
+    let n = 0;
+    for (const m of raw) {
+      if (m.role !== "user") continue;
+      const c = (m.content || "").trim();
+      if (c.startsWith("I selected:")) continue;
+      if (/^\[ESTIMATE\s+(MODE|PANEL)\]/i.test(c)) continue;
+      const mode = (parseToolCall(m.content || "")?.mode) || "default";
+      if (mode === "update") continue;
+      n++;
+    }
+    visibleUserMessageCountForEmailRef.current = n;
+    const gate = Boolean(
+      conversationId &&
+        canUseChat &&
+        !(onboardingEmail || "").trim() &&
+        n >= EMAIL_CAPTURE_MIN_USER_MESSAGES,
+    );
+    emailRequiredGateRef.current = gate;
+    setEmailRequiredGate(gate);
+  }, [convexMessages, conversationId, canUseChat, onboardingEmail]);
+
+  useEffect(() => {
+    if (!emailRequiredGate) setEmailComposerGateNotice(null);
+  }, [emailRequiredGate]);
+
+  const handleComposerQuickSelect = useCallback(
+    async (request: string) => {
+      if (
+        emailRequiredGate &&
+        !EMAIL_INLINE_RE.test(request) &&
+        !request.includes("[ESTIMATE MODE]")
+      ) {
+        setEmailComposerGateNotice(
+          "Щоб користуватися швидкими темами, спершу надішліть ваш email текстом у полі нижче.",
+        );
+        window.setTimeout(() => setEmailComposerGateNotice(null), 9000);
+        return;
+      }
+      console.log("🎯 Quick action selected:", request);
+      if (!sendProgrammaticMessage) return;
+      await sendProgrammaticMessage(request);
+    },
+    [emailRequiredGate, sendProgrammaticMessage],
+  );
+
   const rememberedNameRef = useRef(false);
   const rememberedEmailRef = useRef(false);
 
@@ -641,12 +736,13 @@ export default function VoiceChatPage() {
   // Otherwise conversation creation / message persistence won't work.
   const chatReady = canUseChat;
 
-  // Unified display name for bubbles ("You" replacement)
+  // Unified display name for bubbles
+  const validOnboardingName = onboardingName && onboardingName.length <= 30 ? onboardingName : "";
   const userDisplayName =
-    onboardingName ||
+    validOnboardingName ||
     currentUser?.name ||
     currentUser?.email ||
-    "You";
+    "Client";
 
   const userEmailDisplay =
     onboardingEmail ||
@@ -1388,6 +1484,8 @@ export default function VoiceChatPage() {
   const [estimatePanelKey, setEstimatePanelKey] = useState(0);
   const [showEstimateInline, setShowEstimateInline] = useState(false);
   const [estimateFinalResult, setEstimateFinalResult] = useState<EstimateFinalResult | null>(null);
+  const [estimateFirstMessageId, setEstimateFirstMessageId] = useState<string | null>(null);
+  const [estimateEndMsgId, setEstimateEndMsgId] = useState<string | null>(null);
   const [showEstimateAssistantRunner, setShowEstimateAssistantRunner] = useState(false);
   const [estimateFlowToken, setEstimateFlowToken] = useState(0);
   const estimateFlowTokenRef = useRef(estimateFlowToken);
@@ -1406,6 +1504,8 @@ export default function VoiceChatPage() {
       showEstimatePanel || showEstimateAssistantRunner || showEstimateInline;
     (window as unknown as { __ciedenEstimatePanelOpen?: boolean }).__ciedenEstimatePanelOpen =
       flowActive;
+    // Don't reset __ciedenOriginalChooserId here — the original chooser
+    // card must stay visible even after estimate completes (shows "Completed" state).
   }, [showEstimatePanel, showEstimateAssistantRunner, showEstimateInline]);
 
   // Tell the ElevenLabs agent when the estimate side panel opens/closes (UI truth vs. last reply).
@@ -1458,12 +1558,16 @@ export default function VoiceChatPage() {
 
     const handleChooseQuick = (e: Event) => {
       // Open the right-side questionnaire panel immediately.
+      const detail = (e as CustomEvent).detail;
       bumpToken();
       pendingEstimateAssistantUserMessagesRef.current = [];
+      pendingEstimateContextualMessagesRef.current = [];
       resetCiedenEstimateSessionCompleted();
       setEstimateFlowWindowFlag(true);
       setShowEstimateAssistantRunner(false);
       setEstimateFinalResult(null);
+      setEstimateEndMsgId(null);
+      if (detail?.messageId) setEstimateFirstMessageId(String(detail.messageId));
       setShowEstimatePanel(true);
       setShowEstimateInline(false);
       setEstimatePanelKey((prev) => prev + 1);
@@ -1472,12 +1576,16 @@ export default function VoiceChatPage() {
 
     const handleChooseAssistant = (e: Event) => {
       // No side panel while assistant is collecting info.
+      const detail = (e as CustomEvent).detail;
       bumpToken();
       pendingEstimateAssistantUserMessagesRef.current = [];
+      pendingEstimateContextualMessagesRef.current = [];
       resetCiedenEstimateSessionCompleted();
       setEstimateFlowWindowFlag(true);
       setShowEstimatePanel(false);
       setEstimateFinalResult(null);
+      setEstimateEndMsgId(null);
+      if (detail?.messageId) setEstimateFirstMessageId(String(detail.messageId));
       setShowEstimateInline(false);
       setEstimatePanelKey((prev) => prev + 1);
       setShowEstimateAssistantRunner(true);
@@ -1491,8 +1599,10 @@ export default function VoiceChatPage() {
       if (token !== estimateFlowTokenRef.current) return;
 
       markCiedenEstimateSessionCompleted();
+      completeEstimateSession(detail as unknown as Record<string, unknown>);
       setEstimateFlowWindowFlag(true);
       setEstimateFinalResult(detail);
+      (window as any).__lastEstimateFinalResult = detail;
       setShowEstimatePanel(true);
       setShowEstimateInline(false);
       setShowEstimateAssistantRunner(false);
@@ -1504,6 +1614,8 @@ export default function VoiceChatPage() {
     const handleCancel = () => {
       bumpToken();
       pendingEstimateAssistantUserMessagesRef.current = [];
+      pendingEstimateContextualMessagesRef.current = [];
+      cancelEstimateSession();
       resetCiedenEstimateSessionCompleted();
       setEstimateFlowWindowFlag(false);
       setShowEstimatePanel(false);
@@ -1513,21 +1625,32 @@ export default function VoiceChatPage() {
       window.dispatchEvent(new CustomEvent("estimate-panel-closed", { detail: { reason: "cancel" } }));
     };
 
+    const handleReopen = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail) return;
+      setEstimateFinalResult(detail);
+      setShowEstimatePanel(true);
+      setEstimatePanelKey((prev) => prev + 1);
+      window.dispatchEvent(new CustomEvent("estimate-panel-opened"));
+    };
+
     window.addEventListener("estimate-inline-active-change", handleInlineActive);
     window.addEventListener("estimate-choose-quick", handleChooseQuick);
     window.addEventListener("estimate-choose-assistant", handleChooseAssistant);
     window.addEventListener("estimate-cancel", handleCancel);
     window.addEventListener("estimate-final-ready", handleEstimateFinal);
+    window.addEventListener("estimate-reopen", handleReopen);
     return () => {
       window.removeEventListener("estimate-inline-active-change", handleInlineActive);
       window.removeEventListener("estimate-choose-quick", handleChooseQuick);
       window.removeEventListener("estimate-choose-assistant", handleChooseAssistant);
       window.removeEventListener("estimate-cancel", handleCancel);
       window.removeEventListener("estimate-final-ready", handleEstimateFinal);
+      window.removeEventListener("estimate-reopen", handleReopen);
     };
   }, []);
 
-  /** Closing the final-result side panel. Keep session marked as completed so old chooser cards stay hidden. */
+  /** Closing the final-result side panel. End-of-session anchor is derived from chat (see effect below). */
   const dismissFinalEstimatePanel = useCallback(() => {
     setEstimateFlowWindowFlag(false);
     setShowEstimatePanel(false);
@@ -2021,6 +2144,12 @@ export default function VoiceChatPage() {
 
     open_calculator: async (params) => {
       console.log('🧮 Bridge Handler - open_calculator called:', params);
+      // Skip if the client-side injection already created one recently (prevents duplicate chooser cards)
+      const primaryAt = (window as any).__ciedenEstimateFlowPrimaryAt as number | undefined;
+      if (primaryAt && Date.now() - primaryAt < 5000) {
+        console.log('🧮 Bridge: skipping duplicate open_calculator (client injection already handled)');
+        return 'The estimate chooser is already visible in the chat.';
+      }
       try {
         const safeParams =
           params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
@@ -2194,11 +2323,65 @@ export default function VoiceChatPage() {
     show_project_brief: async (params) => {
       console.log('📝 Bridge Handler - show_project_brief called:', params);
       try {
-        const safeParams =
-          params && typeof params === "object"
-            ? { ...(params as any), mode: "default" }
-            : { mode: "default" };
-        const toolCallMessage = `TOOL_CALL:show_project_brief:${safeJSONStringify(safeParams)}`;
+        const base: Record<string, unknown> =
+          params && typeof params === "object" ? { ...(params as any) } : {};
+        base.mode = "default";
+
+        const pickAgentOverrides = (b: Record<string, unknown>) => {
+          const o: Record<string, unknown> = {};
+          for (const k of ["productType", "budgetRange", "timeline", "primaryGoal", "notes"]) {
+            const v = b[k];
+            if (typeof v === "string" && v.trim()) o[k] = v.trim();
+          }
+          if (Array.isArray(b.platforms) && b.platforms.length) {
+            o.platforms = b.platforms.filter((x) => typeof x === "string" && String(x).trim());
+          }
+          if (Array.isArray(b.secondaryGoals) && b.secondaryGoals.length) {
+            o.secondaryGoals = b.secondaryGoals.filter((x) => typeof x === "string" && String(x).trim());
+          }
+          return o;
+        };
+
+        let merged: Record<string, unknown> = { ...base };
+
+        if (conversationId) {
+          const lines: { role: string; content: string }[] = [];
+          for (const m of (convexMessagesRef.current || []).slice(-42)) {
+            if (m.role !== "user" && m.role !== "assistant") continue;
+            const c = (m as { content?: string }).content;
+            if (!c || !String(c).trim()) continue;
+            const tc = parseToolCall(c);
+            if (tc) {
+              lines.push({ role: m.role, content: `[UI: ${tc.toolName}]` });
+              continue;
+            }
+            lines.push({ role: m.role, content: String(c).trim().slice(0, 4000) });
+          }
+
+          if (lines.length > 0) {
+            try {
+              const { mode: _drop, ...agentDraft } = base;
+              const res = await fetch("/api/project-brief/synthesize", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  messages: lines.slice(-36),
+                  agentBrief: agentDraft,
+                }),
+              });
+              if (res.ok) {
+                const j = (await res.json()) as { brief?: Record<string, unknown> | null };
+                if (j.brief && typeof j.brief === "object") {
+                  merged = { mode: "default", ...j.brief, ...pickAgentOverrides(base) };
+                }
+              }
+            } catch (err) {
+              console.warn("⚠️ project-brief synthesize failed, using tool params only:", err);
+            }
+          }
+        }
+
+        const toolCallMessage = `TOOL_CALL:show_project_brief:${safeJSONStringify(merged)}`;
 
         if (!conversationId) {
           setOnboardingMessages((prev) => {
@@ -2496,6 +2679,18 @@ export default function VoiceChatPage() {
     // If conversation is not ready yet, try to initialize it and skip this transient message.
     if (!conversationId) {
       await ensureConversationId();
+      return;
+    }
+
+    if (
+      emailRequiredGateRef.current &&
+      source === "voice" &&
+      !EMAIL_INLINE_RE.test(text)
+    ) {
+      setEmailComposerGateNotice(
+        "Щоб продовжити голосом, спершу надішліть ваш email текстом у полі нижче.",
+      );
+      window.setTimeout(() => setEmailComposerGateNotice(null), 9000);
       return;
     }
 
@@ -2811,6 +3006,71 @@ export default function VoiceChatPage() {
     return toolDeduped;
   }, [convexMessages, getMessageMode]);
 
+  const visibleConvexChatMessagesRef = useRef(visibleConvexChatMessages);
+  useEffect(() => { visibleConvexChatMessagesRef.current = visibleConvexChatMessages; }, [visibleConvexChatMessages]);
+
+  // Pin "Estimate session" card under the final-summary bubble (not the last Q before the user’s last answer).
+  // 1) Prefer assistant text that looks like a delivered estimate. 2) If none (strict model text), fall back once
+  // to last assistant after the last user message while we have __lastEstimateFinalResult.
+  useEffect(() => {
+    if (!estimateFirstMessageId || !isCiedenEstimateSessionCompleted()) return;
+    const msgs = visibleConvexChatMessages;
+    const firstIdx = msgs.findIndex((m) => String(m._id) === estimateFirstMessageId);
+    if (firstIdx === -1) return;
+
+    let strictIdx = -1;
+    for (let i = firstIdx; i < msgs.length; i++) {
+      const m = msgs[i];
+      if (
+        m.role === "assistant" &&
+        !parseToolCall(m.content) &&
+        looksLikeAssistantFinalEstimateContent(m.content)
+      ) {
+        strictIdx = i;
+      }
+    }
+
+    if (strictIdx !== -1) {
+      const id = String(msgs[strictIdx]._id);
+      setEstimateEndMsgId((prev) => (prev === id ? prev : id));
+      return;
+    }
+
+    const hasStored =
+      typeof window !== "undefined" && !!(window as unknown as { __lastEstimateFinalResult?: unknown }).__lastEstimateFinalResult;
+    if (!hasStored) return;
+
+    let lastUserIdx = -1;
+    for (let i = firstIdx; i < msgs.length; i++) {
+      if (msgs[i].role === "user") lastUserIdx = i;
+    }
+    let fbIdx = -1;
+    if (lastUserIdx >= firstIdx) {
+      for (let i = msgs.length - 1; i > lastUserIdx; i--) {
+        if (msgs[i].role === "assistant" && !parseToolCall(msgs[i].content)) {
+          fbIdx = i;
+          break;
+        }
+      }
+    } else {
+      for (let i = msgs.length - 1; i >= firstIdx; i--) {
+        if (msgs[i].role === "assistant" && !parseToolCall(msgs[i].content)) {
+          fbIdx = i;
+          break;
+        }
+      }
+    }
+    if (fbIdx === -1) return;
+    const idfb = String(msgs[fbIdx]._id);
+    setEstimateEndMsgId((prev) => (prev == null ? idfb : prev));
+  }, [visibleConvexChatMessages, estimateFirstMessageId, estimateFinalResult]);
+
+  // Find the index of the end-of-session message for the "View estimate result" card.
+  const estimateButtonIdx = useMemo(() => {
+    if (!estimateEndMsgId) return -1;
+    return visibleConvexChatMessages.findIndex(m => String(m._id) === estimateEndMsgId);
+  }, [visibleConvexChatMessages, estimateEndMsgId]);
+
   const emptyLoadedThread = Boolean(
     conversationId &&
       !convexMessagesLoading &&
@@ -2913,7 +3173,7 @@ export default function VoiceChatPage() {
 
   useEffect(() => {
     if (!conversationId || convexMessagesLoading) return;
-    if (emailCapturePromptVisible || emailCaptureDismissed || onboardingEmail) return;
+    if (emailCapturePromptVisible || onboardingEmail) return;
 
     const userCount = visibleConvexChatMessages.filter((m) => m.role === "user").length;
     const hasUsefulAssistantReply = visibleConvexChatMessages.some(
@@ -2921,14 +3181,16 @@ export default function VoiceChatPage() {
     );
     const hasToolCard = (convexMessages || []).some((m) => !!parseToolCall(m.content || ""));
 
-    if (userCount >= 2 && (hasUsefulAssistantReply || hasToolCard)) {
+    if (
+      userCount >= EMAIL_CAPTURE_MIN_USER_MESSAGES &&
+      (hasUsefulAssistantReply || hasToolCard)
+    ) {
       setEmailCapturePromptVisible(true);
     }
   }, [
     conversationId,
     convexMessagesLoading,
     emailCapturePromptVisible,
-    emailCaptureDismissed,
     onboardingEmail,
     visibleConvexChatMessages,
     convexMessages,
@@ -3206,7 +3468,7 @@ export default function VoiceChatPage() {
                     </motion.div>
                   </div>
                 )}
-                <AnimatePresence initial={false} mode="sync">
+                <AnimatePresence initial={false} mode="wait">
                   {pinnedFirstAssistantMessage &&
                     !matchesHardcodedStaticIntro(pinnedFirstAssistantMessage.content) && (
                     <motion.div
@@ -3230,13 +3492,18 @@ export default function VoiceChatPage() {
                       />
                     </motion.div>
                   )}
-                  {!pinnedFirstAssistantMessage && conversationId && !convexMessagesLoading && !hasVisibleUserMessages && (
+                  {/* Hide typing as soon as a real first assistant row exists in Convex (avoids dots + text overlap before pinned sync). */}
+                  {!pinnedFirstAssistantMessage &&
+                    !preUserFirstAssistantMessage &&
+                    conversationId &&
+                    !convexMessagesLoading &&
+                    !hasVisibleUserMessages && (
                     <motion.div
                       key="first-msg-typing"
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.3, delay: 0.8 }}
+                      exit={{ opacity: 0, y: 6 }}
+                      transition={{ duration: 0.22, delay: 0.15 }}
                     >
                       <ChatMessage
                         message={{
@@ -3428,14 +3695,49 @@ export default function VoiceChatPage() {
                     return null;
                   }
                   const isToolCall = !!parseToolCall(message.content);
+                  // Show end-session card whenever we have a pinned message (do not hide while result panel is open).
+                  const isEstimateEndMsg = index === estimateButtonIdx && estimateButtonIdx !== -1;
+                  const estimateEndButton = isEstimateEndMsg ? (
+                    <div key={`est-card-${message._id}`} className="w-full max-w-[900px] mx-auto my-3">
+                      <div className="rounded-2xl border border-white/[0.12] bg-white/[0.04] backdrop-blur-sm px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                        <p className="text-xs font-medium text-white/70 uppercase tracking-widest">
+                          Estimate session
+                        </p>
+                        <div className="mt-3 flex flex-col gap-2">
+                          <div className="w-full flex items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-300/90">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                            Completed
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const data = estimateFinalResult ?? (window as any).__lastEstimateFinalResult;
+                              if (data) window.dispatchEvent(new CustomEvent("estimate-reopen", { detail: data }));
+                            }}
+                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600/40 to-indigo-600/40 hover:from-purple-600/60 hover:to-indigo-600/60 border border-purple-400/20 px-4 py-2.5 text-sm font-medium text-white transition-all cursor-pointer hover:shadow-lg hover:shadow-purple-500/15"
+                            aria-label="View estimate result"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="2" y="3" width="20" height="14" rx="2" />
+                              <path d="M8 21h8" /><path d="M12 17v4" />
+                              <path d="M7 8h2m4 0h4M7 12h10" />
+                            </svg>
+                            View estimate result
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null;
                   if (isToolCall) {
                     return (
-                      <MessageCard
-                        key={message._id}
-                        message={message}
-                        onUserAction={handleUserAction}
-                        compact={isMobile}
-                      />
+                      <React.Fragment key={message._id}>
+                        <MessageCard
+                          message={message}
+                          onUserAction={handleUserAction}
+                          compact={isMobile}
+                        />
+                        {estimateEndButton}
+                      </React.Fragment>
                     );
                   }
                   const botMsg: ChatbotMessage = {
@@ -3452,19 +3754,28 @@ export default function VoiceChatPage() {
                   const isEstimateActive = showEstimateAssistantRunner || showEstimatePanel;
                   const isEstimateMessage = message.role === "assistant" &&
                     ((message.content || "").includes("[ESTIMATE") || (message.metadata as any)?.estimateFlow);
+                  // Suppress suggestions for all messages that belong to a completed estimate session
+                  const isInsideCompletedEstimate = (() => {
+                    if (estimateButtonIdx === -1) return false;
+                    const firstIdx = visibleConvexChatMessages.findIndex(m => String(m._id) === estimateFirstMessageId);
+                    if (firstIdx === -1) return false;
+                    return index >= firstIdx && index <= estimateButtonIdx;
+                  })();
                   const suppressSuggestions =
-                    disableQuickPromptsForFirstGreeting || isEstimateActive || isEstimateMessage;
+                    disableQuickPromptsForFirstGreeting || isEstimateActive || isEstimateMessage || isInsideCompletedEstimate;
                   return (
-                    <ChatMessage
-                      key={message._id}
-                      message={botMsg}
-                      onQuickPrompt={
-                        suppressSuggestions
-                          ? undefined
-                          : (text) => sendQuickPrompt(text)
-                      }
-                      userName={userDisplayName}
-                    />
+                    <React.Fragment key={message._id}>
+                      <ChatMessage
+                        message={botMsg}
+                        onQuickPrompt={
+                          suppressSuggestions
+                            ? undefined
+                            : (text) => sendQuickPrompt(text)
+                        }
+                        userName={userDisplayName}
+                      />
+                      {estimateEndButton}
+                    </React.Fragment>
                   );
                 })}
 
@@ -3488,6 +3799,16 @@ export default function VoiceChatPage() {
             {/* Unified Chat Input */}
               {isMobile ? (
             <footer className="flex-shrink-0 p-2 pb-1 bg-transparent pointer-events-none overflow-visible" style={{ paddingBottom: 'max(calc(env(safe-area-inset-bottom) + 8px), 24px)' }}>
+              {emailComposerGateNotice && (
+                <div className="pointer-events-auto px-2 pb-2 max-w-[900px] mx-auto">
+                  <div
+                    role="status"
+                    className="rounded-xl border border-amber-400/35 bg-amber-500/15 px-3 py-2 text-center text-sm text-amber-50"
+                  >
+                    {emailComposerGateNotice}
+                  </div>
+                </div>
+              )}
               <div className="relative pointer-events-auto overflow-visible z-50">
                 <UnifiedChatInput
                   className="pointer-events-auto"
@@ -3499,15 +3820,11 @@ export default function VoiceChatPage() {
                   actionHandlers={actionHandlers}
                   showSettings={showSettings}
                   onPreAuthMessage={undefined}
-                  onRequestSelect={async (request) => {
-                    console.log('🎯 Quick action selected:', request);
-                    if (sendProgrammaticMessage) {
-                      await sendProgrammaticMessage(request);
-                    }
-                  }}
+                  onRequestSelect={handleComposerQuickSelect}
                   isMobile={true}
                   settings={settings}
                   updateSettings={updateSettings}
+                  emailRequiredGate={emailRequiredGate}
                   onVoiceAudioUpdate={(isUserSpeaking, userLevel, agentLevel) => {
                     setIsUserSpeaking(isUserSpeaking);
                     setUserAudioLevel(userLevel);
@@ -3518,6 +3835,16 @@ export default function VoiceChatPage() {
             </footer>
           ) : (
             <div className="relative overflow-visible z-50">
+              {emailComposerGateNotice && (
+                <div className="pointer-events-auto px-4 pb-2 max-w-[900px] mx-auto">
+                  <div
+                    role="status"
+                    className="rounded-xl border border-amber-400/35 bg-amber-500/15 px-3 py-2 text-center text-sm text-amber-50"
+                  >
+                    {emailComposerGateNotice}
+                  </div>
+                </div>
+              )}
               <UnifiedChatInput
                 conversationId={conversationId}
                 onMessage={handleMessage}
@@ -3530,14 +3857,10 @@ export default function VoiceChatPage() {
                 alignLeft={
                   !!activePanelDomain || !!showEstimatePanel || !!showAboutPanel || !!activePricingModelId
                 }
-                onRequestSelect={async (request) => {
-                  console.log('🎯 Quick action selected:', request);
-                  if (sendProgrammaticMessage) {
-                    await sendProgrammaticMessage(request);
-                  }
-                }}
+                onRequestSelect={handleComposerQuickSelect}
                 settings={settings}
                 updateSettings={updateSettings}
+                emailRequiredGate={emailRequiredGate}
                 onVoiceAudioUpdate={(isUserSpeaking, userLevel, agentLevel) => {
                   setIsUserSpeaking(isUserSpeaking);
                   setUserAudioLevel(userLevel);
@@ -3604,7 +3927,6 @@ export default function VoiceChatPage() {
                 initialStep={0}
                 onClose={() => {
                   setEstimateFlowWindowFlag(false);
-                  resetCiedenEstimateSessionCompleted();
                   setShowEstimateAssistantRunner(false);
                   window.dispatchEvent(
                     new CustomEvent("estimate-panel-closed", { detail: { reason: "assistant-runner" } }),

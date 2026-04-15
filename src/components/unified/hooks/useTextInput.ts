@@ -20,13 +20,18 @@ interface UseTextInputProps {
   onDailyLimitReached?: (error: { code: number; reason: string }) => void;
   /** Optional handler for messages before a conversation / auth is ready */
   onPreAuthMessage?: (message: string) => Promise<void> | void;
+  /** When true, only messages containing an email (or estimate payloads) may be sent */
+  emailRequiredGate?: boolean;
 }
+
+const EMAIL_INLINE_RE = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/;
 
 export function useTextInput({
   conversationId,
   onMessage,
   onDailyLimitReached,
-  onPreAuthMessage
+  onPreAuthMessage,
+  emailRequiredGate = false,
 }: UseTextInputProps) {
   const [textInput, setTextInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -440,6 +445,19 @@ export function useTextInput({
     const trimmed = textInput.trim();
     if (!trimmed) return;
 
+    if (
+      emailRequiredGate &&
+      !trimmed.includes("[ESTIMATE MODE]") &&
+      !EMAIL_INLINE_RE.test(trimmed)
+    ) {
+      onDailyLimitReached?.({
+        code: 0,
+        reason:
+          "Щоб продовжити, додайте ваш робочий email у це повідомлення (можна разом із текстом).",
+      });
+      return;
+    }
+
     const isGuest = !conversationId && !onPreAuthMessage;
 
     // Pre-auth onboarding flow: let caller handle onboarding logic and skip Convex/ElevenLabs.
@@ -500,12 +518,19 @@ export function useTextInput({
         }
       }
 
-      let didSend = await sendViaProvider(transportText);
-      if (!didSend && sessionMode === 'text') {
-        // Retry once after brief delay (SDK status may be syncing)
-        console.log('⚠️ First send attempt failed, retrying after 100ms...');
-        await new Promise(resolve => setTimeout(resolve, 100));
+      const maxRetries = isEstimatePayload ? 3 : 1;
+      let didSend = false;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
         didSend = await sendViaProvider(transportText);
+        if (didSend) break;
+        if (attempt < maxRetries && sessionMode === 'text') {
+          const delay = attempt === 0 ? 150 : 400 * attempt;
+          console.log(`⚠️ Send attempt ${attempt + 1} failed, retrying after ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          if (!isTextConnected) {
+            await startText();
+          }
+        }
       }
 
       if (!didSend) {
@@ -540,7 +565,8 @@ export function useTextInput({
     resetTextIdleTimer,
     messages,
     isTextConnected,
-    setPendingConversationHistory
+    setPendingConversationHistory,
+    emailRequiredGate,
   ]);
 
   // Cleanup on unmount
@@ -556,6 +582,19 @@ export function useTextInput({
   const sendSpecificMessage = useCallback(async (message: string) => {
     const trimmed = message.trim();
     if (!trimmed) return;
+
+    if (
+      emailRequiredGate &&
+      !trimmed.includes("[ESTIMATE MODE]") &&
+      !EMAIL_INLINE_RE.test(trimmed)
+    ) {
+      onDailyLimitReached?.({
+        code: 0,
+        reason:
+          "Щоб продовжити, додайте ваш робочий email у це повідомлення (можна разом із текстом).",
+      });
+      return;
+    }
 
     const isGuest = !conversationId && !onPreAuthMessage;
 
@@ -576,16 +615,20 @@ export function useTextInput({
       const transportText = isEstimatePayload ? truncateForTransport(trimmed) : trimmed;
 
       try {
-        // Ensure text session is ready (sendViaProvider relies on transport being connected).
         if (sessionMode !== 'voice' && !isTextConnected) {
           await startText();
         }
 
-        let didSend = await sendViaProvider(transportText);
-        if (!didSend && sessionMode === 'text') {
-          // Retry once after brief delay (SDK status may be syncing)
-          await new Promise(resolve => setTimeout(resolve, 100));
+        const guestMaxRetries = isEstimatePayload ? 3 : 1;
+        let didSend = false;
+        for (let attempt = 0; attempt <= guestMaxRetries; attempt++) {
           didSend = await sendViaProvider(transportText);
+          if (didSend) break;
+          if (attempt < guestMaxRetries && sessionMode === 'text') {
+            const delay = attempt === 0 ? 150 : 400 * attempt;
+            await new Promise(resolve => setTimeout(resolve, delay));
+            if (!isTextConnected) await startText();
+          }
         }
 
         if (!didSend) {
@@ -607,12 +650,12 @@ export function useTextInput({
       return;
     }
 
+    const isEstimatePayload =
+      trimmed.startsWith("[ESTIMATE MODE]") || trimmed.includes("[ESTIMATE MODE]");
+    const transportText = isEstimatePayload ? truncateForTransport(trimmed) : trimmed;
+
     try {
       console.log('📝 Sending specific message via ElevenLabs:', trimmed);
-
-      const isEstimatePayload =
-        trimmed.startsWith("[ESTIMATE MODE]") || trimmed.includes("[ESTIMATE MODE]");
-      const transportText = isEstimatePayload ? truncateForTransport(trimmed) : trimmed;
 
       if (!isEstimatePayload) {
         onMessage?.(trimmed);
@@ -695,7 +738,7 @@ export function useTextInput({
       }
       return;
     }
-  }, [conversationId, onMessage, createMessage, maybeInjectToolCardForUserIntent, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory]);
+  }, [conversationId, onMessage, onPreAuthMessage, createMessage, maybeInjectToolCardForUserIntent, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory, emailRequiredGate, onDailyLimitReached]);
 
   // Apply prior-only history once messages are loaded (handles autostart race)
   const priorHistoryAppliedRef = useRef(false);

@@ -44,6 +44,8 @@ interface UnifiedChatInputProps {
   onPreAuthMessage?: (text: string) => Promise<void> | void;
   // Desktop settings sidebar open state (for animating input centering)
   showSettings?: boolean;
+  /** When true, user must include an email in text (or estimate payload) before sending / voice */
+  emailRequiredGate?: boolean;
 }
 
 export function UnifiedChatInput({
@@ -61,7 +63,8 @@ export function UnifiedChatInput({
   settings: settingsProp,
   updateSettings: updateSettingsProp,
   showSettings: showSettingsProp,
-  onPreAuthMessage
+  onPreAuthMessage,
+  emailRequiredGate = false,
 }: UnifiedChatInputProps) {
   const [mode, setMode] = useState<'normal' | 'go'>('normal');
   const [localShowSettings, setLocalShowSettings] = useState(false);
@@ -138,7 +141,8 @@ export function UnifiedChatInput({
       setDailyLimitError(error);
       console.error('🚫 Daily limit reached in unified chat input:', error);
     },
-    onPreAuthMessage
+    onPreAuthMessage,
+    emailRequiredGate,
   });
 
   // Agent audio level now comes from SDK via useVoiceRecording callback
@@ -247,6 +251,14 @@ export function UnifiedChatInput({
 
   // Call control functions with single session enforcement
   const handleStartCall = useCallback(async () => {
+    if (emailRequiredGate) {
+      setDailyLimitError({
+        code: 0,
+        reason:
+          "Щоб увімкнути голос, спершу надішліть ваш email текстом у полі нижче.",
+      });
+      return;
+    }
     // Enforce single session policy
     if (currentSessionMode === 'text') {
       console.log('📝 Ending text session before starting voice');
@@ -279,7 +291,7 @@ export function UnifiedChatInput({
     setCurrentSessionMode('voice');
     setIsMuted(false);
     startRecording(); // This will trigger voice status changes that drive isCallActive
-  }, [startRecording, currentSessionMode, isSessionTransitioning, stopText]);
+  }, [startRecording, currentSessionMode, isSessionTransitioning, stopText, emailRequiredGate]);
 
   const handleEndCall = useCallback(() => {
     setIsCallActive(false);
@@ -453,13 +465,24 @@ export function UnifiedChatInput({
             dailyLimitError={dailyLimitError}
             onRequestSelect={onRequestSelect}
             isMobile={isMobile}
+            emailRequiredGate={emailRequiredGate}
           />
         ) : (
           <GoMode
             key="go"
             isRecording={isRecording}
             voiceStatus={voiceStatus}
-            onStartRecording={startRecording}
+            onStartRecording={() => {
+              if (emailRequiredGate) {
+                setDailyLimitError({
+                  code: 0,
+                  reason:
+                    "Щоб увімкнути голос, спершу надішліть ваш email текстом у полі нижче.",
+                });
+                return;
+              }
+              startRecording();
+            }}
             onStopRecording={stopRecording}
             waveformData={agentWaveformData}
             onExitGoMode={() => setMode('normal')}

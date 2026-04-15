@@ -75,6 +75,7 @@ export function ToolCallMessageRenderer({
     if (toolName !== "show_cases") return;
     if (!desiredDomain) return;
     if (typeof window === "undefined") return;
+    if ((window as any).__ciedenEstimatePanelOpen === true) return;
 
     const isOpen = !!(window as any).__ciedenCasesPanelOpen;
     if (isOpen) return;
@@ -97,9 +98,21 @@ export function ToolCallMessageRenderer({
   if (toolCall?.mode === "update") return null;
   if (!toolCall) return <RegularMessage content={content} />;
 
+  // Block generate_estimate tool card when session already completed (prevents dups)
+  if (toolName === "generate_estimate" && isCiedenEstimateSessionCompleted()) {
+    return null;
+  }
+
+  // Each open_calculator card represents a session boundary.
+  // All cards render — EstimateInlineChooserCard handles its own state (fresh/active/completed/cancelled).
+
+  // Block all other UI cards during estimate assistant flow (pure Q&A calculator).
   if (
-    (toolName === "open_calculator" || toolName === "generate_estimate") &&
-    isCiedenEstimateSessionCompleted()
+    typeof window !== "undefined" &&
+    (window as any).__ciedenEstimatePanelOpen === true &&
+    toolName &&
+    toolName !== "generate_estimate" &&
+    toolName !== "open_calculator"
   ) {
     return null;
   }

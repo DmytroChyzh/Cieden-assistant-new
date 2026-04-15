@@ -23,6 +23,7 @@ interface NormalModeProps {
   dailyLimitError?: { code: number; reason: string } | null;
   onRequestSelect?: (request: string) => void;
   isMobile?: boolean;
+  emailRequiredGate?: boolean;
 }
 
 export function NormalMode({
@@ -39,7 +40,8 @@ export function NormalMode({
   canSend,
   dailyLimitError = null,
   onRequestSelect,
-  isMobile = false
+  isMobile = false,
+  emailRequiredGate = false,
 }: NormalModeProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [interactionStarted, setInteractionStarted] = useState(false);
@@ -97,21 +99,33 @@ export function NormalMode({
 
   const hasText = textInput.trim().length > 0;
 
-  const placeholderText = isMobile
-    ? (isRecording ? "Voice on - type" : "Type here")
-    : (isRecording ? "type here" : "Type your question here");
+  const emailInline = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/;
+  const hasEmailInDraft = emailInline.test(textInput.trim());
+  const allowSendWhileEmailGate =
+    !emailRequiredGate ||
+    hasEmailInDraft ||
+    textInput.includes("[ESTIMATE MODE]");
+  const effectiveCanSend = canSend && allowSendWhileEmailGate;
+
+  const placeholderText = emailRequiredGate
+    ? isMobile
+      ? "Work email required…"
+      : "Add your work email here to continue (required after several messages)"
+    : isMobile
+      ? (isRecording ? "Voice on - type" : "Type here")
+      : (isRecording ? "type here" : "Type your question here");
 
   const handleSend = () => {
     if (!interactionStarted) setInteractionStarted(true);
-    if (canSend && hasText) {
+    if (effectiveCanSend && hasText) {
       if (process.env.NODE_ENV === 'development') {
-        console.log("🟣 NormalMode send triggered", { hasText, canSend });
+        console.log("🟣 NormalMode send triggered", { hasText, canSend: effectiveCanSend });
       }
       onSendText();
       return;
     }
     if (process.env.NODE_ENV === 'development') {
-      console.log("🟡 NormalMode send blocked", { hasText, canSend });
+      console.log("🟡 NormalMode send blocked", { hasText, canSend: effectiveCanSend });
     }
   };
 
@@ -277,7 +291,19 @@ export function NormalMode({
               {/* Voice/Send button */}
                 <motion.button
                   whileTap={{ scale: 0.95 }}
-                  onClick={hasText ? onSendText : (isRecording || isCallActive ? onStopRecording : onStartRecording)}
+                  type="button"
+                  onClick={() => {
+                    if (hasText) {
+                      void onSendText();
+                      return;
+                    }
+                    if (isRecording || isCallActive) {
+                      onStopRecording();
+                      return;
+                    }
+                    if (emailRequiredGate) return;
+                    onStartRecording();
+                  }}
                   className={cn(
                     "rounded-full flex items-center justify-center relative",
                   "transition-all duration-300"
@@ -294,7 +320,23 @@ export function NormalMode({
                   transition={{
                     boxShadow: { duration: 0.25 }
                   }}
-                  disabled={!canSend && hasText}
+                  disabled={
+                    (!effectiveCanSend && hasText) ||
+                    (emailRequiredGate && !hasText && !isRecording && !isCallActive)
+                  }
+                  aria-label={
+                    hasText
+                      ? "Send message"
+                      : isRecording || isCallActive
+                        ? "Stop voice"
+                        : emailRequiredGate
+                          ? "Voice disabled until email is provided"
+                          : "Start voice"
+                  }
+                  aria-disabled={
+                    (!effectiveCanSend && hasText) ||
+                    (emailRequiredGate && !hasText && !isRecording && !isCallActive)
+                  }
                 >
                   {/* Rotating border ring during connecting */}
                   {isConnecting && (

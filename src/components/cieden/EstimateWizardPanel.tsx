@@ -436,64 +436,84 @@ export function EstimateWizardPanel({
     };
   }, [estimateAnalysisMessages]);
 
-  const estimateProgress = useMemo(() => {
-    if (!estimateAnalysisMessages || estimateAnalysisMessages.length === 0) return { percent: 0, checks: 0 };
+  // Smart progress: count how many TOPICS the assistant has covered in questions.
+  // Each topic the assistant mentions in a question counts as one "covered" topic.
+  // This is better than counting user answers — if user says "I don't know", the topic
+  // was still asked, so progress should advance.
+  const ESTIMATE_TOPICS = 8;
+  const { topicsCovered, assistantQuestionCount } = useMemo(() => {
+    if (!estimateSessionMessages || estimateSessionMessages.length === 0)
+      return { topicsCovered: 0, assistantQuestionCount: 0 };
 
-    const userMessages = estimateAnalysisMessages
-      .filter((m) => m.role === "user")
-      .map((m) => m.content ?? "")
-      .filter((c) => c.trim().length > 0 && !isKickoffMessage(c));
+    const assistantTexts = estimateSessionMessages
+      .filter((m) => m.role === "assistant")
+      .map((m) => (m.content ?? "").toLowerCase());
 
-    if (userMessages.length === 0) return { percent: 0, checks: 0 };
+    // Count assistant messages that contain a question mark (actual questions)
+    const questionCount = assistantTexts.filter((t) => t.includes("?")).length;
 
-    // IMPORTANT: readiness must be based ONLY on what user said.
-    // Assistant questions or hidden contextual payloads must not affect draft confidence.
-    const MAX_ANALYSIS_CHARS = 12000;
-    const rawText = estimateAnalysisMessages
-      .filter((m) => m.role === "user")
-      .map((m) => m.content ?? "")
-      .join("\n")
-      .toLowerCase();
-    const text =
-      rawText.length <= MAX_ANALYSIS_CHARS
-        ? rawText
-        : `${rawText.slice(0, Math.floor(MAX_ANALYSIS_CHARS / 2))}\n...\n${rawText.slice(-Math.floor(MAX_ANALYSIS_CHARS / 2))}`;
-
-    const checks = [
-      // platform/type (EN + UA/RU)
-      /(web\s*\+\s*mobile|web\s*and\s*mobile|website\s*\+\s*app|mobile|ios|android|website|dashboard|admin|site|app|application|platform|portal|landing|saas|crm|erp)/.test(text) ||
-        /(веб|вебсайт|сайт|лендінг|лендинг|додаток|апка|приложен|мобіль|мобиль|ios|android|платформа|портал|адмін|админ|кабінет|личный кабинет|саас|crm|erp)/.test(text),
-      // new vs redesign
-      /(redesign|from scratch|new product|mvp|rebuild|revamp)/.test(text) ||
-        /(редизайн|редesign|з нуля|знуля|новий продукт|новый продукт|мвп|mvp|перероб|переработ|оновлен)/.test(text),
-      // target users
-      /(b2b|b2c|internal|employees|customers|clients|users)/.test(text) ||
-        /(b2b|b2c|внутрішн|внутренн|співробітник|сотрудник|клієнт|клиент|користувач|покупець|покупатель|гості|гости)/.test(text),
-      // scope/features
-      /(screen|screens|page|pages|flow|flows|feature|features|must-have|authentication|roles|permission|integration|payment|admin|catalog|filter|profile)/.test(text) ||
-        /(екран|екрани|сторінк|страниц|флоу|сценар|функц|фіча|фича|авторизац|логін|логин|реєстрац|регистрац|ролі|роли|права|інтеграц|inтеграц|оплат|платіж|платеж|каталог|фільтр|фильтр|профіль|профиль|кабінет|кошик|корзина)/.test(text),
-      // timeline
-      /(week|weeks|month|months|deadline|asap|timeline)/.test(text) ||
-        /(тиж|недел|місяц|месяц|дедлайн|термін|срок|asap)/.test(text),
+    // Combine all assistant text to detect which topics have been asked about
+    const allText = assistantTexts.join("\n");
+    const topics = [
+      // 1. platform type
+      /(тип|type|web|mobile|app|сайт|додат|мобіль|веб|платформ|website|dashboard)/.test(allText),
+      // 2. new vs redesign
+      /(новий|нов[иа]|redesign|нуля|існуюч|existing|rebuild|редизайн|mvp|мвп)/.test(allText),
+      // 3. audience / users
+      /(аудитор|цільов|користувач|клієнт|b2b|b2c|audience|user|customer|target)/.test(allText),
+      // 4. goal / purpose
+      /(мет[аи]|ціль|функціонал|feature|функц|можлив|goal|purpose|what.*do|що.*робити|призначен)/.test(allText),
+      // 5. scope / screens / features
+      /(екран|screen|page|сторінк|функц|розділ|section|обсяг|scope|feature|flow|компонент)/.test(allText),
+      // 6. specs / materials ready
+      /(специфік|тз|бриф|figma|прототип|макет|матеріал|specs|wireframe|brief|document|готов)/.test(allText),
+      // 7. complexity
+      /(складніст|складність|complex|простий|simple|basic|інтеграц|integrat|складн)/.test(allText),
+      // 8. timeline / deadline
+      /(термін|строк|дедлайн|timeline|deadline|місяц|month|тижн|week|коли|when|час)/.test(allText),
     ].filter(Boolean).length;
 
-    // Final readiness: only 100% when we have no missing fields left from what the user said.
-    // We intentionally DO NOT rely on the assistant's ESTIMATE_PANEL_RESULT values,
-    // because UI estimates must be driven by our catalog (catalog.example.json).
-    const isFinal = !!extractedEstimateContext && extractedEstimateContext.missing.length === 0;
-    if (isFinal) return { percent: 100, checks };
+    return { topicsCovered: topics, assistantQuestionCount: questionCount };
+  }, [estimateSessionMessages]);
 
-    // Otherwise: compute readiness from filled fields (more granular than 5 keyword checks)
-    const filledCount = extractedEstimateContext
-      ? Object.values(extractedEstimateContext.filled).filter(Boolean).length
-      : checks;
-    const totalFields = extractedEstimateContext ? Object.keys(extractedEstimateContext.filled).length : 5;
+  // Detect when assistant writes a FINAL estimate (not just another question)
+  const assistantGaveFinalEstimate = useMemo(() => {
+    if (!estimateSessionMessages || estimateSessionMessages.length === 0) return false;
+    const assistantMsgs = estimateSessionMessages
+      .filter((m) => m.role === "assistant")
+      .map((m) => m.content ?? "");
+    if (assistantMsgs.length === 0) return false;
+    const last = assistantMsgs[assistantMsgs.length - 1];
+    // Always trust explicit marker
+    if (/ESTIMATE_PANEL_RESULT:\s*\{/i.test(last)) return true;
+    // Need at least 4 assistant questions before final can trigger
+    if (assistantQuestionCount < 4) return false;
+    // Must be a substantial message (real summary, not a short question)
+    if (last.length < 150) return false;
+    // Must NOT end with a question (final estimate doesn't ask anything)
+    if (last.trim().endsWith("?")) return false;
+    const lower = last.toLowerCase();
+    // Must contain estimate-related language + numbers
+    const hasEstimateLanguage =
+      /(попередн|preliminary|оцінк|estimate|вартіст|cost|бюджет|budget|підсум|summar|результат|result)/i.test(lower);
+    const hasNumbers = /\d/.test(last);
+    return hasEstimateLanguage && hasNumbers;
+  }, [estimateSessionMessages, assistantQuestionCount]);
 
-    // Cap below 100% until final is confirmed
-    const cap = 90;
-    const percent = Math.round((filledCount / Math.max(1, totalFields)) * cap);
-    return { percent, checks };
-  }, [estimateAnalysisMessages, extractedEstimateContext, isKickoffMessage]);
+  const estimateProgress = useMemo(() => {
+    if (assistantQuestionCount === 0) return { percent: 0, checks: 0 };
+
+    // 100% only when assistant gave the actual final estimate
+    if (assistantGaveFinalEstimate) return { percent: 100, checks: topicsCovered };
+
+    // Progress based on topics covered by assistant questions, capped at 90%
+    const topicPercent = Math.round((topicsCovered / ESTIMATE_TOPICS) * 90);
+    // Also factor in question count as secondary signal (in case topics aren't detected)
+    const questionPercent = Math.round((assistantQuestionCount / (ESTIMATE_TOPICS + 1)) * 90);
+    // Use the higher of the two, capped at 90%
+    const percent = Math.min(90, Math.max(topicPercent, questionPercent));
+    return { percent, checks: topicsCovered };
+  }, [assistantQuestionCount, topicsCovered, assistantGaveFinalEstimate]);
 
   /** Chat input dock: progress while “Work with the assistant” (hidden runner only). */
   useEffect(() => {
@@ -507,26 +527,8 @@ export function EstimateWizardPanel({
       return;
     }
 
-    const KEYS = [
-      "platform",
-      "productStage",
-      "audience",
-      "goal",
-      "specs",
-      "scope",
-      "screensCount",
-      "timeline",
-      "complexity",
-    ] as const;
-
-    const total = KEYS.length;
-    const contextDone = !!extractedEstimateContext && extractedEstimateContext.missing.length === 0;
-    const agentDone = estimateSessionMessages?.some(
-      (m) => m.role === "assistant" && /ESTIMATE_PANEL_RESULT:\s*\{/.test(m.content ?? "")
-    );
-    const done = contextDone || agentDone;
-
-    if (done) {
+    // Done = assistant gave the final estimate
+    if (assistantGaveFinalEstimate) {
       if (assistantProgressSnapshotRef.current !== "__done") {
         assistantProgressSnapshotRef.current = "__done";
         window.dispatchEvent(
@@ -536,37 +538,20 @@ export function EstimateWizardPanel({
       return;
     }
 
-    const userAnswerCount =
-      typeof estimateSessionStartedAt === "number"
-        ? estimateSessionMessages
-            ?.filter((m) => m.role === "user" && m.createdAt >= estimateSessionStartedAt)
-            .filter((m) => typeof m.content === "string" && m.content.trim().length > 0)
-            .filter((m) => !isKickoffMessage(m.content ?? ""))
-            .length ?? 0
-        : 0;
-
-    const filledByRegex = extractedEstimateContext
-      ? KEYS.filter((k) => !!(extractedEstimateContext.filled as Record<string, boolean>)[k]).length
-      : 0;
-
-    const answered = Math.max(filledByRegex, Math.min(userAnswerCount, total));
-
-    const percentForDock =
-      total > 0 ? Math.min(99, Math.round((answered / total) * 100)) : 0;
-
+    // Use the same smart progress from estimateProgress
     const payload = {
       active: true as const,
       title: "Preliminary estimate",
       subtitle: "Work with the assistant",
-      answered,
-      total,
-      percent: percentForDock,
+      answered: topicsCovered,
+      total: ESTIMATE_TOPICS,
+      percent: estimateProgress.percent,
     };
     const snap = JSON.stringify(payload);
     if (snap === assistantProgressSnapshotRef.current) return;
     assistantProgressSnapshotRef.current = snap;
     window.dispatchEvent(new CustomEvent("estimate-assistant-progress", { detail: payload }));
-  }, [isHidden, mode, extractedEstimateContext, estimateSessionMessages, estimateSessionStartedAt]);
+  }, [isHidden, mode, topicsCovered, estimateProgress.percent, assistantGaveFinalEstimate]);
 
   useEffect(() => {
     return () => {
@@ -587,25 +572,9 @@ export function EstimateWizardPanel({
     if (!lastUserKey || lastUserKey === lastUserMsgIdRef.current) return;
     lastUserMsgIdRef.current = lastUserKey;
 
-    const stateSnapshot = JSON.stringify(extractedEstimateContext);
-    if (stateSnapshot === lastEstimateStateSentRef.current) return;
-    lastEstimateStateSentRef.current = stateSnapshot;
-
-    window.dispatchEvent(
-      new CustomEvent("estimate-assistant-message", {
-        detail: {
-          visibility: "contextual",
-          inputKind: assistantInputKind,
-          text:
-            "ESTIMATE STATE UPDATE (hidden):\n" +
-            stateSnapshot +
-            "\nRules:\n" +
-            "- Do NOT repeat questions for fields already filled.\n" +
-            "- Ask ONE next question about ONE missing field only.\n" +
-            "- If missing is empty, finalize the estimate and provide next steps.",
-        },
-      }),
-    );
+    // Disabled: sending state updates after every user message overloads the
+    // ElevenLabs agent context and causes it to freeze. The agent already has
+    // full instructions from the kickoff prompt.
   }, [mode, estimateSessionMessages, extractedEstimateContext, assistantInputKind]);
 
   const catalogDraftResult = useMemo(() => {
@@ -827,35 +796,9 @@ export function EstimateWizardPanel({
 
   // Typing indicator is handled globally in the main chat UI.
 
-  // Provide the assistant with the SAME draft numbers as the UI (prevents mismatch)
-  useEffect(() => {
-    if (mode !== "assistant") return;
-    if (!displayedEstimate) return;
-    if (!estimateSessionMessages) return;
-    const hasUserProvidedAnything = estimateSessionMessages.some((m) => m.role === "user");
-    if (!hasUserProvidedAnything) return;
-    // Guard: don't anchor the agent on broken draft numbers.
-    if (displayedEstimate.minPrice < 300 || displayedEstimate.maxPrice < displayedEstimate.minPrice) return;
-
-    const draftSnapshot = JSON.stringify(displayedEstimate);
-    if (draftSnapshot === lastDraftEstimateSentRef.current) return;
-    lastDraftEstimateSentRef.current = draftSnapshot;
-
-    window.dispatchEvent(
-      new CustomEvent("estimate-assistant-message", {
-        detail: {
-          visibility: "contextual",
-          inputKind: assistantInputKind,
-          text:
-            "UI_DRAFT_ESTIMATE (hidden):\n" +
-            draftSnapshot +
-            "\nRules:\n" +
-            "- If you mention numbers (price/hours/weeks), they MUST match UI_DRAFT_ESTIMATE exactly.\n" +
-            "- Prefer asking the next missing question instead of recalculating.",
-        },
-      }),
-    );
-  }, [mode, displayedEstimate, estimateSessionMessages, assistantInputKind]);
+  // Draft estimate updates disabled — sending frequent contextual updates
+  // overloads the ElevenLabs agent and causes it to stop responding.
+  // The agent calculates its own estimate from the conversation.
 
   useEffect(() => {
     if (mode !== "assistant") {
@@ -890,42 +833,14 @@ export function EstimateWizardPanel({
     setEstimateSessionStartedAt(sessionStart);
     lastUserMsgIdRef.current = null;
 
-    // 1) Hidden (contextual) guidance - not visible in chat bubbles
+    // 1) Hidden (contextual) guidance — kept SHORT to avoid overloading the agent
     const contextual =
-      "You are now in ESTIMATE MODE.\n" +
-      "Objective: produce a preliminary estimate RANGE (min-max) with phases + hours.\n\n" +
-      "=== LANGUAGE RULE (HIGHEST PRIORITY) ===\n" +
-      "Detect the language of the client's messages and ALWAYS reply in that EXACT same language.\n" +
-      "- Client writes in English   -> respond 100% in English.\n" +
-      "- Client writes in Ukrainian -> respond 100% in Ukrainian.\n" +
-      "- Client writes in Russian   -> respond 100% in Russian.\n" +
-      "- Never mix languages. Never default to Ukrainian if the client writes in English.\n\n" +
-      "=== QUESTION FLOW (ASK ONE AT A TIME) ===\n" +
-      "MAINTAIN MEMORY: The user just chose \"Work with the assistant\" in the UI. Immediately reply with your FIRST clarifying question (project type: website vs mobile vs both). Do not wait for another user message.\n" +
-      "Maintain memory of everything already said - do NOT repeat answered questions.\n" +
-      "Only ask for missing info. Skip questions the client already answered.\n\n" +
-      "Question topics (always phrase them in the client's detected language):\n" +
-      "1. Project type - website, mobile app, web+mobile\n" +
-      "2. New vs redesign\n" +
-      "3. Audience & goal - B2C, B2B or internal? What is the main product goal?\n" +
-      "4. Specs / wireframes ready? (Figma / wireframes / deck / brief / documentation)\n" +
-      "5. Scope - approx number of screens/pages/flows + must-have features\n" +
-      "6. Complexity - any of: user roles, admin panel, chat, payments, integrations, real-time?\n" +
-      "7. Timeline - expected delivery timeframe? (ASAP / 1-3 months / 3-6 months / flexible)\n" +
-      "8. Extra notes (optional) - references, constraints, assets, must-have details\n\n" +
-      "Once enough answers are collected, deliver (in client's language):\n" +
-      "* cost estimate (range)\n" +
-      "* timeline in weeks\n" +
-      "* approximate total hours\n" +
-      "* breakdown by phase\n\n" +
-      "STRICT RULES:\n" +
-      "- Ask questions ONE at a time. After each answer briefly acknowledge what you understood, then ask the NEXT question.\n" +
-      "- Do NOT show any price numbers, cost ranges, hours, or estimates UNTIL all questions are answered.\n" +
-      "- Do NOT call any sales/case tools (show_cases, show_best_case, show_engagement_models) while in estimate mode.\n" +
-      "- Only after collecting ALL required answers, deliver the FINAL estimate with numbers.\n\n" +
-      "After you have ALL the required fields: output the final range, weeks, total hours, and hours by phase.\n\n" +
-      "IMPORTANT: When you are ready with the FINAL numbers, include ONE extra line in your reply exactly like this:\n" +
-      'ESTIMATE_PANEL_RESULT:{"minPrice":12345,"maxPrice":23456,"weeks":6,"totalHours":240,"phaseHours":{"Discovery":20,"UX / IA":40,"UI design":80,"Design system":30,"Prototyping":20,"Testing & iteration":25,"Handoff & support":15,"PM / communication":10}}';
+      "ESTIMATE MODE. Ask ONE question at a time about the project to produce a cost estimate.\n" +
+      "Reply in the SAME language as the client.\n" +
+      "Topics: 1) type (web/mobile/both) 2) new or redesign 3) audience & goal 4) specs ready? 5) scope (screens/features) 6) complexity 7) timeline 8) extra notes.\n" +
+      "Do NOT show prices until ALL questions answered. No tool calls in estimate mode.\n" +
+      "Start NOW with your first question about project type.\n" +
+      "When done, include: ESTIMATE_PANEL_RESULT:{\"minPrice\":0,\"maxPrice\":0,\"weeks\":0,\"totalHours\":0,\"phaseHours\":{}}";
 
     window.dispatchEvent(
       new CustomEvent("estimate-assistant-message", {
@@ -1046,13 +961,16 @@ export function EstimateWizardPanel({
 
     if (mode === "assistant") {
       const isProgressComplete = estimateProgress.percent === 100 && !!displayedEstimate;
-      const hasAgentFinalResult = estimateSessionMessages?.some(
-        (m) => m.role === "assistant" && /ESTIMATE_PANEL_RESULT:\s*\{/.test(m.content ?? "")
-      );
+      const hasAgentFinalResult =
+        assistantGaveFinalEstimate ||
+        estimateSessionMessages?.some(
+          (m) => m.role === "assistant" && /ESTIMATE_PANEL_RESULT:\s*\{/.test(m.content ?? "")
+        );
 
       if (isProgressComplete || hasAgentFinalResult) {
         hasReportedFinalRef.current = true;
 
+        // Try to parse ESTIMATE_PANEL_RESULT from agent
         if (hasAgentFinalResult) {
           const lastAgentResult = [...(estimateSessionMessages ?? [])].reverse()
             .find((m) => m.role === "assistant" && /ESTIMATE_PANEL_RESULT:\s*\{/.test(m.content ?? ""));
@@ -1061,10 +979,10 @@ export function EstimateWizardPanel({
             try {
               const parsed = JSON.parse(match[1]);
               onEstimateFinal({
-                minPrice: parsed.minPrice ?? displayedEstimate?.minPrice ?? 0,
-                maxPrice: parsed.maxPrice ?? displayedEstimate?.maxPrice ?? 0,
-                weeks: parsed.weeks ?? displayedEstimate?.weeks ?? 0,
-                totalHours: parsed.totalHours ?? displayedEstimate?.totalHours ?? 0,
+                minPrice: parsed.minPrice ?? displayedEstimate?.minPrice ?? 5000,
+                maxPrice: parsed.maxPrice ?? displayedEstimate?.maxPrice ?? 15000,
+                weeks: parsed.weeks ?? displayedEstimate?.weeks ?? 6,
+                totalHours: parsed.totalHours ?? displayedEstimate?.totalHours ?? 200,
                 phaseHours: parsed.phaseHours ?? displayedEstimate?.phaseHours ?? {},
               });
               return;
@@ -1072,21 +990,24 @@ export function EstimateWizardPanel({
           }
         }
 
-        if (displayedEstimate) {
-          onEstimateFinal({
-            minPrice: displayedEstimate.minPrice,
-            maxPrice: displayedEstimate.maxPrice,
-            weeks: displayedEstimate.weeks,
-            totalHours: displayedEstimate.totalHours,
-            phaseHours: displayedEstimate.phaseHours,
-          });
-        }
+        // Use catalog-based estimate or fallback defaults
+        const est = displayedEstimate ?? {
+          minPrice: 5000, maxPrice: 15000, weeks: 6, totalHours: 200, phaseHours: {},
+        };
+        onEstimateFinal({
+          minPrice: est.minPrice,
+          maxPrice: est.maxPrice,
+          weeks: est.weeks,
+          totalHours: est.totalHours,
+          phaseHours: est.phaseHours,
+        });
       }
     }
   }, [
     displayedEstimate,
     estimateProgress.percent,
     estimateSessionMessages,
+    assistantGaveFinalEstimate,
     isResultStep,
     mode,
     onEstimateFinal,
