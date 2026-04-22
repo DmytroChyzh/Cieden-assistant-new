@@ -109,10 +109,13 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
         const maxDim = Math.max(size.x, size.y, size.z) || 1;
         const containerWidth = mount.clientWidth || 360;
         const target =
-          containerWidth < 330 ? 1.78 : containerWidth < 520 ? 1.95 : 2.25;
+          containerWidth < 330 ? 1.6 : containerWidth < 520 ? 1.82 : 2.1;
         const scale = target / maxDim;
         robotRoot.scale.setScalar(scale);
-        robotRoot.position.y = containerWidth < 330 ? -0.13 : -0.18;
+        // Visual compensation: this GLB has asymmetric geometry, so pure bbox center
+        // looks right-shifted on narrow screens. Apply a small deterministic X offset.
+        robotRoot.position.x = containerWidth < 360 ? -0.2 : containerWidth < 520 ? -0.16 : -0.12;
+        robotRoot.position.y = containerWidth < 330 ? -0.08 : -0.12;
 
         scene.add(robotRoot);
       },
@@ -149,7 +152,7 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
       className={className ?? "w-full max-w-[900px] mx-auto"}
       aria-label="Welcome robot preview"
     >
-      <div className="relative mx-auto w-full max-w-[300px] h-[140px] sm:max-w-[340px] sm:h-[180px] md:max-w-[360px] md:h-[220px]">
+      <div className="relative mx-auto w-full max-w-[240px] h-[150px] sm:max-w-[280px] sm:h-[170px] md:max-w-[320px] md:h-[200px] lg:max-w-[340px] lg:h-[210px]">
         <div
           ref={mountRef}
           className="h-full w-full bg-transparent"
