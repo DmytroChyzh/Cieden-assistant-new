@@ -18,6 +18,7 @@ interface UseTextInputProps {
   conversationId?: Id<"conversations"> | null;
   onMessage?: (message: string) => void;
   onDailyLimitReached?: (error: { code: number; reason: string }) => void;
+  onEmailGateBlocked?: (reason: 'general' | 'estimate', attemptedText: string) => void;
   /** Optional handler for messages before a conversation / auth is ready */
   onPreAuthMessage?: (message: string) => Promise<void> | void;
   /** When true, outgoing text requires inline email in the same message. */
@@ -34,6 +35,7 @@ export function useTextInput({
   conversationId,
   onMessage,
   onDailyLimitReached,
+  onEmailGateBlocked,
   onPreAuthMessage,
   emailRequiredGate = false,
   emailRequiredForEstimate = false,
@@ -465,17 +467,9 @@ export function useTextInput({
     const trimmed = textInput.trim();
     if (!trimmed) return;
 
-    if (
-      (emailRequiredGate || (emailRequiredForEstimate && isEstimateIntent(trimmed))) &&
-      !EMAIL_INLINE_RE.test(trimmed)
-    ) {
-      onDailyLimitReached?.({
-        code: 0,
-        reason:
-          emailRequiredForEstimate && isEstimateIntent(trimmed)
-            ? "Щоб отримати естімейт, спершу додайте ваш робочий email у це повідомлення."
-            : "Щоб продовжити, додайте ваш робочий email у це повідомлення (можна разом із текстом).",
-      });
+    const blockedForEstimate = emailRequiredForEstimate && isEstimateIntent(trimmed);
+    if ((emailRequiredGate || blockedForEstimate) && !EMAIL_INLINE_RE.test(trimmed)) {
+      onEmailGateBlocked?.(blockedForEstimate ? 'estimate' : 'general', trimmed);
       return;
     }
 
@@ -589,6 +583,7 @@ export function useTextInput({
     setPendingConversationHistory,
     emailRequiredGate,
     emailRequiredForEstimate,
+    onEmailGateBlocked,
   ]);
 
   // Cleanup on unmount
@@ -617,17 +612,9 @@ export function useTextInput({
     }
     programmaticSendDedupeRef.current = { text: trimmed, at: now };
 
-    if (
-      (emailRequiredGate || (emailRequiredForEstimate && isEstimateIntent(trimmed))) &&
-      !EMAIL_INLINE_RE.test(trimmed)
-    ) {
-      onDailyLimitReached?.({
-        code: 0,
-        reason:
-          emailRequiredForEstimate && isEstimateIntent(trimmed)
-            ? "Щоб отримати естімейт, спершу додайте ваш робочий email у це повідомлення."
-            : "Щоб продовжити, додайте ваш робочий email у це повідомлення (можна разом із текстом).",
-      });
+    const blockedForEstimate = emailRequiredForEstimate && isEstimateIntent(trimmed);
+    if ((emailRequiredGate || blockedForEstimate) && !EMAIL_INLINE_RE.test(trimmed)) {
+      onEmailGateBlocked?.(blockedForEstimate ? 'estimate' : 'general', trimmed);
       return;
     }
 
@@ -773,7 +760,7 @@ export function useTextInput({
       }
       return;
     }
-  }, [conversationId, onMessage, onPreAuthMessage, createMessage, maybeInjectToolCardForUserIntent, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory, emailRequiredGate, emailRequiredForEstimate, onDailyLimitReached]);
+  }, [conversationId, onMessage, onPreAuthMessage, createMessage, maybeInjectToolCardForUserIntent, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory, emailRequiredGate, emailRequiredForEstimate, onDailyLimitReached, onEmailGateBlocked]);
 
   // Apply prior-only history once messages are loaded (handles autostart race)
   const priorHistoryAppliedRef = useRef(false);

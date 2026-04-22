@@ -138,16 +138,22 @@ const VOICE_CHAT_QUICK_PROMPTS_FOLLOWUP_HINT =
 const EMAIL_CAPTURE_MIN_USER_MESSAGES = 5;
 
 const EMAIL_CAPTURE_PROMPT =
-  "You've already sent several messages. To improve follow-up and let our team review this thread, please share your work email below.";
-const EMAIL_CAPTURE_CHOICES = ["Share email"];
+  "You've already sent several messages. To continue, please type your work email in chat (written text) so we can improve follow-up communication.";
+const EMAIL_CAPTURE_PROMPT_UA =
+  "Ви вже надіслали кілька повідомлень. Щоб продовжити, введіть ваш робочий email письмово в чаті для кращої подальшої комунікації.";
+const EMAIL_CAPTURE_CHOICE_EN = "Share email";
+const EMAIL_CAPTURE_CHOICE_UA = "Поділитися email";
 
 const EMAIL_INLINE_RE = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/;
 const ESTIMATE_INTENT_RE =
   /(estimate|estimation|calculator|pricing|price|cost|budget|ballpark|естімейт|естимейт|оцінк|оценк|калькулятор|скільки кошту|сколько сто|вартіст|бюджет)/i;
+const CYRILLIC_RE = /[А-Яа-яІіЇїЄєҐґ]/;
 
 const normalizeCapturedEmail = (value?: string | null): string => value?.trim().toLowerCase() ?? "";
 const isValidEmail = (value?: string | null): boolean => EMAIL_INLINE_RE.test(normalizeCapturedEmail(value));
 const hasEstimateIntent = (value?: string | null): boolean => ESTIMATE_INTENT_RE.test((value || "").trim().toLowerCase());
+const detectLanguageFromText = (value?: string | null): "en" | "ua" =>
+  CYRILLIC_RE.test(value || "") ? "ua" : "en";
 
 function isLikelyDefaultCiedenGreeting(content: string): boolean {
   const t = content.trim().toLowerCase();
@@ -715,19 +721,20 @@ export default function VoiceChatPage() {
   const [emailComposerGateNotice, setEmailComposerGateNotice] = useState<string | null>(null);
   const lastSavedConversationEmailRef = useRef("");
   const hasAskedEmailRef = useRef(false);
+  const lastUserLanguageRef = useRef<"en" | "ua">("en");
   const [emailRequiredGate, setEmailRequiredGate] = useState(false);
   const estimateEmailPromptCooldownRef = useRef(0);
   const hasCapturedEmail = useMemo(() => {
     if (isValidEmail(onboardingEmail)) return true;
-    if (isValidEmail(currentUser?.email)) return true;
     if (isValidEmail(selectedConversation?.guestEmail)) return true;
     return false;
-  }, [onboardingEmail, currentUser?.email, selectedConversation?.guestEmail]);
-  const promptEstimateEmailInChat = useCallback(() => {
+  }, [onboardingEmail, selectedConversation?.guestEmail]);
+  const promptEmailRequiredInChat = useCallback((reason: "general" | "estimate" = "general", contextText?: string) => {
     const now = Date.now();
     // Avoid repeating the same assistant prompt when multiple gate paths trigger at once.
     if (now - estimateEmailPromptCooldownRef.current < 2500) return;
     estimateEmailPromptCooldownRef.current = now;
+    const language = contextText ? detectLanguageFromText(contextText) : lastUserLanguageRef.current;
     setEmailCaptureAwaitingInput(true);
     setEmailCapturePromptVisible(false);
     setEmailCaptureDismissed(false);
@@ -736,7 +743,13 @@ export default function VoiceChatPage() {
       role: "assistant",
       source: "text",
       content:
-        "Before the preliminary estimate, please type your work email in this chat. Right after that I will continue with the estimate.",
+        language === "ua"
+          ? (reason === "estimate"
+              ? "Щоб продовжити естімейт, вкажіть ваш email у чаті. Одразу після цього я продовжу розрахунок."
+              : "Щоб далі продовжувати спілкування з асистентом, введіть свій email письмово в чаті для подальшого покращення комунікації.")
+          : (reason === "estimate"
+              ? "To continue with the estimate, please type your email in chat. Right after that I will continue the calculation."
+              : "To continue chatting with the assistant, please type your email in chat (written text) for better ongoing communication."),
     });
   }, [appendMessageToConvex]);
 
@@ -749,17 +762,11 @@ export default function VoiceChatPage() {
       const needsEmailForEstimate = !hasCapturedEmail && hasEstimateIntent(trimmed);
       if (
         (emailRequiredGateRef.current || needsEmailForEstimate) &&
-        trimmed !== "Share email" &&
+        trimmed !== EMAIL_CAPTURE_CHOICE_EN &&
+        trimmed !== EMAIL_CAPTURE_CHOICE_UA &&
         !EMAIL_INLINE_RE.test(trimmed)
       ) {
-        if (needsEmailForEstimate) {
-          promptEstimateEmailInChat();
-          return;
-        }
-        setEmailComposerGateNotice(
-          "Щоб продовжити, введіть ваш робочий email у полі нижче (можна надіслати одним рядком разом із повідомленням).",
-        );
-        window.setTimeout(() => setEmailComposerGateNotice(null), 9000);
+        promptEmailRequiredInChat(needsEmailForEstimate ? "estimate" : "general", trimmed);
         return;
       }
 
@@ -780,13 +787,17 @@ export default function VoiceChatPage() {
         }
         return;
       }
-      if (trimmed === "Share email") {
+      if (trimmed === EMAIL_CAPTURE_CHOICE_EN || trimmed === EMAIL_CAPTURE_CHOICE_UA) {
         setEmailCaptureAwaitingInput(true);
         setEmailCapturePromptVisible(false);
+        const language = detectLanguageFromText(trimmed);
         void appendMessageToConvex({
           role: "assistant",
           source: "text",
-          content: "Great - please type your email in this chat.",
+          content:
+            language === "ua"
+              ? "Чудово — тепер, будь ласка, напишіть ваш email у чаті."
+              : "Great - please type your email in this chat.",
         });
         return;
       }
@@ -828,7 +839,7 @@ export default function VoiceChatPage() {
       appendMessageToConvex,
       jumpToLatestMessages,
       hasCapturedEmail,
-      promptEstimateEmailInChat,
+      promptEmailRequiredInChat,
     ],
   );
 
@@ -847,13 +858,12 @@ export default function VoiceChatPage() {
     visibleUserMessageCountForEmailRef.current = n;
     const gate = Boolean(
       conversationId &&
-        canUseChat &&
         !hasCapturedEmail &&
         n >= EMAIL_CAPTURE_MIN_USER_MESSAGES,
     );
     emailRequiredGateRef.current = gate;
     setEmailRequiredGate(gate);
-  }, [convexMessages, conversationId, canUseChat, hasCapturedEmail]);
+  }, [convexMessages, conversationId, hasCapturedEmail]);
 
   useEffect(() => {
     if (!emailRequiredGate) setEmailComposerGateNotice(null);
@@ -864,14 +874,7 @@ export default function VoiceChatPage() {
       const trimmedRequest = request.trim();
       const needsEmailForEstimate = !hasCapturedEmail && hasEstimateIntent(trimmedRequest);
       if ((emailRequiredGate || needsEmailForEstimate) && !EMAIL_INLINE_RE.test(trimmedRequest)) {
-        if (needsEmailForEstimate) {
-          promptEstimateEmailInChat();
-          return;
-        }
-        setEmailComposerGateNotice(
-          "Щоб користуватися швидкими темами, спершу надішліть ваш email текстом у полі нижче.",
-        );
-        window.setTimeout(() => setEmailComposerGateNotice(null), 9000);
+        promptEmailRequiredInChat(needsEmailForEstimate ? "estimate" : "general", trimmedRequest);
         return;
       }
       console.log("🎯 Quick action selected:", request);
@@ -879,7 +882,7 @@ export default function VoiceChatPage() {
       jumpToLatestMessages();
       await sendProgrammaticMessage(request);
     },
-    [emailRequiredGate, hasCapturedEmail, sendProgrammaticMessage, jumpToLatestMessages, promptEstimateEmailInChat],
+    [emailRequiredGate, hasCapturedEmail, sendProgrammaticMessage, jumpToLatestMessages, promptEmailRequiredInChat],
   );
 
   const resolveQuickPromptTool = useCallback((promptText: string) => {
@@ -925,7 +928,6 @@ export default function VoiceChatPage() {
   const userEmailDisplay =
     onboardingEmail ||
     normalizeCapturedEmail(selectedConversation?.guestEmail) ||
-    currentUser?.email ||
     "";
 
   // Restore preferred display name for guest/soft-onboarding flows.
@@ -2901,6 +2903,9 @@ export default function VoiceChatPage() {
     }
 
     const trimmedUserText = text.trim();
+    if (trimmedUserText) {
+      lastUserLanguageRef.current = detectLanguageFromText(trimmedUserText);
+    }
     const needsEmailForEstimate = !hasCapturedEmail && hasEstimateIntent(trimmedUserText);
     const needsEmailForMessage = emailRequiredGateRef.current || needsEmailForEstimate;
     const isWelcomeHubTopicText = VOICE_CHAT_QUICK_PROMPTS.some(
@@ -2916,14 +2921,7 @@ export default function VoiceChatPage() {
     }
 
     if (source === "voice" && needsEmailForMessage) {
-      if (needsEmailForEstimate) {
-        promptEstimateEmailInChat();
-        return;
-      }
-      setEmailComposerGateNotice(
-        "Щоб продовжити голосом, спершу надішліть ваш email текстом у полі нижче.",
-      );
-      window.setTimeout(() => setEmailComposerGateNotice(null), 9000);
+      promptEmailRequiredInChat(needsEmailForEstimate ? "estimate" : "general", trimmedUserText);
       return;
     }
     if (
@@ -2931,14 +2929,7 @@ export default function VoiceChatPage() {
       needsEmailForMessage &&
       !EMAIL_INLINE_RE.test(trimmedUserText)
     ) {
-      if (needsEmailForEstimate) {
-        promptEstimateEmailInChat();
-        return;
-      }
-      setEmailComposerGateNotice(
-        "Щоб продовжити, введіть ваш робочий email у полі нижче (можна разом із повідомленням).",
-      );
-      window.setTimeout(() => setEmailComposerGateNotice(null), 9000);
+      promptEmailRequiredInChat(needsEmailForEstimate ? "estimate" : "general", trimmedUserText);
       return;
     }
 
@@ -3042,7 +3033,7 @@ export default function VoiceChatPage() {
     hasCapturedEmail,
     emailCaptureAwaitingInput,
     appendMessageToConvex,
-    promptEstimateEmailInChat,
+    promptEmailRequiredInChat,
   ]);
 
   // Keep chat pinned to bottom, але тільки коли користувач не скролив вгору.
@@ -3266,6 +3257,15 @@ export default function VoiceChatPage() {
 
   const visibleConvexChatMessagesRef = useRef(visibleConvexChatMessages);
   useEffect(() => { visibleConvexChatMessagesRef.current = visibleConvexChatMessages; }, [visibleConvexChatMessages]);
+  const emailCaptureLanguage = useMemo<"en" | "ua">(() => {
+    for (let i = visibleConvexChatMessages.length - 1; i >= 0; i--) {
+      const m = visibleConvexChatMessages[i];
+      if (m.role !== "user") continue;
+      if (!m.content?.trim()) continue;
+      return detectLanguageFromText(m.content);
+    }
+    return lastUserLanguageRef.current;
+  }, [visibleConvexChatMessages]);
   // Keep quick-prompt fallback predictable: no extra history-based auto cards.
 
   // Pin "Estimate session" card under the final-summary bubble (not the last Q before the user’s last answer).
@@ -4019,9 +4019,16 @@ export default function VoiceChatPage() {
                         message={{
                           id: "email-capture-prompt",
                           role: "assistant",
-                          content: EMAIL_CAPTURE_PROMPT,
+                          content:
+                            emailCaptureLanguage === "ua"
+                              ? EMAIL_CAPTURE_PROMPT_UA
+                              : EMAIL_CAPTURE_PROMPT,
                           timestamp: Date.now(),
-                          suggestedAnswers: EMAIL_CAPTURE_CHOICES,
+                          suggestedAnswers: [
+                            emailCaptureLanguage === "ua"
+                              ? EMAIL_CAPTURE_CHOICE_UA
+                              : EMAIL_CAPTURE_CHOICE_EN,
+                          ],
                         }}
                         onQuickPrompt={(text) => sendQuickPrompt(text)}
                         userName={userDisplayName}
@@ -4267,6 +4274,8 @@ export default function VoiceChatPage() {
                   settings={settings}
                   updateSettings={updateSettings}
                   emailRequiredGate={emailRequiredGate}
+                  emailRequiredForEstimate={!hasCapturedEmail}
+                  onEmailGateBlocked={(reason, attemptedText) => promptEmailRequiredInChat(reason, attemptedText)}
                   onVoiceAudioUpdate={(isUserSpeaking, userLevel, agentLevel) => {
                     setIsUserSpeaking(isUserSpeaking);
                     setUserAudioLevel(userLevel);
@@ -4303,6 +4312,8 @@ export default function VoiceChatPage() {
                 settings={settings}
                 updateSettings={updateSettings}
                 emailRequiredGate={emailRequiredGate}
+                emailRequiredForEstimate={!hasCapturedEmail}
+                onEmailGateBlocked={(reason, attemptedText) => promptEmailRequiredInChat(reason, attemptedText)}
                 onVoiceAudioUpdate={(isUserSpeaking, userLevel, agentLevel) => {
                   setIsUserSpeaking(isUserSpeaking);
                   setUserAudioLevel(userLevel);

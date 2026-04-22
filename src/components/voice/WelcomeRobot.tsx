@@ -23,7 +23,7 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
-    camera.position.set(0, 0.2, 4.5);
+    camera.position.set(0, 0.18, 4.8);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -50,6 +50,14 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
       const height = mount.clientHeight || 240;
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
+      // Keep composition stable across small phones and compact laptop widths.
+      if (width < 330) {
+        camera.position.set(0, 0.12, 5.25);
+      } else if (width < 520) {
+        camera.position.set(0, 0.15, 5.0);
+      } else {
+        camera.position.set(0, 0.18, 4.8);
+      }
       camera.updateProjectionMatrix();
     };
 
@@ -75,10 +83,12 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
 
         const size = bounds.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z) || 1;
-        const target = 2.25;
+        const containerWidth = mount.clientWidth || 360;
+        const target =
+          containerWidth < 330 ? 1.78 : containerWidth < 520 ? 1.95 : 2.25;
         const scale = target / maxDim;
         robotRoot.scale.setScalar(scale);
-        robotRoot.position.y = -0.2;
+        robotRoot.position.y = containerWidth < 330 ? -0.13 : -0.18;
 
         scene.add(robotRoot);
       },
@@ -115,7 +125,7 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
       className={className ?? "w-full max-w-[900px] mx-auto"}
       aria-label="Welcome robot preview"
     >
-      <div className="relative mx-auto h-[220px] w-full max-w-[360px]">
+      <div className="relative mx-auto w-full max-w-[300px] h-[140px] sm:max-w-[340px] sm:h-[180px] md:max-w-[360px] md:h-[220px]">
         <div
           ref={mountRef}
           className="h-full w-full bg-transparent"

@@ -48,6 +48,7 @@ interface UnifiedChatInputProps {
   emailRequiredGate?: boolean;
   /** When true, estimate-intent messages always require email first. */
   emailRequiredForEstimate?: boolean;
+  onEmailGateBlocked?: (reason: 'general' | 'estimate', attemptedText: string) => void;
 }
 
 export function UnifiedChatInput({
@@ -68,6 +69,7 @@ export function UnifiedChatInput({
   onPreAuthMessage,
   emailRequiredGate = false,
   emailRequiredForEstimate = false,
+  onEmailGateBlocked,
 }: UnifiedChatInputProps) {
   const [mode, setMode] = useState<'normal' | 'go'>('normal');
   const [localShowSettings, setLocalShowSettings] = useState(false);
@@ -144,6 +146,7 @@ export function UnifiedChatInput({
       setDailyLimitError(error);
       console.error('🚫 Daily limit reached in unified chat input:', error);
     },
+    onEmailGateBlocked,
     onPreAuthMessage,
     emailRequiredGate,
     emailRequiredForEstimate,
@@ -256,11 +259,7 @@ export function UnifiedChatInput({
   // Call control functions with single session enforcement
   const handleStartCall = useCallback(async () => {
     if (emailRequiredGate) {
-      setDailyLimitError({
-        code: 0,
-        reason:
-          "Щоб увімкнути голос, спершу надішліть ваш email текстом у полі нижче.",
-      });
+      onEmailGateBlocked?.('general', '__VOICE_START__');
       return;
     }
     // Enforce single session policy
@@ -295,7 +294,7 @@ export function UnifiedChatInput({
     setCurrentSessionMode('voice');
     setIsMuted(false);
     startRecording(); // This will trigger voice status changes that drive isCallActive
-  }, [startRecording, currentSessionMode, isSessionTransitioning, stopText, emailRequiredGate]);
+  }, [startRecording, currentSessionMode, isSessionTransitioning, stopText, emailRequiredGate, onEmailGateBlocked]);
 
   const handleEndCall = useCallback(() => {
     setIsCallActive(false);
@@ -478,11 +477,7 @@ export function UnifiedChatInput({
             voiceStatus={voiceStatus}
             onStartRecording={() => {
               if (emailRequiredGate) {
-                setDailyLimitError({
-                  code: 0,
-                  reason:
-                    "Щоб увімкнути голос, спершу надішліть ваш email текстом у полі нижче.",
-                });
+                onEmailGateBlocked?.('general', '__VOICE_START__');
                 return;
               }
               startRecording();
