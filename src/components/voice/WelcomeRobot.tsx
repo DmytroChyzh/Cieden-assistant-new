@@ -24,6 +24,7 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
     camera.position.set(0, 0.18, 4.8);
+    camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -70,6 +71,7 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
         if (disposed) return;
 
         robotRoot = gltf.scene;
+        robotRoot.updateMatrixWorld(true);
         robotRoot.traverse((obj) => {
           if ((obj as THREE.Mesh).isMesh) {
             (obj as THREE.Mesh).castShadow = false;
@@ -77,7 +79,29 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
           }
         });
 
-        const bounds = new THREE.Box3().setFromObject(robotRoot);
+        // Use mesh-only bounds for stable visual centering across browsers/devices.
+        const meshBounds = new THREE.Box3();
+        let hasMeshBounds = false;
+        robotRoot.traverse((obj) => {
+          const mesh = obj as THREE.Mesh;
+          if (!mesh.isMesh || !mesh.geometry) return;
+          if (!mesh.geometry.boundingBox) {
+            mesh.geometry.computeBoundingBox();
+          }
+          const bb = mesh.geometry.boundingBox;
+          if (!bb) return;
+          const worldBB = bb.clone().applyMatrix4(mesh.matrixWorld);
+          if (!hasMeshBounds) {
+            meshBounds.copy(worldBB);
+            hasMeshBounds = true;
+          } else {
+            meshBounds.union(worldBB);
+          }
+        });
+
+        const bounds = hasMeshBounds
+          ? meshBounds
+          : new THREE.Box3().setFromObject(robotRoot);
         const center = bounds.getCenter(new THREE.Vector3());
         robotRoot.position.sub(center);
 
@@ -125,7 +149,7 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
       className={className ?? "w-full max-w-[900px] mx-auto"}
       aria-label="Welcome robot preview"
     >
-      <div className="relative mx-auto w-full max-w-[300px] h-[140px] sm:max-w-[340px] sm:h-[180px] md:max-w-[360px] md:h-[220px] lg:-translate-y-4 xl:-translate-y-6 2xl:-translate-y-8">
+      <div className="relative mx-auto w-full max-w-[300px] h-[140px] sm:max-w-[340px] sm:h-[180px] md:max-w-[360px] md:h-[220px]">
         <div
           ref={mountRef}
           className="h-full w-full bg-transparent"
