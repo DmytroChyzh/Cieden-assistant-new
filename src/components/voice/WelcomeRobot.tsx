@@ -22,15 +22,6 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
     let robotRoot: THREE.Object3D | null = null;
     let baseScale = 1;
 
-    const detectPlatform = (): "ios" | "mac" | "default" => {
-      const ua = (typeof navigator !== "undefined" ? navigator.userAgent : "").toLowerCase();
-      const isiOS = /iphone|ipad|ipod/.test(ua);
-      if (isiOS) return "ios";
-      const isMac = /macintosh|mac os x/.test(ua);
-      return isMac ? "mac" : "default";
-    };
-    const platform = detectPlatform();
-
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
     camera.position.set(0, 0.18, 4.8);
@@ -74,18 +65,9 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
       if (robotRoot) {
         const widthScale = width < 330 ? 0.9 : width < 520 ? 0.95 : 1;
         robotRoot.scale.setScalar(baseScale * widthScale);
-
-        // Platform-specific compensation to keep the robot centered above the intro bubble.
-        if (platform === "ios") {
-          robotRoot.position.x = width < 360 ? -0.16 : width < 520 ? -0.12 : -0.1;
-          robotRoot.position.y = width < 330 ? -0.04 : -0.08;
-        } else if (platform === "mac") {
-          robotRoot.position.x = width < 520 ? -0.1 : -0.08;
-          robotRoot.position.y = width < 330 ? -0.06 : -0.1;
-        } else {
-          robotRoot.position.x = 0;
-          robotRoot.position.y = width < 330 ? -0.08 : -0.12;
-        }
+        // Keep deterministic center on all platforms.
+        robotRoot.position.x = 0;
+        robotRoot.position.y = width < 330 ? -0.08 : -0.12;
       }
       camera.updateProjectionMatrix();
     };
