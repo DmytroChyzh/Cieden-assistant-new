@@ -125,7 +125,7 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
       className={className ?? "w-full max-w-[900px] mx-auto"}
       aria-label="Welcome robot preview"
     >
-      <div className="relative mx-auto w-full max-w-[300px] h-[140px] sm:max-w-[340px] sm:h-[180px] md:max-w-[360px] md:h-[220px]">
+      <div className="relative mx-auto w-full max-w-[300px] h-[140px] sm:max-w-[340px] sm:h-[180px] md:max-w-[360px] md:h-[220px] lg:-translate-y-4 xl:-translate-y-6 2xl:-translate-y-8">
         <div
           ref={mountRef}
           className="h-full w-full bg-transparent"
