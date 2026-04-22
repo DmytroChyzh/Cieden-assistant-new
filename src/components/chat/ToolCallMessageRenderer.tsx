@@ -106,69 +106,6 @@ export function ToolCallMessageRenderer({
   // Each open_calculator card represents a session boundary.
   // All cards render — EstimateInlineChooserCard handles its own state (fresh/active/completed/cancelled).
 
-  // Block all other UI cards during estimate assistant flow (pure Q&A calculator).
-  if (
-    typeof window !== "undefined" &&
-    (window as any).__ciedenEstimatePanelOpen === true &&
-    toolName &&
-    toolName !== "generate_estimate" &&
-    toolName !== "open_calculator"
-  ) {
-    return null;
-  }
-
-  // Anti-spam: prevent rendering the same tool card twice from *different* messages.
-  // But do NOT break React StrictMode double-render for the same `messageId`.
-  //
-  // Also: don't apply suppression to "raw tool name" inputs like `show_getting_started`,
-  // because those are often used by debugging / manual triggering and we want them to
-  // always render.
-  const isFullProtocolToolCall =
-    typeof content === "string" && content.trim().startsWith("TOOL_CALL:");
-
-  if (
-    typeof window !== "undefined" &&
-    isFullProtocolToolCall &&
-    toolName &&
-    toolName !== "open_calculator" &&
-    toolName !== "generate_estimate"
-  ) {
-    const dedupStore =
-      ((window as any).__ciedenToolCardDedup ??
-        ((window as any).__ciedenToolCardDedup = {})) as Record<
-        string,
-        { messageId?: string | number; ts: number }
-      >;
-
-    const keyBase = toolName ?? "unknown_tool";
-    const key =
-      toolName === "show_cases"
-        ? `${keyBase}:${desiredDomain ?? "all"}`
-        : toolName === "find_similar_cases"
-          ? `${keyBase}:${similarCasesDedupKey || "none"}`
-          : keyBase;
-
-    const now = Date.now();
-    const last = dedupStore[key];
-    const COOLDOWN_MS = 2500;
-    const currentId = messageId ? String(messageId) : undefined;
-
-    // If this is the same message being rendered again (e.g. StrictMode),
-    // never suppress it.
-    if (currentId && last?.messageId === currentId) {
-      // Keep going, render card normally.
-    } else if (
-      last &&
-      typeof last.ts === "number" &&
-      now - last.ts < COOLDOWN_MS
-    ) {
-      // Different message within cooldown: treat as duplicate.
-      return null;
-    }
-
-    dedupStore[key] = { messageId: currentId, ts: now };
-  }
-
   switch (toolName) {
     case "show_cases":
       return desiredDomain ? (

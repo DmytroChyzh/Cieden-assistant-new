@@ -44,8 +44,10 @@ interface UnifiedChatInputProps {
   onPreAuthMessage?: (text: string) => Promise<void> | void;
   // Desktop settings sidebar open state (for animating input centering)
   showSettings?: boolean;
-  /** When true, user must include an email in text (or estimate payload) before sending / voice */
+  /** When true, user must include an email in text before sending / voice. */
   emailRequiredGate?: boolean;
+  /** When true, estimate-intent messages always require email first. */
+  emailRequiredForEstimate?: boolean;
 }
 
 export function UnifiedChatInput({
@@ -65,6 +67,7 @@ export function UnifiedChatInput({
   showSettings: showSettingsProp,
   onPreAuthMessage,
   emailRequiredGate = false,
+  emailRequiredForEstimate = false,
 }: UnifiedChatInputProps) {
   const [mode, setMode] = useState<'normal' | 'go'>('normal');
   const [localShowSettings, setLocalShowSettings] = useState(false);
@@ -143,6 +146,7 @@ export function UnifiedChatInput({
     },
     onPreAuthMessage,
     emailRequiredGate,
+    emailRequiredForEstimate,
   });
 
   // Agent audio level now comes from SDK via useVoiceRecording callback

@@ -68,14 +68,20 @@ export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessagePro
       ? new Date(message.timestamp)
       : message.timestamp;
   const timeStr = date && !isNaN(date.getTime()) ? format(date, "HH:mm") : "";
-  const parsedSuggestions =
+  const explicitSuggestions =
     (Array.isArray(message.suggestedAnswers) && message.suggestedAnswers.length > 0
       ? message.suggestedAnswers
       : fallbackAnswers) || [];
   const hasUkrainian = /[іїєґІЇЄҐ]/.test(cleanContent);
   const defaultSuggestions = hasUkrainian ? DEFAULT_SUGGESTIONS_UA : DEFAULT_SUGGESTIONS_EN;
   const suggestions =
-    !isUser && !isTypingBubble && parsedSuggestions.length === 0 ? defaultSuggestions : parsedSuggestions;
+    isUser || isTypingBubble
+      ? []
+      : message.suppressDefaultSuggestions
+        ? explicitSuggestions
+        : explicitSuggestions.length === 0
+          ? defaultSuggestions
+          : explicitSuggestions;
 
   return (
     <div className="w-full py-2" style={{ display: "flex", justifyContent: "center" }}>

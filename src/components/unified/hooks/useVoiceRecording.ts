@@ -146,7 +146,23 @@ export function useVoiceRecording({
   const handleMessage = useCallback(async (event: NormalizedMessageEvent) => {
     const source = event?.source;
     const message = event?.message;
-    if (!message) return;
+    if (isDiagnosticsEnabled()) {
+      console.info('[VoiceDiag] useVoiceRecording.handleMessage', {
+        source,
+        messageLen: message?.length ?? 0,
+        via: event?.via,
+        conversationId: conversationId ?? null,
+        conversationStatus: conversation?.status,
+        voiceHandlerStreamId: currentStreamId != null,
+        pendingEmptyMessage: !message
+      });
+    }
+    if (!message) {
+      if (isDiagnosticsEnabled()) {
+        console.info('[VoiceDiag] useVoiceRecording.handleMessage: skip (empty message)');
+      }
+      return;
+    }
 
     if (ENABLE_AUDIO_DEBUG) {
       console.log('📩 Voice Message Event:', {
@@ -200,7 +216,16 @@ export function useVoiceRecording({
         });
       }
     }
-  }, [currentStreamId, updateStream, handleAgentMessage, handleUserMessage, onTranscript, conversation?.status, ENABLE_AUDIO_DEBUG]);
+  }, [
+    conversation?.status,
+    conversationId,
+    currentStreamId,
+    ENABLE_AUDIO_DEBUG,
+    handleAgentMessage,
+    handleUserMessage,
+    onTranscript,
+    updateStream
+  ]);
 
   // Setup message handler
   useEffect(() => {

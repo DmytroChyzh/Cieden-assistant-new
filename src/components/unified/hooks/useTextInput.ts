@@ -20,11 +20,15 @@ interface UseTextInputProps {
   onDailyLimitReached?: (error: { code: number; reason: string }) => void;
   /** Optional handler for messages before a conversation / auth is ready */
   onPreAuthMessage?: (message: string) => Promise<void> | void;
-  /** When true, only messages containing an email (or estimate payloads) may be sent */
+  /** When true, outgoing text requires inline email in the same message. */
   emailRequiredGate?: boolean;
+  /** When true, estimate-intent messages require email even before global gate. */
+  emailRequiredForEstimate?: boolean;
 }
 
 const EMAIL_INLINE_RE = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/;
+const ESTIMATE_INTENT_RE =
+  /(estimate|estimation|calculator|pricing|price|cost|budget|ballpark|естімейт|естимейт|оцінк|оценк|калькулятор|скільки кошту|сколько сто|вартіст|бюджет)/i;
 
 export function useTextInput({
   conversationId,
@@ -32,9 +36,13 @@ export function useTextInput({
   onDailyLimitReached,
   onPreAuthMessage,
   emailRequiredGate = false,
+  emailRequiredForEstimate = false,
 }: UseTextInputProps) {
   const [textInput, setTextInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const programmaticSendDedupeRef = useRef<{ text: string; at: number } | null>(null);
+  /** Prevent inserting the same forced tool card twice in a short window (e.g. rapid button re-clicks). */
+  const lastForcedToolInjectRef = useRef<{ tool: string; at: number } | null>(null);
   // TEMP: allow sending even before auth / conversationId exists.
   // When `conversationId` is missing we will not persist to Convex, but we will still surface AI output via `onMessage`.
   const [canSend, setCanSend] = useState(true);
@@ -49,6 +57,7 @@ export function useTextInput({
     const tail = MAX_ESTIMATE_TRANSPORT_CHARS - head;
     return `${text.slice(0, head)}\n...\n${text.slice(-tail)}`;
   };
+  const isEstimateIntent = (value: string) => ESTIMATE_INTENT_RE.test(value.trim().toLowerCase());
 
   // Client-side tool intent injection to guarantee tool cards.
   // This prevents "text-only" responses when the model fails to call a tool.
@@ -75,11 +84,6 @@ export function useTextInput({
         /(естимейт|естімейт|(?:e|\u0435)стімейт|естimation|оценк|оцінк|оцінка|вартість|бюджет|коштує|росч|расч|калькулятор|сколько стоит|сколько сто|скільки кошт|що кошту|орієнтовн|попередн|знову естім|ще раз естім)/.test(
           lower,
         );
-
-      // While estimate panel OR assistant-runner is active, skip ALL client-side tool injection.
-      // Otherwise kickoff lines like "…for my estimate…" match isCostIntent and spawn a second
-      // EstimateInlineChooserCard on top of the ongoing flow.
-      if (isEstimateOpen) return;
 
       const toolCallMessage = (toolName: string) =>
         `TOOL_CALL:${toolName}:${JSON.stringify({ mode: "default" })}`;
@@ -296,6 +300,22 @@ export function useTextInput({
 
       if (!injectedTool) return;
 
+      // During active estimate flow we only suppress repeating estimate opener cards.
+      // Other tools (cases/process/etc.) should still be allowed to render.
+      if (isEstimateOpen && injectedTool === "open_calculator") return;
+
+      const injectNow = Date.now();
+      const lastForced = lastForcedToolInjectRef.current;
+      if (
+        lastForced &&
+        lastForced.tool === injectedTool &&
+        injectNow - lastForced.at < 700
+      ) {
+        // Ignore only near-simultaneous duplicate injections from the same click/race.
+        return;
+      }
+      lastForcedToolInjectRef.current = { tool: injectedTool, at: injectNow };
+
       // Cost intent: open estimate panel ASAP (like existing tool handlers).
       if (injectedTool === "open_calculator") {
         resetCiedenEstimateSessionCompleted();
@@ -446,14 +466,15 @@ export function useTextInput({
     if (!trimmed) return;
 
     if (
-      emailRequiredGate &&
-      !trimmed.includes("[ESTIMATE MODE]") &&
+      (emailRequiredGate || (emailRequiredForEstimate && isEstimateIntent(trimmed))) &&
       !EMAIL_INLINE_RE.test(trimmed)
     ) {
       onDailyLimitReached?.({
         code: 0,
         reason:
-          "Щоб продовжити, додайте ваш робочий email у це повідомлення (можна разом із текстом).",
+          emailRequiredForEstimate && isEstimateIntent(trimmed)
+            ? "Щоб отримати естімейт, спершу додайте ваш робочий email у це повідомлення."
+            : "Щоб продовжити, додайте ваш робочий email у це повідомлення (можна разом із текстом).",
       });
       return;
     }
@@ -567,6 +588,7 @@ export function useTextInput({
     isTextConnected,
     setPendingConversationHistory,
     emailRequiredGate,
+    emailRequiredForEstimate,
   ]);
 
   // Cleanup on unmount
@@ -583,15 +605,28 @@ export function useTextInput({
     const trimmed = message.trim();
     if (!trimmed) return;
 
+    const now = Date.now();
+    const prevDedupe = programmaticSendDedupeRef.current;
     if (
-      emailRequiredGate &&
-      !trimmed.includes("[ESTIMATE MODE]") &&
+      prevDedupe &&
+      prevDedupe.text === trimmed &&
+      now - prevDedupe.at < 500
+    ) {
+      console.warn("[useTextInput] Skip duplicate programmatic send within debounce window");
+      return;
+    }
+    programmaticSendDedupeRef.current = { text: trimmed, at: now };
+
+    if (
+      (emailRequiredGate || (emailRequiredForEstimate && isEstimateIntent(trimmed))) &&
       !EMAIL_INLINE_RE.test(trimmed)
     ) {
       onDailyLimitReached?.({
         code: 0,
         reason:
-          "Щоб продовжити, додайте ваш робочий email у це повідомлення (можна разом із текстом).",
+          emailRequiredForEstimate && isEstimateIntent(trimmed)
+            ? "Щоб отримати естімейт, спершу додайте ваш робочий email у це повідомлення."
+            : "Щоб продовжити, додайте ваш робочий email у це повідомлення (можна разом із текстом).",
       });
       return;
     }
@@ -738,7 +773,7 @@ export function useTextInput({
       }
       return;
     }
-  }, [conversationId, onMessage, onPreAuthMessage, createMessage, maybeInjectToolCardForUserIntent, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory, emailRequiredGate, onDailyLimitReached]);
+  }, [conversationId, onMessage, onPreAuthMessage, createMessage, maybeInjectToolCardForUserIntent, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory, emailRequiredGate, emailRequiredForEstimate, onDailyLimitReached]);
 
   // Apply prior-only history once messages are loaded (handles autostart race)
   const priorHistoryAppliedRef = useRef(false);

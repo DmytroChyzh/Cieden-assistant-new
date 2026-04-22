@@ -11,4 +11,6 @@ export interface ChatbotMessage {
   content: string;
   timestamp: Date | number;
   suggestedAnswers?: string[];
+  /** When true, do not inject the generic EN/UA default suggestion chips. */
+  suppressDefaultSuggestions?: boolean;
 }

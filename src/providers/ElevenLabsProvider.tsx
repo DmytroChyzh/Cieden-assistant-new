@@ -214,6 +214,54 @@ const fastStopText = async (
   }
 };
 
+/** Shallow, size-safe summary for console diagnostics (voice WebRTC events). */
+function summarizeElevenLabsEventForDiag(event: unknown): Record<string, unknown> {
+  if (event == null) {
+    return { shape: 'nullish' };
+  }
+  if (typeof event === 'string') {
+    return { shape: 'string', length: event.length, head: event.slice(0, 120) };
+  }
+  if (typeof event !== 'object') {
+    return { shape: typeof event };
+  }
+  const r = event as Record<string, unknown>;
+  const keys = Object.keys(r);
+  const peek = (key: string): unknown => {
+    const v = r[key];
+    if (typeof v === 'string') {
+      return { len: v.length, head: v.slice(0, 100) };
+    }
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      const nested = v as Record<string, unknown>;
+      const nk = Object.keys(nested).slice(0, 12);
+      return { nestedKeys: nk };
+    }
+    return typeof v;
+  };
+  const type = typeof r.type === 'string' ? r.type : undefined;
+  const out: Record<string, unknown> = {
+    shape: 'object',
+    type,
+    keyCount: keys.length,
+    keys: keys.slice(0, 28)
+  };
+  for (const k of [
+    'message',
+    'text',
+    'agent_response',
+    'user_transcript',
+    'source',
+    'agent_response_event',
+    'user_transcription_event'
+  ]) {
+    if (k in r) {
+      out[k] = peek(k);
+    }
+  }
+  return out;
+}
+
 const normalizeIncomingEvent = (event: unknown): { source: 'ai' | 'user'; message: string } | null => {
   try {
     const recordEvent = (typeof event === 'object' && event !== null)
@@ -269,6 +317,9 @@ const normalizeIncomingEvent = (event: unknown): { source: 'ai' | 'user'; messag
     console.error('Failed to normalize ElevenLabs event', error, event);
   }
 
+  if (isDiagnosticsEnabled()) {
+    console.info('[VoiceDiag] normalizeIncomingEvent: unmatched shape', summarizeElevenLabsEventForDiag(event));
+  }
   return null;
 };
 
@@ -710,11 +761,28 @@ export function ElevenLabsProvider({
   }, [tabId, sessionChannel]);
 
   const handleVoiceMessage = useCallback((event: unknown) => {
-    if (sessionModeRef.current !== 'voice') {
+    const mode = sessionModeRef.current;
+    if (mode !== 'voice') {
+      if (isDiagnosticsEnabled()) {
+        console.info('[VoiceDiag] handleVoiceMessage skipped: sessionMode is not voice', {
+          sessionMode: mode,
+          eventSummary: summarizeElevenLabsEventForDiag(event)
+        });
+      }
       return;
     }
     const normalized = normalizeIncomingEvent(event);
-    if (!normalized) return;
+    if (!normalized) {
+      return;
+    }
+    if (isDiagnosticsEnabled()) {
+      console.info('[VoiceDiag] handleVoiceMessage → emit to voice handlers', {
+        source: normalized.source,
+        messageLen: normalized.message.length,
+        messageHead: normalized.message.slice(0, 80),
+        handlerCount: voiceHandlersRef.current.size
+      });
+    }
     emitToHandlers(voiceHandlersRef, { ...normalized, via: 'webrtc', raw: event });
   }, []);
 
@@ -1328,9 +1396,9 @@ export function ElevenLabsProvider({
       return;
     }
     hasAutostartedRef.current = true;
-    // Wait up to 1s for pending conversation history (reduces restarts)
+    // Wait briefly for pending conversation history, but keep first-turn latency low.
     (async () => {
-      const MAX_WAIT_MS = 1000;
+      const MAX_WAIT_MS = 150;
       const STEP_MS = 50;
       const start = Date.now();
       try {

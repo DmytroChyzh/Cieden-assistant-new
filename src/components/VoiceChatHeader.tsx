@@ -90,7 +90,7 @@ export function VoiceChatHeader({
           <button
             type="button"
             onClick={() => onNewChat()}
-            className="rounded-full px-3 py-1.5 text-xs lg:text-sm font-medium border border-white/30 bg-white/10 text-white hover:bg-white/15 transition-colors"
+            className="rounded-full px-3.5 py-1.5 text-xs lg:text-sm font-semibold border border-violet-300/70 bg-gradient-to-r from-violet-500/35 to-indigo-500/35 text-white shadow-[0_0_20px_rgba(139,92,246,0.35)] ring-1 ring-white/25 hover:from-violet-500/55 hover:to-indigo-500/55 hover:border-violet-200 transition-all"
             aria-label="New chat"
           >
             New Chat
