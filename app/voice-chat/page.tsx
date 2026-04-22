@@ -53,6 +53,7 @@ import {
 } from "@/src/components/cieden/SalesUi";
 import { EstimateWizardPanel, type EstimateFinalResult } from "@/src/components/cieden/EstimateWizardPanel";
 import { EstimateFinalResultSidePanel } from "@/src/components/cieden/EstimateFinalResultSidePanel";
+import { BookCallSidePanel } from "@/src/components/cieden/BookCallSidePanel";
 import {
   markCiedenEstimateSessionCompleted,
   resetCiedenEstimateSessionCompleted,
@@ -145,15 +146,20 @@ const EMAIL_CAPTURE_CHOICE_EN = "Share email";
 const EMAIL_CAPTURE_CHOICE_UA = "Поділитися email";
 
 const EMAIL_INLINE_RE = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/;
+const ESTIMATE_TOOL_ONLY_MARKER = "[[TOOL_ONLY_ESTIMATE_ENTRY]]";
 const ESTIMATE_INTENT_RE =
   /(estimate|estimation|calculator|pricing|price|cost|budget|ballpark|естімейт|естимейт|оцінк|оценк|калькулятор|скільки кошту|сколько сто|вартіст|бюджет)/i;
 const CYRILLIC_RE = /[А-Яа-яІіЇїЄєҐґ]/;
+const BOOK_CALL_CHIP_EN = "book a call";
+const BOOK_CALL_CHIP_UA = "записатися на дзвінок";
 
 const normalizeCapturedEmail = (value?: string | null): string => value?.trim().toLowerCase() ?? "";
 const isValidEmail = (value?: string | null): boolean => EMAIL_INLINE_RE.test(normalizeCapturedEmail(value));
 const hasEstimateIntent = (value?: string | null): boolean => ESTIMATE_INTENT_RE.test((value || "").trim().toLowerCase());
 const detectLanguageFromText = (value?: string | null): "en" | "ua" =>
   CYRILLIC_RE.test(value || "") ? "ua" : "en";
+const isEstimateEntryToolName = (toolName?: string | null): boolean =>
+  toolName === "open_calculator" || toolName === "generate_estimate";
 
 function isLikelyDefaultCiedenGreeting(content: string): boolean {
   const t = content.trim().toLowerCase();
@@ -787,6 +793,13 @@ export default function VoiceChatPage() {
         }
         return;
       }
+      if (
+        trimmed.toLowerCase() === BOOK_CALL_CHIP_EN ||
+        trimmed.toLowerCase() === BOOK_CALL_CHIP_UA
+      ) {
+        setShowBookCallPanel(true);
+        return;
+      }
       if (trimmed === EMAIL_CAPTURE_CHOICE_EN || trimmed === EMAIL_CAPTURE_CHOICE_UA) {
         setEmailCaptureAwaitingInput(true);
         setEmailCapturePromptVisible(false);
@@ -878,6 +891,13 @@ export default function VoiceChatPage() {
         return;
       }
       console.log("🎯 Quick action selected:", request);
+      if (
+        trimmedRequest.toLowerCase() === BOOK_CALL_CHIP_EN ||
+        trimmedRequest.toLowerCase() === BOOK_CALL_CHIP_UA
+      ) {
+        setShowBookCallPanel(true);
+        return;
+      }
       if (!sendProgrammaticMessage) return;
       jumpToLatestMessages();
       await sendProgrammaticMessage(request);
@@ -910,6 +930,9 @@ export default function VoiceChatPage() {
     }
     if (lower.includes("project cost") || lower.includes("rough estimate")) {
       return "open_calculator";
+    }
+    if (lower.includes("book a call") || lower.includes("записатися") || lower.includes("дзвінок")) {
+      return "book_call";
     }
     return null;
   }, []);
@@ -1687,6 +1710,7 @@ export default function VoiceChatPage() {
   // About Cieden side panel
   const [showAboutPanel, setShowAboutPanel] = useState(false);
   const [activePricingModelId, setActivePricingModelId] = useState<PricingModelDetailsId | null>(null);
+  const [showBookCallPanel, setShowBookCallPanel] = useState(false);
 
   // Estimate wizard side panel (unified for generate_estimate / open_calculator)
   const [showEstimatePanel, setShowEstimatePanel] = useState(false);
@@ -2023,6 +2047,12 @@ export default function VoiceChatPage() {
   }, []);
 
   useEffect(() => {
+    const handleOpenBookCall = () => setShowBookCallPanel(true);
+    window.addEventListener("open-book-call-panel", handleOpenBookCall);
+    return () => window.removeEventListener("open-book-call-panel", handleOpenBookCall);
+  }, []);
+
+  useEffect(() => {
     const handleOpenPricingModelDetails = (e: Event) => {
       const detail = (e as CustomEvent<{ modelId?: PricingModelDetailsId }>).detail;
       if (!detail?.modelId) return;
@@ -2351,7 +2381,7 @@ export default function VoiceChatPage() {
       } catch (error) {
         console.error('❌ Failed to queue generate_estimate:', error);
       }
-      return 'I opened a preliminary estimate block in this chat — choose either to continue with me here or use the step-by-step questionnaire (that path opens the panel on the right). I will guide you to a rough range; a manager can refine the quote.';
+      return ESTIMATE_TOOL_ONLY_MARKER;
     },
 
     open_calculator: async (params) => {
@@ -2376,7 +2406,7 @@ export default function VoiceChatPage() {
       } catch (error) {
         console.error('❌ Failed to queue open_calculator:', error);
       }
-      return 'I opened a preliminary estimate block in this chat — pick one: work with me in the chat, or the questionnaire (the questionnaire opens on the right after you choose it).';
+      return ESTIMATE_TOOL_ONLY_MARKER;
     },
 
     show_about: async (params) => {
@@ -2679,6 +2709,7 @@ export default function VoiceChatPage() {
     book_call: async (params) => {
       console.log('📞 Bridge Handler - book_call called:', params);
       try {
+        setShowBookCallPanel(true);
         const safeParams =
           params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
         const toolCallMessage = `TOOL_CALL:book_call:${safeJSONStringify(safeParams)}`;
@@ -2709,7 +2740,7 @@ export default function VoiceChatPage() {
         console.error('❌ Failed to queue book_call:', error);
       }
 
-      return 'Opening the booking card on screen.';
+      return 'Opening the booking form on the right.';
     },
 
     show_session_summary: async (params) => {
@@ -3232,6 +3263,9 @@ export default function VoiceChatPage() {
       if (message.role === "system" && message.source === "contextual") return false;
       if (message.role === "user" && message.content.startsWith("I selected:")) return false;
       if (/onboarding complete\./i.test((message.content || "").trim())) return false;
+      if (message.role === "assistant" && (message.content || "").trim() === ESTIMATE_TOOL_ONLY_MARKER) {
+        return false;
+      }
       const mode = getMessageMode(message.content);
       if (mode === "update") return false;
       const c = message.content || "";
@@ -3721,7 +3755,7 @@ export default function VoiceChatPage() {
               /* marginRight alone does not narrow a stretched flex child — width + alignSelf do */
               width: isMobile
                 ? "100%"
-                : activePanelDomain || showEstimatePanel || showAboutPanel || !!activePricingModelId
+                : activePanelDomain || showEstimatePanel || showAboutPanel || showBookCallPanel || !!activePricingModelId
                   ? "50%"
                   : showSettings
                     ? "calc(100% - 360px)"
@@ -3731,6 +3765,7 @@ export default function VoiceChatPage() {
                 (!activePanelDomain &&
                   !showEstimatePanel &&
                   !showAboutPanel &&
+                  !showBookCallPanel &&
                   !activePricingModelId &&
                   !showSettings)
                   ? "stretch"
@@ -4193,12 +4228,18 @@ export default function VoiceChatPage() {
                         visibleConvexChatMessages
                           .slice(segmentUserIdx + 1, nextUserIdx)
                           .some((m) => !!parseToolCall(m.content));
+                  const segmentHasEstimateEntryCard =
+                    (segmentExpectedTool && isEstimateEntryToolName(segmentExpectedTool)) ||
+                    (segmentUserIdx >= 0 &&
+                      visibleConvexChatMessages
+                        .slice(segmentUserIdx + 1, nextUserIdx)
+                        .some((m) => isEstimateEntryToolName(parseToolCall(m.content)?.toolName)));
                   const suppressSuggestions =
                     disableQuickPromptsForFirstGreeting ||
                     isEstimateActive ||
                     isEstimateMessage ||
                     isInsideCompletedEstimate ||
-                    (message.role === "assistant" && segmentHasPrimaryCard);
+                    (message.role === "assistant" && segmentHasPrimaryCard && segmentHasEstimateEntryCard);
                   const shouldRenderSegmentFallbackAfterUser =
                     message.role === "user" &&
                     !!segmentExpectedTool &&
@@ -4308,7 +4349,7 @@ export default function VoiceChatPage() {
                 actionHandlers={actionHandlers}
                 showSettings={showSettings}
                 alignLeft={
-                  !!activePanelDomain || !!showEstimatePanel || !!showAboutPanel || !!activePricingModelId
+                  !!activePanelDomain || !!showEstimatePanel || !!showAboutPanel || !!showBookCallPanel || !!activePricingModelId
                 }
                 onRequestSelect={handleComposerQuickSelect}
                 settings={settings}
@@ -4481,6 +4522,21 @@ export default function VoiceChatPage() {
                   className="fixed inset-0 z-40 bg-black/40 sm:hidden"
                 />
                 <AboutPanel onClose={() => setShowAboutPanel(false)} />
+              </>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {showBookCallPanel && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowBookCallPanel(false)}
+                  className="fixed inset-0 z-40 bg-black/40 sm:hidden"
+                />
+                <BookCallSidePanel onClose={() => setShowBookCallPanel(false)} />
               </>
             )}
           </AnimatePresence>

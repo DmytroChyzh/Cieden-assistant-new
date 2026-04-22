@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import type { ElementType } from "react";
 import type { EstimateFinalResult } from "./EstimateWizardPanel";
-import { CiedenContactExternalBody } from "./CiedenContactInPanel";
+import { BookCallFormBody } from "./BookCallSidePanel";
 
 const PHASE_ORDER: Array<{
   label: string;
@@ -97,7 +97,7 @@ export function EstimateFinalResultSidePanel({ result, onClose }: EstimateFinalR
 
       {showContactFull ? (
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden px-3 pb-4 pt-2 scrollbar-chat">
-          <CiedenContactExternalBody layout="panelFill" />
+          <BookCallFormBody layout="panelFill" />
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 scrollbar-chat">

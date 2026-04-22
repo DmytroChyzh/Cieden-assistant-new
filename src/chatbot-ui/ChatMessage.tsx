@@ -11,15 +11,15 @@ interface ChatMessageProps {
 }
 
 const DEFAULT_SUGGESTIONS_EN = [
-  "Show your case studies",
-  "Explain your design process",
-  "How much does a project cost?",
+  "Book a call",
+  "Can you add more details?",
+  "Let's switch topic",
 ];
 
 const DEFAULT_SUGGESTIONS_UA = [
-  "Покажи ваші кейси",
-  "Поясни ваш процес дизайну",
-  "Скільки коштує проєкт?",
+  "Записатися на дзвінок",
+  "Можеш доповнити відповідь?",
+  "Давай змінимо тему",
 ];
 
 /**

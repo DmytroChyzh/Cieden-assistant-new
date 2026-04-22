@@ -63,12 +63,23 @@ export function BookCallCard({ className, compact = false }: BookCallCardProps) 
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 pt-1">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window === "undefined") return;
+              window.dispatchEvent(new CustomEvent("open-book-call-panel"));
+            }}
+            className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl border border-violet-400/35 bg-gradient-to-br from-violet-500/20 via-purple-500/10 to-transparent px-5 py-3 text-sm font-semibold text-white hover:border-violet-400/55 hover:from-violet-500/30 transition-all cursor-pointer"
+            aria-label="Open booking form in side panel"
+          >
+            Open booking form
+          </button>
           <a
             href={mailtoHref}
-            className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl border border-violet-400/30 bg-gradient-to-br from-violet-500/15 via-purple-500/10 to-transparent px-5 py-3 text-sm font-semibold text-white/95 hover:border-violet-400/50 hover:from-violet-500/25 transition-all cursor-pointer"
+            className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl border border-violet-400/30 bg-gradient-to-br from-violet-500/10 via-purple-500/10 to-transparent px-5 py-3 text-sm font-semibold text-white/95 hover:border-violet-400/50 hover:from-violet-500/20 transition-all cursor-pointer"
             aria-label="Email Yulia Mahera to book a call"
           >
-            Book a call via email
+            Or email directly
           </a>
 
           {!compact && (
