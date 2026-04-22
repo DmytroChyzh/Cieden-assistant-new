@@ -160,6 +160,18 @@ const detectLanguageFromText = (value?: string | null): "en" | "ua" =>
   CYRILLIC_RE.test(value || "") ? "ua" : "en";
 const isEstimateEntryToolName = (toolName?: string | null): boolean =>
   toolName === "open_calculator" || toolName === "generate_estimate";
+const isBookCallPrompt = (value?: string | null): boolean => {
+  const lower = (value || "").trim().toLowerCase();
+  if (!lower) return false;
+  return (
+    lower === BOOK_CALL_CHIP_EN ||
+    lower === BOOK_CALL_CHIP_UA ||
+    lower.includes("book a call") ||
+    lower.includes("contact our manager") ||
+    lower.includes("записатися") ||
+    lower.includes("дзвінок")
+  );
+};
 
 function isLikelyDefaultCiedenGreeting(content: string): boolean {
   const t = content.trim().toLowerCase();
@@ -764,6 +776,10 @@ export default function VoiceChatPage() {
       const trimmed = value.trim();
       if (!trimmed) return;
       jumpToLatestMessages();
+      if (isBookCallPrompt(trimmed)) {
+        setShowBookCallPanel(true);
+        return;
+      }
 
       const needsEmailForEstimate = !hasCapturedEmail && hasEstimateIntent(trimmed);
       if (
@@ -791,13 +807,6 @@ export default function VoiceChatPage() {
             }),
           );
         }
-        return;
-      }
-      if (
-        trimmed.toLowerCase() === BOOK_CALL_CHIP_EN ||
-        trimmed.toLowerCase() === BOOK_CALL_CHIP_UA
-      ) {
-        setShowBookCallPanel(true);
         return;
       }
       if (trimmed === EMAIL_CAPTURE_CHOICE_EN || trimmed === EMAIL_CAPTURE_CHOICE_UA) {
@@ -885,19 +894,16 @@ export default function VoiceChatPage() {
   const handleComposerQuickSelect = useCallback(
     async (request: string) => {
       const trimmedRequest = request.trim();
+      if (isBookCallPrompt(trimmedRequest)) {
+        setShowBookCallPanel(true);
+        return;
+      }
       const needsEmailForEstimate = !hasCapturedEmail && hasEstimateIntent(trimmedRequest);
       if ((emailRequiredGate || needsEmailForEstimate) && !EMAIL_INLINE_RE.test(trimmedRequest)) {
         promptEmailRequiredInChat(needsEmailForEstimate ? "estimate" : "general", trimmedRequest);
         return;
       }
       console.log("🎯 Quick action selected:", request);
-      if (
-        trimmedRequest.toLowerCase() === BOOK_CALL_CHIP_EN ||
-        trimmedRequest.toLowerCase() === BOOK_CALL_CHIP_UA
-      ) {
-        setShowBookCallPanel(true);
-        return;
-      }
       if (!sendProgrammaticMessage) return;
       jumpToLatestMessages();
       await sendProgrammaticMessage(request);
