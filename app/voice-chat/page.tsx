@@ -3764,7 +3764,7 @@ export default function VoiceChatPage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, ease: "easeOut" }}
                       >
-                        <div className="flex justify-center w-full mb-1 sm:mb-2 md:mb-3">
+                        <div className="flex w-full justify-center mb-1 sm:mb-2 md:mb-3 md:justify-start md:pl-20 lg:pl-24 xl:pl-28 2xl:pl-32">
                           <WelcomeRobot modelUrl="/welcome-robot.glb" />
                         </div>
                         <ChatMessage

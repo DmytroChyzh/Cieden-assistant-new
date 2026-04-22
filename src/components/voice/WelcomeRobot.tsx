@@ -112,9 +112,8 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
           containerWidth < 330 ? 1.6 : containerWidth < 520 ? 1.82 : 2.1;
         const scale = target / maxDim;
         robotRoot.scale.setScalar(scale);
-        // Visual compensation: this GLB has asymmetric geometry, so pure bbox center
-        // looks right-shifted on narrow screens. Apply a small deterministic X offset.
-        robotRoot.position.x = containerWidth < 360 ? -0.2 : containerWidth < 520 ? -0.16 : -0.12;
+        // Keep X anchored to geometric center; layout controls placement per breakpoint.
+        robotRoot.position.x = 0;
         robotRoot.position.y = containerWidth < 330 ? -0.08 : -0.12;
 
         scene.add(robotRoot);
