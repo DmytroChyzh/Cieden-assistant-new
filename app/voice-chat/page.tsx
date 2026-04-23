@@ -58,6 +58,7 @@ import {
   markCiedenEstimateSessionCompleted,
   resetCiedenEstimateSessionCompleted,
   isCiedenEstimateSessionCompleted,
+  hasActiveEstimateSession,
   cancelEstimateSession,
   completeEstimateSession,
   getActiveEstimateSessionId,
@@ -171,6 +172,14 @@ const isBookCallPrompt = (value?: string | null): boolean => {
     lower.includes("записатися") ||
     lower.includes("дзвінок")
   );
+};
+const isEstimateFlowUiActive = (): boolean => {
+  if (typeof window === "undefined") return false;
+  const w = window as unknown as {
+    __ciedenEstimatePanelOpen?: boolean;
+    __ciedenEstimateProgressActive?: boolean;
+  };
+  return w.__ciedenEstimatePanelOpen === true || w.__ciedenEstimateProgressActive === true;
 };
 const isEmailGateAssistantMessage = (value?: string | null): boolean => {
   const lower = (value || "").trim().toLowerCase();
@@ -647,15 +656,28 @@ export default function VoiceChatPage() {
         activeConversationId = conversationIdRef.current;
       }
 
+      // First-turn race: conversation creation may still be in flight.
+      // Wait briefly so assistant gate prompts (email required) are not dropped.
+      if (!activeConversationId && creatingConversationRef.current) {
+        for (let i = 0; i < 20; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          activeConversationId = conversationIdRef.current;
+          if (activeConversationId) break;
+        }
+      }
+
       if (!activeConversationId) return false;
 
       try {
+        // Read guest identity at send time. During first-turn guest bootstrap,
+        // the cookie can be created moments before this call.
+        const runtimeGuestId = getGuestIdentityFromCookie()?.guestId;
         await createMessage({
           conversationId: activeConversationId,
           content,
           role,
           source,
-          guestId: guestId ?? undefined,
+          guestId: runtimeGuestId ?? guestId ?? undefined,
           metadata,
         });
         return true;
@@ -803,22 +825,34 @@ export default function VoiceChatPage() {
       pendingEstimateIntentRef.current = contextText.trim();
     }
     const language = contextText ? detectLanguageFromText(contextText) : lastUserLanguageRef.current;
+    const promptText =
+      language === "ua"
+        ? (reason === "estimate"
+            ? "Щоб продовжити естімейт, вкажіть ваш email у чаті. Одразу після цього я продовжу розрахунок."
+            : "Щоб далі продовжувати спілкування з асистентом, введіть свій email письмово в чаті для подальшого покращення комунікації.")
+        : (reason === "estimate"
+            ? "To continue with the estimate, please type your email in chat. Right after that I will continue the calculation."
+            : "To continue chatting with the assistant, please type your email in chat (written text) for better ongoing communication.");
+    // Keep UX chat-native: show this as an assistant bubble, not a composer notice.
+    setEmailComposerGateNotice(null);
     setEmailCaptureAwaitingInput(true);
     setEmailCapturePromptVisible(false);
     setEmailCaptureDismissed(false);
-    setEmailComposerGateNotice(null);
-    void appendMessageToConvex({
-      role: "assistant",
-      source: "text",
-      content:
-        language === "ua"
-          ? (reason === "estimate"
-              ? "Щоб продовжити естімейт, вкажіть ваш email у чаті. Одразу після цього я продовжу розрахунок."
-              : "Щоб далі продовжувати спілкування з асистентом, введіть свій email письмово в чаті для подальшого покращення комунікації.")
-          : (reason === "estimate"
-              ? "To continue with the estimate, please type your email in chat. Right after that I will continue the calculation."
-              : "To continue chatting with the assistant, please type your email in chat (written text) for better ongoing communication."),
-    });
+    void (async () => {
+      const attempts = [0, 350, 900];
+      for (const delay of attempts) {
+        if (delay > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+        const ok = await appendMessageToConvex({
+          role: "assistant",
+          source: "text",
+          content: promptText,
+        });
+        if (ok) return;
+      }
+      console.error("⚠️ Failed to persist estimate email gate prompt after retries");
+    })();
   }, [appendMessageToConvex]);
 
   const sendQuickPrompt = useCallback(
@@ -831,14 +865,13 @@ export default function VoiceChatPage() {
         return;
       }
 
-      const needsEmailForEstimate = !hasCapturedEmailForGate && hasEstimateIntent(trimmed);
       if (
-        (emailRequiredGateRef.current || needsEmailForEstimate) &&
+        emailRequiredGateRef.current &&
         trimmed !== EMAIL_CAPTURE_CHOICE_EN &&
         trimmed !== EMAIL_CAPTURE_CHOICE_UA &&
         !EMAIL_INLINE_RE.test(trimmed)
       ) {
-        promptEmailRequiredInChat(needsEmailForEstimate ? "estimate" : "general", trimmed);
+        promptEmailRequiredInChat("general", trimmed);
         return;
       }
 
@@ -877,7 +910,7 @@ export default function VoiceChatPage() {
         (p) => trimmed === p.valueEn || trimmed === p.title,
       );
       if (!isWelcomeHubTopicPrompt) {
-        setWelcomeHubDismissed(false);
+        setShowVoicePickerCard(false);
       }
       // If user is authenticated but conversationId isn't ready yet,
       // initialize it so the send happens in the correct (Convex-backed) mode.
@@ -928,10 +961,12 @@ export default function VoiceChatPage() {
       n++;
     }
     visibleUserMessageCountForEmailRef.current = n;
+    const estimateFlowActive = isEstimateFlowUiActive() || hasActiveEstimateSession();
     const gate = Boolean(
       conversationId &&
         !hasCapturedEmailForGate &&
-        n >= EMAIL_CAPTURE_MIN_USER_MESSAGES,
+        n >= EMAIL_CAPTURE_MIN_USER_MESSAGES &&
+        !estimateFlowActive,
     );
     emailRequiredGateRef.current = gate;
     setEmailRequiredGate(gate);
@@ -948,9 +983,8 @@ export default function VoiceChatPage() {
         setShowBookCallPanel(true);
         return;
       }
-      const needsEmailForEstimate = !hasCapturedEmailForGate && hasEstimateIntent(trimmedRequest);
-      if ((emailRequiredGate || needsEmailForEstimate) && !EMAIL_INLINE_RE.test(trimmedRequest)) {
-        promptEmailRequiredInChat(needsEmailForEstimate ? "estimate" : "general", trimmedRequest);
+      if (emailRequiredGate && !EMAIL_INLINE_RE.test(trimmedRequest)) {
+        promptEmailRequiredInChat("general", trimmedRequest);
         return;
       }
       console.log("🎯 Quick action selected:", request);
@@ -3014,10 +3048,9 @@ export default function VoiceChatPage() {
     if (trimmedUserText) {
       lastUserLanguageRef.current = detectLanguageFromText(trimmedUserText);
     }
-    const needsEmailForEstimate = !hasCapturedEmailForGate && hasEstimateIntent(trimmedUserText);
-    const needsEmailForMessage = emailRequiredGateRef.current || needsEmailForEstimate;
+    const needsEmailForMessage = emailRequiredGateRef.current;
     if (source === "voice" && needsEmailForMessage) {
-      promptEmailRequiredInChat(needsEmailForEstimate ? "estimate" : "general", trimmedUserText);
+      promptEmailRequiredInChat("general", trimmedUserText);
       return;
     }
     if (
@@ -3025,7 +3058,7 @@ export default function VoiceChatPage() {
       needsEmailForMessage &&
       !EMAIL_INLINE_RE.test(trimmedUserText)
     ) {
-      promptEmailRequiredInChat(needsEmailForEstimate ? "estimate" : "general", trimmedUserText);
+      promptEmailRequiredInChat("general", trimmedUserText);
       return;
     }
 
@@ -3204,10 +3237,19 @@ export default function VoiceChatPage() {
   useEffect(() => {
     const onProgress = (e: Event) => {
       const detail = (e as CustomEvent<{ active?: boolean }>).detail;
-      setEstimateDockActive(!!detail?.active);
+      const active = !!detail?.active;
+      setEstimateDockActive(active);
+      if (typeof window !== "undefined") {
+        (window as unknown as { __ciedenEstimateProgressActive?: boolean }).__ciedenEstimateProgressActive = active;
+      }
     };
     window.addEventListener("estimate-assistant-progress", onProgress as EventListener);
-    return () => window.removeEventListener("estimate-assistant-progress", onProgress as EventListener);
+    return () => {
+      window.removeEventListener("estimate-assistant-progress", onProgress as EventListener);
+      if (typeof window !== "undefined") {
+        (window as unknown as { __ciedenEstimateProgressActive?: boolean }).__ciedenEstimateProgressActive = false;
+      }
+    };
   }, []);
 
   // When entering “Work with the assistant”, ensure we start from the very bottom.
@@ -3375,9 +3417,22 @@ export default function VoiceChatPage() {
     const toolDeduped = filtered.filter((message, index, arr) => {
       const isTool = !!parseToolCall(message.content);
       if (!isTool) {
-        if (index > 0 && message.role === "assistant") {
-          const prev = arr[index - 1];
-          if (prev && prev.role === "assistant" && prev.content === message.content) return false;
+        if (message.role === "assistant") {
+          const normalize = (value: string) =>
+            (value || "")
+              .toLowerCase()
+              .replace(/\s+/g, " ")
+              .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")
+              .replace(/[.,!?;:]+$/g, "")
+              .trim();
+          const currentNorm = normalize(message.content || "");
+          for (let i = index - 1; i >= 0; i--) {
+            const prev = arr[i];
+            if (prev.role !== "assistant") continue;
+            if (parseToolCall(prev.content)) continue;
+            if (normalize(prev.content || "") === currentNorm) return false;
+            break;
+          }
         }
         return true;
       }
@@ -3492,7 +3547,11 @@ export default function VoiceChatPage() {
     setWelcomeHubDismissed(false);
   }, [conversationId, convexMessagesLoading]);
 
-  /** Welcome hub: same thread; stays through voice until user types or picks a substantive quick prompt. */
+  /**
+   * Core chat UX contract:
+   * keep first-message hub (robot + intro + big suggestions) visible in the same thread
+   * even after user selects mode and continues chatting.
+   */
   const showIntroQuickPath = Boolean(
     conversationId && !convexMessagesLoading && !welcomeHubDismissed,
   );
@@ -3568,7 +3627,8 @@ export default function VoiceChatPage() {
         (m) =>
           m.role === "assistant" &&
           !matchesHardcodedStaticIntro(m.content || "") &&
-          !matchesHiddenOnboardingAssistantBubble(m.content || ""),
+          !matchesHiddenOnboardingAssistantBubble(m.content || "") &&
+          !isLikelyDefaultCiedenGreeting(m.content || ""),
       ) ?? null
     );
   }, [preUserPhaseMessages]);
@@ -3622,6 +3682,9 @@ export default function VoiceChatPage() {
       return;
     }
     if (matchesHiddenOnboardingAssistantBubble(preUserFirstAssistantMessage.content || "")) {
+      return;
+    }
+    if (isLikelyDefaultCiedenGreeting(preUserFirstAssistantMessage.content || "")) {
       return;
     }
     setPinnedFirstAssistantMessage({
@@ -4137,32 +4200,8 @@ export default function VoiceChatPage() {
                       />
                     </motion.div>
                   )}
-                  {/* Hide typing as soon as a real first assistant row exists in Convex (avoids dots + text overlap before pinned sync). */}
-                  {!pinnedFirstAssistantMessage &&
-                    !preUserFirstAssistantMessage &&
-                    !hasAssistantIntroDuplicateInConvex &&
-                    conversationId &&
-                    !convexMessagesLoading &&
-                    !hasVisibleUserMessages &&
-                    !(showIntroQuickPath && welcomeHubMode !== null) && (
-                    <motion.div
-                      key="first-msg-typing"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 6 }}
-                      transition={{ duration: 0.22, delay: 0.15 }}
-                    >
-                      <ChatMessage
-                        message={{
-                          id: "first-msg-typing",
-                          role: "assistant",
-                          content: "__TYPING__",
-                          timestamp: Date.now(),
-                        }}
-                        userName={userDisplayName}
-                      />
-                    </motion.div>
-                  )}
+                  {/* Intentionally no typing bubble before first user message:
+                      pre-user "thinking" dots are confusing when no follow-up reply is expected yet. */}
                 </AnimatePresence>
 
                 <AnimatePresence initial={false} mode="sync">
@@ -4211,10 +4250,20 @@ export default function VoiceChatPage() {
                   const hasAnyUserMessageEarlierInThread = visibleConvexChatMessages
                     .slice(0, index)
                     .some((m) => m.role === "user");
+                  const hasAnyAssistantMessageEarlierInThread = visibleConvexChatMessages
+                    .slice(0, index)
+                    .some((m) => m.role === "assistant");
                   if (
                     message.role === "assistant" &&
                     matchesHardcodedStaticIntro(message.content || "") &&
                     !hasAnyUserMessageEarlierInThread
+                  ) {
+                    return null;
+                  }
+                  if (
+                    message.role === "assistant" &&
+                    isLikelyDefaultCiedenGreeting(message.content || "") &&
+                    (hasAnyUserMessageEarlierInThread || hasAnyAssistantMessageEarlierInThread)
                   ) {
                     return null;
                   }
@@ -4400,7 +4449,7 @@ export default function VoiceChatPage() {
                     </React.Fragment>
                   );
                 })}
-                {pendingAssistantBubble && (
+                {pendingAssistantBubble && hasVisibleUserMessages && (
                   <ChatMessage
                     key="pending-assistant-bubble"
                     message={{
@@ -4446,7 +4495,7 @@ export default function VoiceChatPage() {
                   settings={settings}
                   updateSettings={updateSettings}
                   emailRequiredGate={emailRequiredGate}
-                  emailRequiredForEstimate={!hasCapturedEmailForGate}
+                  emailRequiredForEstimate={false}
                   onEmailGateBlocked={(reason, attemptedText) => promptEmailRequiredInChat(reason, attemptedText)}
                   onVoiceAudioUpdate={(isUserSpeaking, userLevel, agentLevel) => {
                     setIsUserSpeaking(isUserSpeaking);
@@ -4484,7 +4533,7 @@ export default function VoiceChatPage() {
                 settings={settings}
                 updateSettings={updateSettings}
                 emailRequiredGate={emailRequiredGate}
-                emailRequiredForEstimate={!hasCapturedEmailForGate}
+                emailRequiredForEstimate={false}
                 onEmailGateBlocked={(reason, attemptedText) => promptEmailRequiredInChat(reason, attemptedText)}
                 onVoiceAudioUpdate={(isUserSpeaking, userLevel, agentLevel) => {
                   setIsUserSpeaking(isUserSpeaking);

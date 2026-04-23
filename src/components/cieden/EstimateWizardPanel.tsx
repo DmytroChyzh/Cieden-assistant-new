@@ -501,19 +501,33 @@ export function EstimateWizardPanel({
   }, [estimateSessionMessages, assistantQuestionCount]);
 
   const estimateProgress = useMemo(() => {
-    if (assistantQuestionCount === 0) return { percent: 0, checks: 0 };
+    const requiredTotal = 8;
+    const filled = extractedEstimateContext
+      ? [
+          !!extractedEstimateContext.filled.platform,
+          !!extractedEstimateContext.filled.productStage,
+          !!extractedEstimateContext.filled.audience,
+          !!extractedEstimateContext.filled.goal,
+          !!extractedEstimateContext.filled.specs,
+          // Keep UX simple: scope + screens count represented as one requirement.
+          !!extractedEstimateContext.filled.scope || !!extractedEstimateContext.filled.screensCount,
+          !!extractedEstimateContext.filled.timeline,
+          !!extractedEstimateContext.filled.complexity,
+        ].filter(Boolean).length
+      : 0;
 
     // 100% only when assistant gave the actual final estimate
-    if (assistantGaveFinalEstimate) return { percent: 100, checks: topicsCovered };
+    if (assistantGaveFinalEstimate) return { percent: 100, checks: requiredTotal };
 
-    // Progress based on topics covered by assistant questions, capped at 90%
-    const topicPercent = Math.round((topicsCovered / ESTIMATE_TOPICS) * 90);
-    // Also factor in question count as secondary signal (in case topics aren't detected)
+    // Primary signal: required details extracted from user inputs.
+    // Cap at 90% until the assistant emits the final estimate.
+    const detailsPercent = Math.round((filled / requiredTotal) * 90);
+    // Secondary fallback: assistant asked-question count, for very early turns
+    // before detail extraction catches up.
     const questionPercent = Math.round((assistantQuestionCount / (ESTIMATE_TOPICS + 1)) * 90);
-    // Use the higher of the two, capped at 90%
-    const percent = Math.min(90, Math.max(topicPercent, questionPercent));
-    return { percent, checks: topicsCovered };
-  }, [assistantQuestionCount, topicsCovered, assistantGaveFinalEstimate]);
+    const percent = Math.min(90, Math.max(detailsPercent, questionPercent));
+    return { percent, checks: filled };
+  }, [assistantQuestionCount, assistantGaveFinalEstimate, extractedEstimateContext]);
 
   /** Chat input dock: progress while “Work with the assistant” (hidden runner only). */
   useEffect(() => {
@@ -543,15 +557,17 @@ export function EstimateWizardPanel({
       active: true as const,
       title: "Preliminary estimate",
       subtitle: "Work with the assistant",
-      answered: topicsCovered,
-      total: ESTIMATE_TOPICS,
+      // Progress is based on required details collected from user answers.
+      asked: estimateProgress.checks,
+      answered: estimateProgress.checks,
+      total: 8,
       percent: estimateProgress.percent,
     };
     const snap = JSON.stringify(payload);
     if (snap === assistantProgressSnapshotRef.current) return;
     assistantProgressSnapshotRef.current = snap;
     window.dispatchEvent(new CustomEvent("estimate-assistant-progress", { detail: payload }));
-  }, [isHidden, mode, topicsCovered, estimateProgress.percent, assistantGaveFinalEstimate]);
+  }, [isHidden, mode, estimateProgress, assistantGaveFinalEstimate]);
 
   useEffect(() => {
     return () => {
@@ -837,6 +853,7 @@ export function EstimateWizardPanel({
     const contextual =
       "ESTIMATE MODE. Ask ONE question at a time about the project to produce a cost estimate.\n" +
       "Reply in the SAME language as the client.\n" +
+      "Do NOT send onboarding, chooser instructions, or manager/booking suggestions while estimate mode is active.\n" +
       "Topics: 1) type (web/mobile/both) 2) new or redesign 3) audience & goal 4) specs ready? 5) scope (screens/features) 6) complexity 7) timeline 8) extra notes.\n" +
       "Do NOT show prices until ALL questions answered. No tool calls in estimate mode.\n" +
       "Start NOW with your first question about project type.\n" +

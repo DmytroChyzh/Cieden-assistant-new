@@ -32,6 +32,28 @@ const ESTIMATE_INTENT_RE =
   /(estimate|estimation|calculator|pricing|price|cost|budget|ballpark|естімейт|естимейт|оцінк|оценк|калькулятор|скільки кошту|сколько сто|вартіст|бюджет)/i;
 const TRANSPORT_FALLBACK_ERROR_MESSAGE =
   "I'm having trouble connecting right now. Please try again in a few seconds.";
+const ESTIMATE_CHOOSER_NOISE_RE =
+  /(opened .*estimate chooser|preliminary estimate chooser|please select (an )?option|to proceed|provide a range|connect with a manager)/i;
+const ESTIMATE_FINAL_RE =
+  /ESTIMATE_PANEL_RESULT:\s*\{|(preliminary|попередн|оцінк|estimate|вартіст|cost|budget).*(\d|\$|usd|грн)/i;
+
+function isEstimateSessionUiActive(): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window as unknown as {
+    __ciedenEstimatePanelOpen?: boolean;
+    __ciedenEstimateProgressActive?: boolean;
+  };
+  return w.__ciedenEstimatePanelOpen === true || w.__ciedenEstimateProgressActive === true;
+}
+
+function shouldKeepAssistantMessageInEstimateMode(text: string): boolean {
+  const t = (text || "").trim();
+  if (!t) return false;
+  if (ESTIMATE_CHOOSER_NOISE_RE.test(t)) return false;
+  if (ESTIMATE_FINAL_RE.test(t)) return true;
+  // During active estimate session prefer one-question-at-a-time flow.
+  return t.includes("?");
+}
 
 export function useTextInput({
   conversationId,
@@ -55,6 +77,8 @@ export function useTextInput({
   /** Avoid re-subscribing `registerTextHandler` when `conversationId` appears — that caused a brief window with zero handlers where streamed AI replies were dropped. */
   const conversationIdRef = useRef(conversationId);
   conversationIdRef.current = conversationId;
+  /** Guard against duplicate websocket assistant persists from racey multi-handler events. */
+  const recentAiPersistRef = useRef<{ key: string; at: number } | null>(null);
 
   // ElevenLabs/ConvAI can hard-fail on very large payloads.
   // We only apply truncation for ESTIMATE MODE messages (where the user may paste big specs).
@@ -405,6 +429,10 @@ export function useTextInput({
   useEffect(() => {
     const unsubscribe = registerTextHandler(async (event: NormalizedMessageEvent) => {
       if (event.source !== 'ai' || event.via !== 'websocket') return;
+      if (isEstimateSessionUiActive() && !shouldKeepAssistantMessageInEstimateMode(event.message)) {
+        // Keep estimate thread focused: ignore generic/non-question chatter while runner is active.
+        return;
+      }
 
       const activeConversationId = conversationIdRef.current;
 
@@ -416,6 +444,21 @@ export function useTextInput({
       }
 
       try {
+        const normalizeAssistantText = (value: string) =>
+          (value || "")
+            .toLowerCase()
+            .replace(/\s+/g, " ")
+            .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")
+            .replace(/[.,!?;:]+$/g, "")
+            .trim();
+        const dedupKey = normalizeAssistantText(event.message);
+        const now = Date.now();
+        const prev = recentAiPersistRef.current;
+        if (dedupKey && prev && prev.key === dedupKey && now - prev.at < 2500) {
+          return;
+        }
+        recentAiPersistRef.current = { key: dedupKey, at: now };
+
         const guestId = getGuestIdentityFromCookie()?.guestId;
         await createMessage({
           conversationId: activeConversationId,

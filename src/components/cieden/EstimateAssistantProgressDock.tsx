@@ -6,6 +6,7 @@ export type EstimateAssistantProgressDetail = {
   active: boolean;
   title?: string;
   subtitle?: string;
+  asked?: number;
   answered?: number;
   total?: number;
   percent?: number;
@@ -37,8 +38,25 @@ export function EstimateAssistantProgressDock() {
   if (!detail?.active) return null;
 
   const title = detail.title ?? "Preliminary estimate";
-  const subtitle = detail.subtitle ?? "Work with the assistant";
+  const subtitle =
+    !detail.subtitle || detail.subtitle === "Work with the assistant"
+      ? "Answer the questions to complete estimate"
+      : detail.subtitle;
   const percent = Math.min(100, Math.max(0, detail.percent ?? 0));
+  const asked = Math.max(0, detail.asked ?? 0);
+  const answered = Math.max(0, detail.answered ?? 0);
+  const total = Math.max(0, detail.total ?? 0);
+  const hasSteps = total > 0;
+  const clampedAsked = hasSteps ? Math.min(total, asked) : asked;
+  const approxLeft = hasSteps ? Math.max(0, total - clampedAsked) : 0;
+  const progressLabel =
+    percent >= 100
+      ? "Estimate ready"
+      : hasSteps
+        ? clampedAsked > 0
+          ? `Progress: ${clampedAsked}/${total} • ${approxLeft} left`
+          : `Progress: 0/${total}`
+        : "Estimate in progress";
 
   return (
     <div className="w-full pb-2">
@@ -50,8 +68,11 @@ export function EstimateAssistantProgressDock() {
           </div>
         </div>
 
-        <div className="flex items-center justify-end text-[11px] sm:text-xs text-white/60 mt-3 mb-1.5">
-          <span className="tabular-nums">{percent}%</span>
+        <div className="mt-3 mb-1.5 flex items-center justify-between gap-3">
+          <p className="text-[11px] sm:text-xs text-white/70 truncate">{progressLabel}</p>
+          <div className="flex items-center text-[11px] sm:text-xs text-white/60">
+            <span className="tabular-nums">{percent}%</span>
+          </div>
         </div>
 
         <div className="h-2 rounded-full bg-white/10 overflow-hidden" aria-hidden>

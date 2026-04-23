@@ -40,6 +40,12 @@ export default function RootLayout({
   return (
     <ConvexAuthNextjsServerProvider apiRoute="/api/auth">
       <html lang="en" suppressHydrationWarning>
+        <head>
+          <link rel="preload" href="/fonts/Gilroy-Regular.woff" as="font" type="font/woff" crossOrigin="anonymous" />
+          <link rel="preload" href="/fonts/Gilroy-Medium.woff" as="font" type="font/woff" crossOrigin="anonymous" />
+          <link rel="preload" href="/fonts/Gilroy-SemiBold.woff" as="font" type="font/woff" crossOrigin="anonymous" />
+          <link rel="preload" href="/fonts/Gilroy-Bold.woff" as="font" type="font/woff" crossOrigin="anonymous" />
+        </head>
         <body className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} font-sans antialiased`} suppressHydrationWarning>
           <ClientBootstrap />
           <ConvexAuthProvider>

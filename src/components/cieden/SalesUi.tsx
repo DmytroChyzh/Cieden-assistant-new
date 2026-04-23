@@ -89,6 +89,209 @@ const DOMAIN_DOT_COLORS: Record<string, string> = {
   "Other": "bg-zinc-400",
 };
 
+// Case previews with important content near the left edge (from provided references).
+const LEFT_ALIGNED_CASE_IMAGE_IDS = new Set([
+  "ai-email",
+  "fiksuruoka",
+  "b2b-fintech-dashboards",
+  "exceeders",
+]);
+
+type CaseFacts = {
+  task?: string | null;
+  team?: string | null;
+  scope?: string | null;
+  result?: string | null;
+};
+
+const CASE_FACTS_BY_ID: Record<string, CaseFacts> = {
+  "revvedup": {
+    task: "Transform a code-first, component-based MVP into a commercial-grade SaaS platform to scale user adoption",
+    team: "1 Product Designer, 1 PM",
+    scope: "UX/UI redesign across core workflows, design system, AI prototyping, feature redesign (Sequences, Page Builder)",
+  },
+  "voice-ui-banking": {
+    task: "Prototype a multimodal loan journey (voice + text + Generative UI)",
+    team: "1 UX Engineer, 2 UX/UI Designers, 1 AI Service Designer, 1 Coordinator",
+    scope: "Discovery, multimodal patterns, Generative UI, live prototype, agent/tool orchestration, real-time voice testing, observability mock",
+  },
+  "support-ticket": {
+    task: "Redesign Foqal's core ticketing system, starting with the Kanban board and ticket detail view",
+    team: "1 UX/UI Designer, 1 BA/PM",
+    scope: "Discovery interviews, user insights, ticketing system UX/UI redesign, dark mode introduction",
+  },
+  "ai-agent-logistics": {
+    task: "Redesign the AI workflow automation platform's UX/UI and create a go-to-market MVP to attract investment and users",
+    team: "1 Product Designer, 1 BA/PM, working with the client's CEO and CTO",
+    scope: "UX/UI redesign, chat-based agent creation, run visibility, integration setup, Webflow landing, animation concepts",
+  },
+  "wealth-management": {
+    task: "Use AI prototyping to align vision, validate business logic, and reduce risk before release",
+    team: "1 PM and 3 Product Designers with Way2B1 CPO and engineering team",
+    scope: "Functional prototypes, click-through flows, AI-assisted UX copy and edge-case handling",
+  },
+  "payroll": {
+    task: "Surface large-scale payroll data through a clean, scalable, and user-centric interface",
+    team: "1 UX Researcher and 1 UX/UI Designer",
+    scope: "Full-cycle UX/UI for scalable payroll workflows and complex data handling",
+  },
+  "inventory-management": {
+    task: "Redesign verification and resolution flows for auditors and operators",
+    team: "1 BA/PM, 1 Product Designer, plus client PO/PM, BA, and engineers",
+    scope: "Unified verification flow, reporting redesign, image-based interactions, tablet-first patterns",
+  },
+  "ai-email": {
+    task: "Design an AI-powered assistant to prioritize emails, automate responses, and integrate tasks across tools",
+    team: "1 Product Designer",
+    scope: "UX/UI design, intelligent workflows, AI-powered features",
+  },
+  "ai-data-bookstore": {
+    task: "Design an AI-powered system to automate data entry, unify datasets, and improve bookstore analytics",
+    team: "1 Product Designer",
+    scope: "UX/UI design, AI-assisted workflows, automated visualization",
+  },
+  "ai-meeting": {
+    task: "Design an AI-powered meeting management tool to improve communication, note-taking, and scheduling",
+    team: "1 Product Designer",
+    scope: "UX/UI design, AI collaboration features, workflow automation",
+  },
+  "b2b-fintech-dashboards": {
+    task: "Replace spreadsheet-heavy workflows with a centralized SaaS platform for finance, sales, and product teams",
+    team: "1 UX/UI Designer, 1 Business Analyst",
+    scope: "Competitor analysis, stakeholder interviews, usability testing, UX/UI, design system, dev handoff",
+  },
+  "optahaul": {
+    task: "Design role-specific analytics dashboards to support faster logistics decisions",
+    team: "1 UX/UI Designer, 1 Product Manager",
+    scope: "Discovery workshops, user research, persona definition, dashboard UX/UI design",
+  },
+  "wellness-platform": {
+    task: "Create a multi-role wellness platform combining fitness, nutrition, and mental wellbeing",
+    team: "2 UX/UI Designers, 1 Team Lead with developers and product team",
+    scope: "Complete UX/UI redesign, multi-role flows, dashboards, refund logic, two websites",
+  },
+  "lykon": {
+    task: "Rebrand and redesign LYKON's mobile app for a more flexible and user-friendly experience",
+    team: "1 Product Designer with product manager, front-end developers, and QA",
+    scope: "Complete UX/UI redesign, rebranding, design system, user research, feature delivery",
+  },
+  "sidekick": {
+    task: "Design a meditation app interface with engaging animations",
+    team: "UX/UI designer and design director",
+  },
+  "fiksuruoka": {
+    task: "Improve e-commerce UX and reduce average time before checkout",
+    team: "3 Marketers, 1 UX Designer, 1 UI Designer",
+    scope: "322 hours, 42 web screens, 45 mobile screens, custom icons and illustrations",
+    result: "Design implemented as a functional product",
+  },
+  "grocery-delivery": {
+    task: "Create a better shopping experience for multi-chain grocery delivery",
+    team: "2 UX/UI Designers, 1 Lead Designer",
+    scope: "410 hours, 72 screens, 3 iterations",
+    result: "Fully functional product website and iOS app",
+  },
+  "language-learning": {
+    task: "Redesign the language-learning platform and deliver new features and flows",
+    team: "Senior UX/UI Designer",
+    scope: "59 responsive web screens, 4 landing pages, design system and branding materials",
+    result: "Implemented product with positive user feedback on new UX",
+  },
+  "usernurture": {
+    team: "1 UX Researcher and 1 UX/UI Designer",
+    scope: "Complete user flows for two personas",
+    result: "Product is in development",
+  },
+  "exceeders": {
+    team: "2 UX/UI Designers, 1 Stakeholder",
+    scope: "220 mobile screens and 140 website screens",
+    result: "Functional application launched for multiple personas and flows",
+  },
+  "recruitment-marketplace": {
+    task: "Turn an idea into a functional product through design, marketing, and product management",
+    team: "2 UX/UI Designers, 1 Product Marketer, 1 Project Manager",
+    scope: "Web and mobile UX/UI plus pre- and post-launch marketing",
+    result: "Functional web and mobile product design",
+  },
+  "fleximenu": {
+    team: "3 UX/UI Designers, 1 Manager",
+    scope: "Discovery and UX/UI for six digital products plus design system",
+    result: "Main application launched; remaining products in development",
+  },
+  "grocery-rewards": {
+    task: "Run discovery, shape a viable business model, and design MVP solution",
+    team: "Project Manager, UX/UI Designer",
+    scope: "Discovery and UX/UI for Activities, Rewards, and Store MVP flows",
+    result: "Discovery output in Miro and clickable product prototype",
+  },
+  "fitness-app": {
+    task: "Design mobile and web app to improve user engagement via gamification",
+    team: "1 UX Designer, 1 UI Designer",
+    scope: "Mobile and web app, 110 screens",
+    result: "Design implemented in functional product",
+  },
+  "real-estate-wizard": {
+    team: "Business Analyst/Proxy PO and 2 UX/UI Designers",
+    scope: "Complete flows for two roles, 200+ screens, supporting docs",
+    result: "Back-end implementation in progress, UI stage delivered",
+  },
+  "smart-home": {
+    task: "Create better tenant and landlord experiences across property scales",
+    team: "1 Lead UX/UI Designer, 1 UX Researcher, 1 Middle UX/UI Designer",
+    scope: "70 screens",
+    result: "High-fidelity prototypes for three user types",
+  },
+  "podcast-app": {
+    task: "Design an audio social-media app almost from scratch",
+    team: "2 Stakeholders, 2 UX Designers, 1 UI Designer",
+    scope: "170 hours, 17 screens, 5 iterations",
+    result: "Design implemented in functional product",
+  },
+  "construction-marketplace": {
+    task: "Create initial wireframe templates for the intended web marketplace",
+    team: "Design Director, Business Analyst, UX/UI Designer",
+    scope: "Discovery phase and UX/UI design for MVP web app",
+    result: "Miro discovery artifacts and clickable investor-facing wireframes",
+  },
+  "photo-frame": {
+    task: "Design calendar interface for a hardware solution and mobile app experience",
+    team: "1 UX/UI Designer, 1 Graphic Designer",
+    scope: "70 hours, 64 screens, 1 iteration",
+    result: "Design implemented in functional product",
+  },
+  "ecological-platform": {
+    task: "Deliver production-ready design implementation within a two-month timeline",
+    team: "2 Stakeholders, 3 UX/UI Designers, 2 Business Analysts",
+    scope: "170 hours, 32 screens, mobile responsive layouts, documentation",
+    result: "Design implemented in functional product",
+  },
+};
+
+function extractTaskFromDescription(description: string): string {
+  const clean = (description || "").trim();
+  if (!clean) return "Product UX/UI improvement based on business goals.";
+  const firstSentence = clean.split(/(?<=[.!?])\s+/)[0]?.trim();
+  if (firstSentence && firstSentence.length >= 20) return firstSentence;
+  return clean;
+}
+
+function deriveTeamFromDomains(domains: string[]): string {
+  if (domains.includes("AI") && domains.includes("Fintech")) return "1 Product Designer, 1 UX/UI Designer, 1 BA/PM";
+  if (domains.includes("AI")) return "1 Product Designer, 1 UX/UI Designer";
+  if (domains.includes("Fintech")) return "1 UX/UI Designer, 1 BA/PM";
+  if (domains.includes("Digital Health")) return "1 UX/UI Designer, 1 UX Researcher";
+  if (domains.includes("E-commerce")) return "1 UX/UI Designer, 1 UI Designer";
+  return "Dedicated Cieden product design team";
+}
+
+function extractResultFromDescription(description: string): string {
+  const clean = (description || "").trim();
+  if (!clean) return "Detailed in full case study";
+  const sentences = clean.split(/(?<=[.!?])\s+/).filter(Boolean);
+  if (sentences.length > 1) return sentences[sentences.length - 1];
+  return clean;
+}
+
 function DomainBadge({ domain }: { domain: string }) {
   const color = DOMAIN_COLORS[domain] || "text-slate-300 border-slate-400/30 bg-slate-500/10";
   return (
@@ -358,6 +561,12 @@ function CaseListView({ cases, onSelect }: { cases: CaseSummary[]; onSelect: (id
 
 function SidePanelCaseCard({ item, onSelect }: { item: CaseSummary; onSelect: () => void }) {
   const [imgError, setImgError] = useState(false);
+  const imagePositionClass = LEFT_ALIGNED_CASE_IMAGE_IDS.has(item.id) ? "object-left" : "object-center";
+  const caseFacts = CASE_FACTS_BY_ID[item.id];
+  const taskText = caseFacts?.task || extractTaskFromDescription(item.description);
+  const teamText = caseFacts?.team || deriveTeamFromDomains(item.domain);
+  const scopeText = caseFacts?.scope || item.domain.join(", ");
+  const resultText = caseFacts?.result || item.highlight || extractResultFromDescription(item.description);
 
   return (
     <button
@@ -365,32 +574,87 @@ function SidePanelCaseCard({ item, onSelect }: { item: CaseSummary; onSelect: ()
       onClick={onSelect}
       className="group text-left w-full rounded-xl border border-white/[0.1] bg-white/[0.04] backdrop-blur-md hover:bg-white/[0.08] hover:border-white/[0.2] transition-all duration-200 overflow-hidden ring-1 ring-inset ring-white/[0.04] cursor-pointer"
     >
-      <div className={`relative min-h-[280px] h-[320px] sm:h-[360px] md:h-[400px] ${CASE_CARD_BG} overflow-hidden`}>
-        {item.image && !imgError && (
-          <img
-            src={item.image}
-            alt=""
-            onError={() => setImgError(true)}
-            className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
-            loading="lazy"
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-        <div className="absolute bottom-2 left-2.5 flex flex-wrap gap-1">
-          {item.domain.map((d) => <DomainBadge key={d} domain={d} />)}
+      {/* Mobile/tablet (unchanged) */}
+      <div className="lg:hidden">
+        <div className={`relative min-h-[280px] h-[320px] sm:h-[360px] md:h-[400px] ${CASE_CARD_BG} overflow-hidden`}>
+          {item.image && !imgError && (
+            <img
+              src={item.image}
+              alt=""
+              onError={() => setImgError(true)}
+              className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+              loading="lazy"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+          <div className="absolute bottom-2 left-2.5 flex flex-wrap gap-1">
+            {item.domain.map((d) => <DomainBadge key={d} domain={d} />)}
+          </div>
+        </div>
+        <div className="p-3 space-y-1">
+          <h4 className="text-sm font-semibold text-white/90 group-hover:text-white leading-snug transition-colors line-clamp-2">
+            {item.title}
+          </h4>
+          {item.highlight && (
+            <p className="text-[11px] font-semibold text-emerald-400">{item.highlight}</p>
+          )}
+          <p className="text-xs text-white/40 leading-relaxed line-clamp-2">{item.description}</p>
+          <span className="flex items-center gap-1 text-[11px] text-white/25 group-hover:text-white/50 transition-colors">
+            View details <ChevronRight className="w-3 h-3" />
+          </span>
         </div>
       </div>
-      <div className="p-3 space-y-1">
-        <h4 className="text-sm font-semibold text-white/90 group-hover:text-white leading-snug transition-colors line-clamp-2">
-          {item.title}
-        </h4>
-        {item.highlight && (
-          <p className="text-[11px] font-semibold text-emerald-400">{item.highlight}</p>
-        )}
-        <p className="text-xs text-white/40 leading-relaxed line-clamp-2">{item.description}</p>
-        <span className="flex items-center gap-1 text-[11px] text-white/25 group-hover:text-white/50 transition-colors">
-          View details <ChevronRight className="w-3 h-3" />
-        </span>
+
+      {/* Desktop-only layout: text left, square image right */}
+      <div className="hidden lg:flex items-stretch gap-4 p-4">
+        <div className="min-w-0 flex-1 space-y-2.5">
+          <div className="flex flex-wrap gap-1.5">
+            {item.domain.slice(0, 2).map((d) => <DomainBadge key={d} domain={d} />)}
+          </div>
+          <h4 className="text-base font-semibold text-white/90 group-hover:text-white leading-snug transition-colors line-clamp-2">
+            {item.title}
+          </h4>
+          {item.highlight && (
+            <p className="text-xs font-semibold text-emerald-400/95 line-clamp-1">{item.highlight}</p>
+          )}
+          <p className="text-sm text-white/55 leading-relaxed line-clamp-3">{item.description}</p>
+          <div className="grid grid-cols-1 gap-2 pt-1 text-sm text-white/70">
+            <p className="leading-relaxed">
+              <span className="font-semibold text-white/90">Task: </span>
+              <span className="text-white/65">{taskText}</span>
+            </p>
+            <p className="leading-relaxed">
+              <span className="font-semibold text-white/90">Team: </span>
+              <span className="text-white/65">{teamText}</span>
+            </p>
+            <p className="leading-relaxed">
+              <span className="font-semibold text-white/90">Scope: </span>
+              <span className="text-white/65">{scopeText}</span>
+            </p>
+            <p className="leading-relaxed">
+              <span className="font-semibold text-white/90">Result: </span>
+              <span className="text-white/65">{resultText}</span>
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1 text-xs text-white/35 group-hover:text-white/60 transition-colors pt-1">
+            View details <ChevronRight className="w-3.5 h-3.5" />
+          </span>
+        </div>
+
+        <div className={`relative h-[500px] w-[500px] shrink-0 rounded-xl overflow-hidden border border-white/10 ${CASE_CARD_BG}`}>
+          {item.image && !imgError ? (
+            <img
+              src={item.image}
+              alt=""
+              onError={() => setImgError(true)}
+              className={`absolute inset-0 w-full h-full object-cover ${imagePositionClass} transition-transform duration-300 group-hover:scale-[1.03]`}
+              loading="lazy"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+        </div>
       </div>
     </button>
   );
