@@ -118,7 +118,7 @@ const ADDRESS_NAME_PROMPT_CHOICES = [
 const VOICE_CHAT_HARDCODED_INTRO_LEGACY =
   "Hi! I'm Cieden AI Assistant – your helper for everything related to Cieden: our company, portfolio, news, pricing, and services. We can talk by voice (it's faster) or by text – whichever is more convenient for you.";
 
-/** First on-screen bubble — must match ElevenLabs agent `first_message` and `CIEDEN_FIRST_MESSAGE` exactly. */
+/** First on-screen bubble — must match ElevenLabs agent `first_message` and `CIEDEN_FIRST_MESSAGE` exactly (UI only; not duplicated into Convex). */
 const VOICE_CHAT_HARDCODED_INTRO =
   "Hi! I'm Cieden AI Assistant — your guide to our UI/UX design, portfolio, process, and pricing.\n\nWe can chat by voice or text — whatever works best for you.\n\nBefore we begin, how should I address you? And what would you like to explore?";
 
@@ -172,6 +172,21 @@ const isBookCallPrompt = (value?: string | null): boolean => {
     lower.includes("дзвінок")
   );
 };
+const isEmailGateAssistantMessage = (value?: string | null): boolean => {
+  const lower = (value || "").trim().toLowerCase();
+  if (!lower) return false;
+  return (
+    lower.includes("type your email in chat") ||
+    lower.includes("to continue chatting with the assistant") ||
+    lower.includes("to continue with the estimate") ||
+    lower.includes("please type your email") ||
+    lower.includes("вкажіть ваш email") ||
+    lower.includes("введіть свій email") ||
+    lower.includes("введіть ваш email") ||
+    lower.includes("perfect, thanks! i saved your email for follow-up") ||
+    lower.includes("чудово — тепер, будь ласка, напишіть ваш email")
+  );
+};
 
 function isLikelyDefaultCiedenGreeting(content: string): boolean {
   const t = content.trim().toLowerCase();
@@ -218,6 +233,38 @@ function matchesHardcodedStaticIntro(content: string): boolean {
     return true;
   }
   return false;
+}
+
+/**
+ * ConvAI often repeats the agent `first_message` after a short user greeting. We already persist
+ * the hardcoded intro row to Convex — hide this one redundant “echo” bubble (EN/UA).
+ */
+function isFirstTurnIntroEcho(content: string): boolean {
+  const raw = (content || "").trim();
+  if (raw.length < 100 || raw.length > 1400) return false;
+  const t = raw.toLowerCase();
+  if (!t.includes("cieden")) return false;
+  const modality =
+    (t.includes("voice") && t.includes("text")) ||
+    (t.includes("голос") && t.includes("текст"));
+  const nameQuestion =
+    t.includes("address you") ||
+    t.includes("how should i address") ||
+    t.includes("звертат") ||
+    t.includes("як я можу до вас");
+  const opener =
+    t.includes("before we begin") ||
+    t.includes("перш ніж") ||
+    t.includes("перед тим як");
+  const pitch =
+    t.includes("ui/ux") ||
+    t.includes("ui\\/ux") ||
+    t.includes("портфол") ||
+    t.includes("portfolio") ||
+    t.includes("процес") ||
+    t.includes("pricing") ||
+    t.includes("ціно");
+  return modality && nameQuestion && opener && pitch;
 }
 
 const VOICE_CHAT_QUICK_PROMPTS = [
@@ -332,6 +379,7 @@ export default function VoiceChatPage() {
   const [welcomeHubMode, setWelcomeHubMode] = useState<null | "text" | "voice">(null);
   const [introVisibleChars, setIntroVisibleChars] = useState(0);
   const [introTypewriterDone, setIntroTypewriterDone] = useState(false);
+  const introTypewriterRunKeyRef = useRef<string | null>(null);
   const [welcomeVoiceCueBuffer, setWelcomeVoiceCueBuffer] = useState("");
   const [voiceWelcomeRevealAll, setVoiceWelcomeRevealAll] = useState(false);
   /** When false, keep welcome intro + topic grid even if voice saved user rows to Convex. */
@@ -471,6 +519,24 @@ export default function VoiceChatPage() {
     conversationIdRef.current = conversationId;
   }, [conversationId]);
 
+  useEffect(() => {
+    pendingEstimateIntentRef.current = null;
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!conversationId) {
+      setCapturedEmailConversationId(null);
+      return;
+    }
+    if (isValidEmail(selectedConversation?.guestEmail)) {
+      setCapturedEmailConversationId(String(conversationId));
+      return;
+    }
+    setCapturedEmailConversationId((prev) =>
+      prev === String(conversationId) ? prev : null,
+    );
+  }, [conversationId, selectedConversation?.guestEmail]);
+
   /** Same rules as initConversation: prefer last-open thread from localStorage. */
   const resolveExistingConversationId = useCallback(
     (list: NonNullable<typeof conversations>): Id<"conversations"> | null => {
@@ -490,7 +556,6 @@ export default function VoiceChatPage() {
     [LAST_CONVERSATION_STORAGE_KEY],
   );
 
-  const introPersistedRef = useRef(false);
   const addressPromptPersistedRef = useRef(false);
 
   useEffect(() => {
@@ -519,21 +584,11 @@ export default function VoiceChatPage() {
   // Ensure `conversationId` exists before sending any programmatic message.
   // Otherwise the model output/tool calls can land in "guest" mode and won't
   // render the tool cards until refresh.
-  const ensureConversationId = useCallback(async () => {
+  const ensureConversationId = useCallback(async (_options?: { preferExisting?: boolean }) => {
     if (conversationId) return;
     if (creatingConversationRef.current) return;
 
     if (canUseChat) {
-      // Prefer existing conversations if the query already resolved.
-      if (Array.isArray(conversations) && conversations.length > 0) {
-        const pick = resolveExistingConversationId(conversations);
-        if (pick) {
-          conversationIdRef.current = pick;
-          setConversationId(pick);
-        }
-        return;
-      }
-
       creatingConversationRef.current = true;
       try {
         const id = await createConversation({ title: "Voice Chat" });
@@ -611,18 +666,6 @@ export default function VoiceChatPage() {
     },
     [ensureConversationId, createMessage, guestId],
   );
-
-  useEffect(() => {
-    if (!conversationId || convexMessagesLoading) return;
-    if (introPersistedRef.current) return;
-    if (convexMessages.length > 0) return;
-    introPersistedRef.current = true;
-    void appendMessageToConvex({
-      content: VOICE_CHAT_HARDCODED_INTRO,
-      role: "assistant",
-      source: "text",
-    });
-  }, [conversationId, convexMessagesLoading, convexMessages.length, appendMessageToConvex]);
 
   // Listen to messages coming from the estimate side panel.
   // Uses refs instead of state to always have the latest function references.
@@ -742,16 +785,23 @@ export default function VoiceChatPage() {
   const lastUserLanguageRef = useRef<"en" | "ua">("en");
   const [emailRequiredGate, setEmailRequiredGate] = useState(false);
   const estimateEmailPromptCooldownRef = useRef(0);
-  const hasCapturedEmail = useMemo(() => {
-    if (isValidEmail(onboardingEmail)) return true;
+  const pendingEstimateIntentRef = useRef<string | null>(null);
+  const [capturedEmailConversationId, setCapturedEmailConversationId] = useState<string | null>(null);
+  const hasCapturedEmailForGate = useMemo(() => {
     if (isValidEmail(selectedConversation?.guestEmail)) return true;
+    if (conversationId && capturedEmailConversationId && String(conversationId) === capturedEmailConversationId) {
+      return true;
+    }
     return false;
-  }, [onboardingEmail, selectedConversation?.guestEmail]);
+  }, [selectedConversation?.guestEmail, conversationId, capturedEmailConversationId]);
   const promptEmailRequiredInChat = useCallback((reason: "general" | "estimate" = "general", contextText?: string) => {
     const now = Date.now();
     // Avoid repeating the same assistant prompt when multiple gate paths trigger at once.
     if (now - estimateEmailPromptCooldownRef.current < 2500) return;
     estimateEmailPromptCooldownRef.current = now;
+    if (reason === "estimate" && contextText?.trim()) {
+      pendingEstimateIntentRef.current = contextText.trim();
+    }
     const language = contextText ? detectLanguageFromText(contextText) : lastUserLanguageRef.current;
     setEmailCaptureAwaitingInput(true);
     setEmailCapturePromptVisible(false);
@@ -781,7 +831,7 @@ export default function VoiceChatPage() {
         return;
       }
 
-      const needsEmailForEstimate = !hasCapturedEmail && hasEstimateIntent(trimmed);
+      const needsEmailForEstimate = !hasCapturedEmailForGate && hasEstimateIntent(trimmed);
       if (
         (emailRequiredGateRef.current || needsEmailForEstimate) &&
         trimmed !== EMAIL_CAPTURE_CHOICE_EN &&
@@ -827,7 +877,7 @@ export default function VoiceChatPage() {
         (p) => trimmed === p.valueEn || trimmed === p.title,
       );
       if (!isWelcomeHubTopicPrompt) {
-        setWelcomeHubDismissed(true);
+        setWelcomeHubDismissed(false);
       }
       // If user is authenticated but conversationId isn't ready yet,
       // initialize it so the send happens in the correct (Convex-backed) mode.
@@ -839,7 +889,7 @@ export default function VoiceChatPage() {
           canUseChat,
           conversationId,
         });
-        void ensureConversationId();
+        void ensureConversationId({ preferExisting: false });
         setPendingQuickPrompt(trimmed);
         return;
       }
@@ -860,7 +910,7 @@ export default function VoiceChatPage() {
       ensureConversationId,
       appendMessageToConvex,
       jumpToLatestMessages,
-      hasCapturedEmail,
+      hasCapturedEmailForGate,
       promptEmailRequiredInChat,
     ],
   );
@@ -880,12 +930,12 @@ export default function VoiceChatPage() {
     visibleUserMessageCountForEmailRef.current = n;
     const gate = Boolean(
       conversationId &&
-        !hasCapturedEmail &&
+        !hasCapturedEmailForGate &&
         n >= EMAIL_CAPTURE_MIN_USER_MESSAGES,
     );
     emailRequiredGateRef.current = gate;
     setEmailRequiredGate(gate);
-  }, [convexMessages, conversationId, hasCapturedEmail]);
+  }, [convexMessages, conversationId, hasCapturedEmailForGate]);
 
   useEffect(() => {
     if (!emailRequiredGate) setEmailComposerGateNotice(null);
@@ -898,7 +948,7 @@ export default function VoiceChatPage() {
         setShowBookCallPanel(true);
         return;
       }
-      const needsEmailForEstimate = !hasCapturedEmail && hasEstimateIntent(trimmedRequest);
+      const needsEmailForEstimate = !hasCapturedEmailForGate && hasEstimateIntent(trimmedRequest);
       if ((emailRequiredGate || needsEmailForEstimate) && !EMAIL_INLINE_RE.test(trimmedRequest)) {
         promptEmailRequiredInChat(needsEmailForEstimate ? "estimate" : "general", trimmedRequest);
         return;
@@ -908,7 +958,7 @@ export default function VoiceChatPage() {
       jumpToLatestMessages();
       await sendProgrammaticMessage(request);
     },
-    [emailRequiredGate, hasCapturedEmail, sendProgrammaticMessage, jumpToLatestMessages, promptEmailRequiredInChat],
+    [emailRequiredGate, hasCapturedEmailForGate, sendProgrammaticMessage, jumpToLatestMessages, promptEmailRequiredInChat],
   );
 
   const resolveQuickPromptTool = useCallback((promptText: string) => {
@@ -944,7 +994,6 @@ export default function VoiceChatPage() {
   }, []);
 
   const rememberedNameRef = useRef(false);
-  const rememberedEmailRef = useRef(false);
 
   // `isAuthenticated()` discovery can fail, but for message sending we must
   // have a real authenticated Convex identity (`currentUser`).
@@ -969,17 +1018,6 @@ export default function VoiceChatPage() {
     if (!normalized) return;
     rememberedNameRef.current = true;
     setOnboardingName(normalized);
-  }, []);
-
-  useEffect(() => {
-    if (rememberedEmailRef.current) return;
-    if (typeof window === "undefined") return;
-    const savedEmail = window.localStorage.getItem("cieden_preferred_email");
-    if (!savedEmail) return;
-    const normalized = normalizeCapturedEmail(savedEmail);
-    if (!isValidEmail(normalized)) return;
-    rememberedEmailRef.current = true;
-    setOnboardingEmail(normalized);
   }, []);
 
   useEffect(() => {
@@ -2373,7 +2411,7 @@ export default function VoiceChatPage() {
 
     generate_estimate: async (params) => {
       console.log('💰 Bridge Handler - generate_estimate called:', params);
-      if (!hasCapturedEmail) {
+      if (!hasCapturedEmailForGate) {
         return "Before I prepare an estimate, please type your work email in chat.";
       }
       try {
@@ -2392,7 +2430,7 @@ export default function VoiceChatPage() {
 
     open_calculator: async (params) => {
       console.log('🧮 Bridge Handler - open_calculator called:', params);
-      if (!hasCapturedEmail) {
+      if (!hasCapturedEmailForGate) {
         return "Before I open the estimate flow, please type your work email in chat.";
       }
       // Skip if the client-side injection already created one recently (prevents duplicate chooser cards)
@@ -2853,24 +2891,6 @@ export default function VoiceChatPage() {
 
       if (canUseChat) {
         if (conversations === undefined) return;
-        if (conversations.length > 0) {
-          let selected: Id<"conversations"> | null = conversations[0]?._id ?? null;
-          if (typeof window !== "undefined") {
-            const saved = window.localStorage.getItem(LAST_CONVERSATION_STORAGE_KEY);
-            if (saved) {
-              const matched = conversations.find((c) => String(c._id) === saved);
-              if (matched?._id) {
-                selected = matched._id;
-              }
-            }
-          }
-          if (selected) {
-            conversationIdRef.current = selected;
-            setConversationId(selected);
-          }
-          return;
-        }
-
         creatingConversationRef.current = true;
         try {
           const id = await createConversation({ title: "Voice Chat" });
@@ -2889,12 +2909,12 @@ export default function VoiceChatPage() {
       try {
         const guestIdentity = ensureGuestIdentityInCookie({
           name: onboardingName || undefined,
-          email: onboardingEmail || undefined,
+          email: undefined,
         });
         const id = await createConversation({
           title: "Voice Chat",
           guestId: guestIdentity.guestId,
-          guestEmail: onboardingEmail || undefined,
+          guestEmail: undefined,
           guestName: onboardingName || undefined,
         });
         conversationIdRef.current = id;
@@ -2923,8 +2943,16 @@ export default function VoiceChatPage() {
 
   // Handle messages from unified input
   const handleMessage = useCallback(async (text: string, source: 'voice' | 'text') => {
-    setLastMessage({ text, source });
-    console.log(`📝 Message received from ${source}:`, text);
+    const guestAiPrefix = "__GUEST_AI__:";
+    const normalizedIncomingText =
+      source === "text" && text.startsWith(guestAiPrefix)
+        ? text.slice(guestAiPrefix.length)
+        : text;
+    const isGuestAiBridgeMessage =
+      source === "text" && text.startsWith(guestAiPrefix);
+
+    setLastMessage({ text: normalizedIncomingText, source });
+    console.log(`📝 Message received from ${source}:`, normalizedIncomingText);
 
     // During auth/onboarding we don't want the normal chat handler to run.
     // Pre-auth flow (name/email) is handled via `onPreAuthMessage`.
@@ -2935,28 +2963,59 @@ export default function VoiceChatPage() {
     // Single-channel mode: avoid local onboarding message lane.
     // If conversation is not ready yet, try to initialize it and skip this transient message.
     if (!conversationId) {
-      await ensureConversationId();
+      if (!isGuestAiBridgeMessage && source === "text" && normalizedIncomingText.trim()) {
+        setWelcomeHubMode("text");
+        setWelcomeHubDismissed(false);
+      }
+      await ensureConversationId({ preferExisting: false });
+      // First-turn race guard:
+      // if ElevenLabs returns an AI reply before conversationId is ready,
+      // persist that reply once the conversation exists instead of dropping it.
+      if (isGuestAiBridgeMessage && normalizedIncomingText.trim()) {
+        await appendMessageToConvex({
+          role: "assistant",
+          source: "text",
+          content: normalizedIncomingText.trim(),
+          metadata: {
+            via: "websocket",
+            guestBridgeReplay: true,
+            timestamp: Date.now(),
+          },
+        });
+        setPendingAssistantBubble(false);
+        setEstimateTyping(null);
+      }
       return;
     }
 
-    const trimmedUserText = text.trim();
+    const trimmedUserText = normalizedIncomingText.trim();
+    if (isGuestAiBridgeMessage) {
+      // Guard against accidental duplicate writes if a prefixed guest bridge
+      // message arrives after conversationId becomes available.
+      await appendMessageToConvex({
+        role: "assistant",
+        source: "text",
+        content: trimmedUserText,
+        metadata: {
+          via: "websocket",
+          guestBridgeReplay: true,
+          timestamp: Date.now(),
+        },
+      });
+      setPendingAssistantBubble(false);
+      setEstimateTyping(null);
+      return;
+    }
+    if (source === "text" && trimmedUserText) {
+      setWelcomeHubMode("text");
+      // Do not reopen the intro welcome hub on every send — it duplicated the static intro + grid
+      // after the user had already started chatting (e.g. first "Привіт").
+    }
     if (trimmedUserText) {
       lastUserLanguageRef.current = detectLanguageFromText(trimmedUserText);
     }
-    const needsEmailForEstimate = !hasCapturedEmail && hasEstimateIntent(trimmedUserText);
+    const needsEmailForEstimate = !hasCapturedEmailForGate && hasEstimateIntent(trimmedUserText);
     const needsEmailForMessage = emailRequiredGateRef.current || needsEmailForEstimate;
-    const isWelcomeHubTopicText = VOICE_CHAT_QUICK_PROMPTS.some(
-      (p) => trimmedUserText === p.valueEn || trimmedUserText === p.title,
-    );
-    if (
-      source === "text" &&
-      trimmedUserText.length > 0 &&
-      !ADDRESS_NAME_PROMPT_CHOICES.includes(trimmedUserText) &&
-      !isWelcomeHubTopicText
-    ) {
-      setWelcomeHubDismissed(true);
-    }
-
     if (source === "voice" && needsEmailForMessage) {
       promptEmailRequiredInChat(needsEmailForEstimate ? "estimate" : "general", trimmedUserText);
       return;
@@ -2992,7 +3051,7 @@ export default function VoiceChatPage() {
     };
 
     if (source === "text") {
-      const candidateName = extractNameFromMessage(text);
+      const candidateName = extractNameFromMessage(normalizedIncomingText);
       if (candidateName && candidateName !== onboardingName) {
         setOnboardingName(candidateName);
         updateGuestIdentityInCookie({ name: candidateName });
@@ -3006,10 +3065,13 @@ export default function VoiceChatPage() {
         }
       }
 
-      const emailMatch = text.match(/\b([^\s@]+@[^\s@]+\.[^\s@]+)\b/);
+      const emailMatch = normalizedIncomingText.match(/\b([^\s@]+@[^\s@]+\.[^\s@]+)\b/);
       const candidateEmail = emailMatch?.[1]?.trim().toLowerCase();
       if (candidateEmail && candidateEmail !== onboardingEmail) {
         setOnboardingEmail(candidateEmail);
+        if (conversationId) {
+          setCapturedEmailConversationId(String(conversationId));
+        }
         updateGuestIdentityInCookie({ email: candidateEmail });
         if (emailCaptureAwaitingInput) {
           setEmailCaptureAwaitingInput(false);
@@ -3029,6 +3091,18 @@ export default function VoiceChatPage() {
             `[USER PROFILE UPDATE] User email is "${candidateEmail}". Use only for follow-up context when relevant.`,
           );
         }
+        if (pendingEstimateIntentRef.current) {
+          pendingEstimateIntentRef.current = null;
+          window.setTimeout(() => {
+            markEstimateFlowPrimary();
+            const toolCallMessage = `TOOL_CALL:open_calculator:${safeJSONStringify({ mode: "default" })}`;
+            queueToolMessageRef.current?.(toolCallMessage, {
+              toolCall: true,
+              toolName: "open_calculator",
+              timestamp: Date.now(),
+            });
+          }, 180);
+        }
       }
     }
 
@@ -3038,7 +3112,7 @@ export default function VoiceChatPage() {
     setPendingAssistantBubble(true);
 
     // If user asks about estimate again, reopen estimate panel
-    const lower = text.toLowerCase();
+    const lower = normalizedIncomingText.toLowerCase();
     if (
       /(estimate|estimation|calculator|pricing)/.test(lower) ||
       /(естімейт|естимейт|калькулятор|оцінк|оценк|скільки кошту|сколько сто)/.test(lower)
@@ -3047,10 +3121,10 @@ export default function VoiceChatPage() {
     }
 
     // Forward user message to EstimateWizardPanel local tracker
-    if (conversationId && (window as any).__ciedenEstimatePanelOpen === true && text) {
+    if (conversationId && (window as any).__ciedenEstimatePanelOpen === true && normalizedIncomingText) {
       window.dispatchEvent(
         new CustomEvent("estimate-local-user-message", {
-          detail: { content: text, role: "user", createdAt: Date.now() },
+          detail: { content: normalizedIncomingText, role: "user", createdAt: Date.now() },
         }),
       );
     }
@@ -3067,10 +3141,12 @@ export default function VoiceChatPage() {
     ensureConversationId,
     onboardingName,
     onboardingEmail,
-    hasCapturedEmail,
+    hasCapturedEmailForGate,
     emailCaptureAwaitingInput,
     appendMessageToConvex,
     promptEmailRequiredInChat,
+    markEstimateFlowPrimary,
+    safeJSONStringify,
   ]);
 
   // Keep chat pinned to bottom, але тільки коли користувач не скролив вгору.
@@ -3185,7 +3261,6 @@ export default function VoiceChatPage() {
       setIntroRevealComplete(false);
       setIntroAnimStep(0);
       setIntroSessionKey((k) => k + 1);
-      introPersistedRef.current = false;
       addressPromptPersistedRef.current = false;
       setShowIntroHubPinned(false);
       setShowIntroAddressPinned(false);
@@ -3216,19 +3291,18 @@ export default function VoiceChatPage() {
       } else {
         const guestIdentity = ensureGuestIdentityInCookie({
           name: onboardingName || undefined,
-          email: onboardingEmail || undefined,
+          email: undefined,
         });
         id = await createConversation({
           title: "Voice Chat",
           guestId: guestIdentity.guestId,
-          guestEmail: onboardingEmail || undefined,
+          guestEmail: undefined,
           guestName: onboardingName || undefined,
         });
       }
       setIntroRevealComplete(false);
       setIntroAnimStep(0);
       setIntroSessionKey((k) => k + 1);
-      introPersistedRef.current = false;
       addressPromptPersistedRef.current = false;
       setShowIntroHubPinned(false);
       setShowIntroAddressPinned(false);
@@ -3265,7 +3339,20 @@ export default function VoiceChatPage() {
 
   const visibleConvexChatMessages = useMemo(() => {
     const raw = convexMessages || [];
-    const filtered = raw.filter((message) => {
+    const firstUserIdx = raw.findIndex((m) => m.role === "user");
+    const nextUserAfterFirst =
+      firstUserIdx === -1 ? -1 : raw.findIndex((m, i) => i > firstUserIdx && m.role === "user");
+    const segmentAfterFirstUserEnd = nextUserAfterFirst === -1 ? raw.length : nextUserAfterFirst;
+    const firstAssistantAfterFirstUserIdx =
+      firstUserIdx === -1
+        ? -1
+        : raw.findIndex(
+            (m, i) =>
+              i > firstUserIdx &&
+              i < segmentAfterFirstUserEnd &&
+              m.role === "assistant",
+          );
+    const filtered = raw.filter((message, idx) => {
       if (message.role === "system" && message.source === "contextual") return false;
       if (message.role === "user" && message.content.startsWith("I selected:")) return false;
       if (/onboarding complete\./i.test((message.content || "").trim())) return false;
@@ -3276,6 +3363,13 @@ export default function VoiceChatPage() {
       if (mode === "update") return false;
       const c = message.content || "";
       if (message.role === "user" && /^\[ESTIMATE\s+(MODE|PANEL)\]/i.test(c.trim())) return false;
+      if (
+        message.role === "assistant" &&
+        firstAssistantAfterFirstUserIdx === idx &&
+        isFirstTurnIntroEcho(c)
+      ) {
+        return false;
+      }
       return true;
     });
     const toolDeduped = filtered.filter((message, index, arr) => {
@@ -3395,8 +3489,8 @@ export default function VoiceChatPage() {
     if (!conversationId || convexMessagesLoading) return;
     if (welcomeInitialGateDoneRef.current) return;
     welcomeInitialGateDoneRef.current = true;
-    setWelcomeHubDismissed(hasVisibleUserMessages);
-  }, [conversationId, convexMessagesLoading, hasVisibleUserMessages]);
+    setWelcomeHubDismissed(false);
+  }, [conversationId, convexMessagesLoading]);
 
   /** Welcome hub: same thread; stays through voice until user types or picks a substantive quick prompt. */
   const showIntroQuickPath = Boolean(
@@ -3426,28 +3520,24 @@ export default function VoiceChatPage() {
         : 0;
 
   useEffect(() => {
-    if (!showIntroQuickPath) return;
+    if (!showIntroQuickPath) {
+      introTypewriterRunKeyRef.current = null;
+      return;
+    }
+    const runKey = String(introSessionKey);
+    if (introTypewriterRunKeyRef.current === runKey) return;
+    introTypewriterRunKeyRef.current = runKey;
     setWelcomeHubMode(null);
     setWelcomeVoiceCueBuffer("");
     setVoiceWelcomeRevealAll(false);
     setIntroTypewriterDone(false);
     setIntroVisibleChars(0);
-    let cancelled = false;
-    let i = 0;
-    const full = VOICE_CHAT_HARDCODED_INTRO;
-    const tick = () => {
-      if (cancelled) return;
-      i = Math.min(full.length, i + 2);
-      setIntroVisibleChars(i);
-      if (i < full.length) {
-        window.setTimeout(tick, 22);
-      } else {
-        setIntroTypewriterDone(true);
-      }
-    };
-    const t0 = window.setTimeout(tick, 280);
+    // Keep this reveal deterministic and single-shot to avoid render loops.
+    const t0 = window.setTimeout(() => {
+      setIntroVisibleChars(VOICE_CHAT_HARDCODED_INTRO.length);
+      setIntroTypewriterDone(true);
+    }, 240);
     return () => {
-      cancelled = true;
       window.clearTimeout(t0);
     };
   }, [showIntroQuickPath, introSessionKey]);
@@ -3463,12 +3553,25 @@ export default function VoiceChatPage() {
   }, [welcomeHubMode, showIntroQuickPath, introSessionKey]);
 
   const hasVisibleAssistantMessages = preUserPhaseMessages.some((m) => m.role === "assistant");
-  const preUserFirstAssistantMessage = preUserPhaseMessages.find(
-    (m) =>
-      m.role === "assistant" &&
-      !matchesHardcodedStaticIntro(m.content || "") &&
-      !matchesHiddenOnboardingAssistantBubble(m.content || ""),
-  ) || null;
+  /**
+   * First “real” assistant row **before the first user message** only.
+   * Do not scan the whole thread: after the user replies, the first matching assistant
+   * would become the *new* ElevenLabs answer; pinning its id would then hide that bubble
+   * in the main list (`message._id === pinnedFirstAssistantMessage.id`).
+   */
+  const preUserFirstAssistantMessage = useMemo(() => {
+    const firstUserIdx = preUserPhaseMessages.findIndex((m) => m.role === "user");
+    const head =
+      firstUserIdx === -1 ? preUserPhaseMessages : preUserPhaseMessages.slice(0, firstUserIdx);
+    return (
+      head.find(
+        (m) =>
+          m.role === "assistant" &&
+          !matchesHardcodedStaticIntro(m.content || "") &&
+          !matchesHiddenOnboardingAssistantBubble(m.content || ""),
+      ) ?? null
+    );
+  }, [preUserPhaseMessages]);
   const preUserFirstAssistantId = preUserFirstAssistantMessage?._id ?? null;
   const hasAssistantIntroDuplicateInConvex = useMemo(
     () =>
@@ -3529,6 +3632,20 @@ export default function VoiceChatPage() {
         Date.now(),
     });
   }, [preUserFirstAssistantMessage, pinnedFirstAssistantMessage]);
+
+  // Drop a stale pin that points at (or after) the first user row — that hid real replies in-thread.
+  useEffect(() => {
+    if (!pinnedFirstAssistantMessage) return;
+    const firstUserIdx = preUserPhaseMessages.findIndex((m) => m.role === "user");
+    if (firstUserIdx === -1) return;
+    const pinIdx = preUserPhaseMessages.findIndex(
+      (m) => String(m._id) === String(pinnedFirstAssistantMessage.id),
+    );
+    if (pinIdx === -1 || pinIdx >= firstUserIdx) {
+      setPinnedFirstAssistantMessage(null);
+    }
+  }, [preUserPhaseMessages, pinnedFirstAssistantMessage]);
+
   const introAnimationRunning = Boolean(
     emptyLoadedThread && !introRevealComplete,
   );
@@ -4088,15 +4205,23 @@ export default function VoiceChatPage() {
                       .replace(/\s+/g, " ")
                       .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")
                       .trim();
+                  // Only suppress “static intro / legacy onboarding” duplicates *before* any user row.
+                  // After the user sends text (e.g. "Привіт"), real replies often repeat phrases like
+                  // "before we begin… address you" in English — those must still render.
+                  const hasAnyUserMessageEarlierInThread = visibleConvexChatMessages
+                    .slice(0, index)
+                    .some((m) => m.role === "user");
                   if (
                     message.role === "assistant" &&
-                    matchesHardcodedStaticIntro(message.content || "")
+                    matchesHardcodedStaticIntro(message.content || "") &&
+                    !hasAnyUserMessageEarlierInThread
                   ) {
                     return null;
                   }
                   if (
                     message.role === "assistant" &&
-                    matchesHiddenOnboardingAssistantBubble(message.content || "")
+                    matchesHiddenOnboardingAssistantBubble(message.content || "") &&
+                    !hasAnyUserMessageEarlierInThread
                   ) {
                     return null;
                   }
@@ -4114,13 +4239,8 @@ export default function VoiceChatPage() {
                   ) {
                     return null;
                   }
-                  if (
-                    pinnedFirstAssistantMessage &&
-                    message.role === "assistant" &&
-                    isLikelyDefaultCiedenGreeting(message.content || "")
-                  ) {
-                    return null;
-                  }
+                  // Do not hide "greeting-like" assistant messages globally:
+                  // it can suppress the very first real reply in first-turn races.
                   const isToolCall = !!parseToolCall(message.content);
                   // Show end-session card whenever we have a pinned message (do not hide while result panel is open).
                   const isEstimateEndMsg =
@@ -4240,11 +4360,14 @@ export default function VoiceChatPage() {
                       visibleConvexChatMessages
                         .slice(segmentUserIdx + 1, nextUserIdx)
                         .some((m) => isEstimateEntryToolName(parseToolCall(m.content)?.toolName)));
+                  const isEmailGateMessage =
+                    message.role === "assistant" && isEmailGateAssistantMessage(message.content);
                   const suppressSuggestions =
                     disableQuickPromptsForFirstGreeting ||
                     isEstimateActive ||
                     isEstimateMessage ||
                     isInsideCompletedEstimate ||
+                    isEmailGateMessage ||
                     (message.role === "assistant" && segmentHasPrimaryCard && segmentHasEstimateEntryCard);
                   const shouldRenderSegmentFallbackAfterUser =
                     message.role === "user" &&
@@ -4323,7 +4446,7 @@ export default function VoiceChatPage() {
                   settings={settings}
                   updateSettings={updateSettings}
                   emailRequiredGate={emailRequiredGate}
-                  emailRequiredForEstimate={!hasCapturedEmail}
+                  emailRequiredForEstimate={!hasCapturedEmailForGate}
                   onEmailGateBlocked={(reason, attemptedText) => promptEmailRequiredInChat(reason, attemptedText)}
                   onVoiceAudioUpdate={(isUserSpeaking, userLevel, agentLevel) => {
                     setIsUserSpeaking(isUserSpeaking);
@@ -4361,7 +4484,7 @@ export default function VoiceChatPage() {
                 settings={settings}
                 updateSettings={updateSettings}
                 emailRequiredGate={emailRequiredGate}
-                emailRequiredForEstimate={!hasCapturedEmail}
+                emailRequiredForEstimate={!hasCapturedEmailForGate}
                 onEmailGateBlocked={(reason, attemptedText) => promptEmailRequiredInChat(reason, attemptedText)}
                 onVoiceAudioUpdate={(isUserSpeaking, userLevel, agentLevel) => {
                   setIsUserSpeaking(isUserSpeaking);

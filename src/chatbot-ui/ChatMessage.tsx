@@ -12,14 +12,14 @@ interface ChatMessageProps {
 
 const DEFAULT_SUGGESTIONS_EN = [
   "Book a call",
-  "Can you add more details?",
-  "Let's switch topic",
+  "Tell me more about that",
+  "Let's talk about something else",
 ];
 
 const DEFAULT_SUGGESTIONS_UA = [
   "Записатися на дзвінок",
-  "Можеш доповнити відповідь?",
-  "Давай змінимо тему",
+  "Розкажи детальніше",
+  "Давай поговоримо про інше",
 ];
 
 /**

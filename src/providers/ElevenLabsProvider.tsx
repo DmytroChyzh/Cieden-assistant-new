@@ -107,6 +107,8 @@ const TEXT_DISCONNECT_TIMEOUT_MS = 5000;
 const VOICE_CONNECT_TIMEOUT_MS = 10000;
 const TEXT_IDLE_CLOSE_MS = 5 * 60 * 1000;
 const TEXT_WS_AUTOSTART = process.env.NEXT_PUBLIC_TEXT_WS_AUTOSTART !== 'false';
+/** Max wait for site KB before sending the user line to ConvAI (avoids multi-second stalls; skips KB for that turn if slower). */
+const KB_INJECT_BEFORE_SEND_BUDGET_MS = 1200;
 
 // ElevenLabs/ConvAI can hard-fail on very large payloads.
 // Keep full text in Convex/UI; only truncate what we send over transport.
@@ -405,6 +407,8 @@ export function ElevenLabsProvider({
   const textDynVarsAppliedRef = useRef<boolean>(false);
   const isTextStartingRef = useRef<boolean>(false);
   const pendingTextHistoryRef = useRef<string | null>(null);
+  /** Accumulates `agent_chat_response_part` streaming chunks (ConvAI text). */
+  const agentChatTextBufferRef = useRef('');
   const lastAppliedVoicePreferencesRef = useRef<{ voiceId: string | null; speed: number | null }>({
     voiceId: null,
     speed: null
@@ -904,6 +908,9 @@ export function ElevenLabsProvider({
   // ============================================================================
   // TEXT MODE CONVERSATION (WebSocket via React SDK)
   // ============================================================================
+  /** Always read latest `textConversation` from handlers (avoid stale `status` in closures). */
+  const textConversationApiRef = useRef<ReturnType<typeof useConversation> | null>(null);
+
   const textConversation = useConversation({
     // CRITICAL: BOTH flags required for text-only mode to work without audio charges
     textOnly: true,  // SDK-level flag
@@ -926,10 +933,11 @@ export function ElevenLabsProvider({
 
       // Flush any queued text messages
       try {
-        while (pendingTextQueueRef.current.length && textConversation.status === 'connected') {
+        const tx = textConversationApiRef.current;
+        while (pendingTextQueueRef.current.length && tx?.status === 'connected') {
           const msg = pendingTextQueueRef.current.shift()!;
           try {
-            textConversation.sendUserMessage(truncateForTransport(msg));
+            tx.sendUserMessage(truncateForTransport(msg));
           } catch (error) {
             console.error('Failed to flush queued text message', error);
           }
@@ -940,6 +948,7 @@ export function ElevenLabsProvider({
     },
 
     onDisconnect: (details: DisconnectionDetails) => {
+      agentChatTextBufferRef.current = '';
       console.log('🔌 Text WebSocket disconnected', {
         reason: details.reason,
         currentConnectionState: textConnectionStateRef.current
@@ -990,7 +999,8 @@ export function ElevenLabsProvider({
     onMessage: (event: unknown) => {
       console.log('📨 Text mode message received:', event);
 
-      if (sessionModeRef.current !== 'text') {
+      // Never route text-socket user/AI lines into the voice session.
+      if (sessionModeRef.current === 'voice') {
         return;
       }
 
@@ -1002,6 +1012,58 @@ export function ElevenLabsProvider({
         via: 'websocket',
         raw: event
       });
+    },
+
+    /**
+     * Newer ConvAI path: streamed assistant text does NOT go through `onMessage`;
+     * the client calls `onAgentChatResponsePart` with { text, type: start|delta|stop }.
+     * Without this, the UI never receives an assistant reply.
+     */
+    onAgentChatResponsePart: (part: unknown) => {
+      console.log('📨 Text mode agent_chat_response_part:', part);
+
+      if (sessionModeRef.current === 'voice') {
+        return;
+      }
+
+      const top =
+        typeof part === 'object' && part !== null ? (part as Record<string, unknown>) : {};
+      const nested = top.text_response_part;
+      const p =
+        nested && typeof nested === 'object'
+          ? (nested as Record<string, unknown>)
+          : top;
+
+      const tRaw = typeof p.type === 'string' ? p.type.toLowerCase() : '';
+      const chunk = typeof p.text === 'string' ? p.text : '';
+      // Some payloads omit `type` but still carry incremental text.
+      if (!tRaw && chunk.length > 0) {
+        agentChatTextBufferRef.current += chunk;
+        return;
+      }
+      if (tRaw === 'start') {
+        agentChatTextBufferRef.current = '';
+        return;
+      }
+      if (tRaw === 'delta' && chunk.length > 0) {
+        agentChatTextBufferRef.current += chunk;
+        return;
+      }
+      if (tRaw === 'stop' || tRaw === 'end' || tRaw === 'complete') {
+        if (chunk.length > 0) {
+          agentChatTextBufferRef.current += chunk;
+        }
+        const full = agentChatTextBufferRef.current.trim();
+        agentChatTextBufferRef.current = '';
+        if (!full) return;
+
+        emitToHandlers(textHandlersRef, {
+          source: 'ai',
+          message: full,
+          via: 'websocket',
+          raw: part,
+        });
+      }
     },
 
     onError: (error: unknown) => {
@@ -1046,6 +1108,8 @@ export function ElevenLabsProvider({
       console.log('⚠️ User interrupted agent (text mode)');
     }
   });
+
+  textConversationApiRef.current = textConversation;
 
   const agentId = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || '';
 
@@ -1694,7 +1758,7 @@ export function ElevenLabsProvider({
 
   /** Pull site KB excerpts into the agent via contextual update (feature-flagged). */
   const injectSiteKbContextIfEnabled = useCallback(
-    async (userText: string) => {
+    async (userText: string, opts?: { signal?: AbortSignal }) => {
       if (process.env.NEXT_PUBLIC_CIEDEN_KB_CONTEXT !== 'true') return;
       const t = userText.trim();
       if (t.length < 3) return;
@@ -1715,6 +1779,7 @@ export function ElevenLabsProvider({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: t, limit: 8 }),
+          signal: opts?.signal,
         });
         if (!res.ok) return;
         const data = (await res.json()) as { contextBlock?: string };
@@ -1760,12 +1825,19 @@ export function ElevenLabsProvider({
       }
 
       const trimmed = message.trim();
-      try {
-        await injectSiteKbContextIfEnabled(trimmed);
-      } catch {
-        /* optional KB */
+      const isEstimatePayload =
+        trimmed.includes('[ESTIMATE MODE]') || trimmed.includes('ESTIMATE MODE');
+      if (!isEstimatePayload) {
+        const ac = new AbortController();
+        const tid = setTimeout(() => ac.abort(), KB_INJECT_BEFORE_SEND_BUDGET_MS);
+        try {
+          await injectSiteKbContextIfEnabled(trimmed, { signal: ac.signal });
+        } catch {
+          /* optional KB / aborted */
+        } finally {
+          clearTimeout(tid);
+        }
       }
-
       console.log('📤 Sending voice message:', message);
       try {
         voiceRef.current?.sendUserMessage(truncateForTransport(message));
@@ -1792,10 +1864,14 @@ export function ElevenLabsProvider({
 
     const isEstimate = trimmed.includes('[ESTIMATE MODE]') || trimmed.includes('ESTIMATE MODE');
     if (!isEstimate) {
+      const ac = new AbortController();
+      const tid = setTimeout(() => ac.abort(), KB_INJECT_BEFORE_SEND_BUDGET_MS);
       try {
-        await injectSiteKbContextIfEnabled(trimmed);
+        await injectSiteKbContextIfEnabled(trimmed, { signal: ac.signal });
       } catch {
-        /* optional KB */
+        /* optional KB / aborted */
+      } finally {
+        clearTimeout(tid);
       }
     }
 

@@ -30,6 +30,8 @@ interface UseTextInputProps {
 const EMAIL_INLINE_RE = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/;
 const ESTIMATE_INTENT_RE =
   /(estimate|estimation|calculator|pricing|price|cost|budget|ballpark|естімейт|естимейт|оцінк|оценк|калькулятор|скільки кошту|сколько сто|вартіст|бюджет)/i;
+const TRANSPORT_FALLBACK_ERROR_MESSAGE =
+  "I'm having trouble connecting right now. Please try again in a few seconds.";
 
 export function useTextInput({
   conversationId,
@@ -49,6 +51,10 @@ export function useTextInput({
   // When `conversationId` is missing we will not persist to Convex, but we will still surface AI output via `onMessage`.
   const [canSend, setCanSend] = useState(true);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasAutoSelectedTextModeRef = useRef(false);
+  /** Avoid re-subscribing `registerTextHandler` when `conversationId` appears — that caused a brief window with zero handlers where streamed AI replies were dropped. */
+  const conversationIdRef = useRef(conversationId);
+  conversationIdRef.current = conversationId;
 
   // ElevenLabs/ConvAI can hard-fail on very large payloads.
   // We only apply truncation for ESTIMATE MODE messages (where the user may paste big specs).
@@ -379,7 +385,8 @@ export function useTextInput({
     registerTextErrorHandler,
     resetTextIdleTimer,
     isTextConnected,
-    setPendingConversationHistory
+    setPendingConversationHistory,
+    sendContextualUpdateOverSocket,
   } = useElevenLabsConversation();
   const guestId = getGuestIdentityFromCookie()?.guestId;
 
@@ -399,9 +406,11 @@ export function useTextInput({
     const unsubscribe = registerTextHandler(async (event: NormalizedMessageEvent) => {
       if (event.source !== 'ai' || event.via !== 'websocket') return;
 
+      const activeConversationId = conversationIdRef.current;
+
       // In guest mode (no conversationId) we can't persist to Convex yet,
       // so we at least surface the assistant message in UI.
-      if (!conversationId) {
+      if (!activeConversationId) {
         onMessage?.(`__GUEST_AI__:${event.message}`);
         return;
       }
@@ -409,7 +418,7 @@ export function useTextInput({
       try {
         const guestId = getGuestIdentityFromCookie()?.guestId;
         await createMessage({
-          conversationId,
+          conversationId: activeConversationId,
           content: event.message,
           role: 'assistant',
           source: 'text',
@@ -428,7 +437,7 @@ export function useTextInput({
     return () => {
       unsubscribe();
     };
-  }, [conversationId, createMessage, registerTextHandler, onMessage]);
+  }, [createMessage, registerTextHandler, onMessage]);
 
   // Surface transport errors (e.g. daily limit reached)
   useEffect(() => {
@@ -445,6 +454,26 @@ export function useTextInput({
   const handleInputChange = useCallback((text: string) => {
     setTextInput(text);
     setIsTyping(true);
+
+    const hasText = text.trim().length > 0;
+    if (hasText && !hasAutoSelectedTextModeRef.current) {
+      hasAutoSelectedTextModeRef.current = true;
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("voice-chat-mode-choice", {
+            detail: { mode: "text" },
+          }),
+        );
+      }
+      // Warm up text transport on first typing interaction so first send is not lost.
+      if (sessionMode !== 'voice' && !isTextConnected) {
+        void startText().catch((error) => {
+          console.warn('[useTextInput] auto-start text mode failed:', error);
+        });
+      }
+    } else if (!hasText) {
+      hasAutoSelectedTextModeRef.current = false;
+    }
     
     // Clear existing timeout
     if (typingTimeoutRef.current) {
@@ -455,7 +484,7 @@ export function useTextInput({
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
     }, 1000);
-  }, []);
+  }, [isTextConnected, sessionMode, startText]);
 
   // Update send availability as conversationId / onboarding handler changes.
   useEffect(() => {
@@ -523,7 +552,15 @@ export function useTextInput({
         const prior = Array.isArray(messages)
           ? messages.map(m => ({ role: m.role, content: m.content || '' }))
           : [];
-        const conversationHistory = prior.length ? extractContextFromMessages(prior) : undefined;
+        // Convex `messages` can lag one tick after `handleUserMessage`; append this send so
+        // `conversation_history` always includes the latest `user:` line for ConvAI (avoids intro replay).
+        const pendingUserLine = { role: 'user' as const, content: transportText };
+        const lastRow = prior.length > 0 ? prior[prior.length - 1] : null;
+        const merged =
+          lastRow?.role === 'user' && (lastRow.content || '').trim() === transportText.trim()
+            ? prior
+            : [...prior, pendingUserLine];
+        const conversationHistory = merged.length ? extractContextFromMessages(merged) : undefined;
 
         // Seed pending history for provider autostart or next session
         setPendingConversationHistory?.(conversationHistory);
@@ -531,14 +568,24 @@ export function useTextInput({
         if (!isTextConnected) {
           await startText(conversationHistory);
         }
+
+        // Autostart often opens the socket before any user line exists in dynamic vars — nudge ConvAI
+        // so the first real chat message does not replay the dashboard `first_message` monologue.
+        const hadUserInPrior = prior.some((m) => m.role === "user");
+        const hasUserInMerged = merged.some((m) => m.role === "user");
+        if (!hadUserInPrior && hasUserInMerged) {
+          sendContextualUpdateOverSocket(
+            "[THREAD_STATE] The scripted in-app first greeting was already shown. The user just sent their first chat line. Reply like a senior account manager in 1–4 short sentences: acknowledge + substance. Do NOT replay the full first_message template (voice/text choice, before we begin, how should I address you) unless the user explicitly asks."
+          );
+        }
       }
 
-      const maxRetries = isEstimatePayload ? 3 : 1;
+      const maxRetries = isEstimatePayload ? 3 : 2;
       let didSend = false;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         didSend = await sendViaProvider(transportText);
         if (didSend) break;
-        if (attempt < maxRetries && sessionMode === 'text') {
+        if (attempt < maxRetries && sessionMode !== 'voice') {
           const delay = attempt === 0 ? 150 : 400 * attempt;
           console.log(`⚠️ Send attempt ${attempt + 1} failed, retrying after ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -563,6 +610,26 @@ export function useTextInput({
             ? error
             : 'ElevenLabs text transport failed';
       onDailyLimitReached?.({ code: 0, reason: message });
+      try {
+        if (conversationId) {
+          const guestFromCookie = getGuestIdentityFromCookie()?.guestId;
+          await createMessage({
+            conversationId,
+            content: TRANSPORT_FALLBACK_ERROR_MESSAGE,
+            role: 'assistant',
+            source: 'text',
+            metadata: {
+              transportError: true,
+              timestamp: Date.now()
+            },
+            guestId: guestFromCookie ?? undefined,
+          });
+        } else {
+          onMessage?.(`__GUEST_AI__:${TRANSPORT_FALLBACK_ERROR_MESSAGE}`);
+        }
+      } catch (persistError) {
+        console.error('Failed to persist/send transport fallback message:', persistError);
+      }
       setTextInput(trimmed);
     } finally {
       setCanSend(true);
@@ -581,6 +648,7 @@ export function useTextInput({
     messages,
     isTextConnected,
     setPendingConversationHistory,
+    sendContextualUpdateOverSocket,
     emailRequiredGate,
     emailRequiredForEstimate,
     onEmailGateBlocked,
@@ -646,7 +714,7 @@ export function useTextInput({
         for (let attempt = 0; attempt <= guestMaxRetries; attempt++) {
           didSend = await sendViaProvider(transportText);
           if (didSend) break;
-          if (attempt < guestMaxRetries && sessionMode === 'text') {
+          if (attempt < guestMaxRetries && sessionMode !== 'voice') {
             const delay = attempt === 0 ? 150 : 400 * attempt;
             await new Promise(resolve => setTimeout(resolve, delay));
             if (!isTextConnected) await startText();
@@ -665,6 +733,7 @@ export function useTextInput({
               ? error
               : 'ElevenLabs text transport failed (guest)';
         onDailyLimitReached?.({ code: 0, reason: message });
+        onMessage?.(`__GUEST_AI__:${TRANSPORT_FALLBACK_ERROR_MESSAGE}`);
       } finally {
         resetTextIdleTimer();
       }
@@ -713,8 +782,14 @@ export function useTextInput({
         const prior = Array.isArray(messages)
           ? messages.map(m => ({ role: m.role, content: m.content || '' }))
           : [];
-        const conversationHistory = prior.length
-          ? extractContextFromMessages(prior)
+        const pendingUserLine = { role: 'user' as const, content: transportText };
+        const lastRow = prior.length > 0 ? prior[prior.length - 1] : null;
+        const merged =
+          lastRow?.role === 'user' && (lastRow.content || '').trim() === transportText.trim()
+            ? prior
+            : [...prior, pendingUserLine];
+        const conversationHistory = merged.length
+          ? extractContextFromMessages(merged)
           : undefined;
 
         console.log('[useTextInput] startText (specific) history debug (prior only)', {
@@ -729,14 +804,22 @@ export function useTextInput({
         if (!isTextConnected) {
           await startText(conversationHistory);
         }
+
+        const hadUserInPrior = prior.some((m) => m.role === "user");
+        const hasUserInMerged = merged.some((m) => m.role === "user");
+        if (!hadUserInPrior && hasUserInMerged) {
+          sendContextualUpdateOverSocket(
+            "[THREAD_STATE] The scripted in-app first greeting was already shown. The user just sent their first chat line. Reply like a senior account manager in 1–4 short sentences: acknowledge + substance. Do NOT replay the full first_message template (voice/text choice, before we begin, how should I address you) unless the user explicitly asks."
+          );
+        }
       }
 
-      const maxRetries = isEstimatePayload ? 3 : 1;
+      const maxRetries = isEstimatePayload ? 3 : 2;
       let didSend = false;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         didSend = await sendViaProvider(transportText);
         if (didSend) break;
-        if (attempt < maxRetries && sessionMode === 'text') {
+        if (attempt < maxRetries && sessionMode !== 'voice') {
           const delay = attempt === 0 ? 100 : 300 * attempt;
           console.log(`⚠️ Send attempt ${attempt + 1} failed, retrying after ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -758,9 +841,29 @@ export function useTextInput({
       if (!isEstimatePayload) {
         onDailyLimitReached?.({ code: 0, reason: message });
       }
+      try {
+        if (conversationId) {
+          const guestFromCookie = getGuestIdentityFromCookie()?.guestId;
+          await createMessage({
+            conversationId,
+            content: TRANSPORT_FALLBACK_ERROR_MESSAGE,
+            role: 'assistant',
+            source: 'text',
+            metadata: {
+              transportError: true,
+              timestamp: Date.now()
+            },
+            guestId: guestFromCookie ?? undefined,
+          });
+        } else {
+          onMessage?.(`__GUEST_AI__:${TRANSPORT_FALLBACK_ERROR_MESSAGE}`);
+        }
+      } catch (persistError) {
+        console.error('Failed to persist/send transport fallback message:', persistError);
+      }
       return;
     }
-  }, [conversationId, onMessage, onPreAuthMessage, createMessage, maybeInjectToolCardForUserIntent, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory, emailRequiredGate, emailRequiredForEstimate, onDailyLimitReached, onEmailGateBlocked]);
+  }, [conversationId, onMessage, onPreAuthMessage, createMessage, maybeInjectToolCardForUserIntent, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory, sendContextualUpdateOverSocket, emailRequiredGate, emailRequiredForEstimate, onDailyLimitReached, onEmailGateBlocked]);
 
   // Apply prior-only history once messages are loaded (handles autostart race)
   const priorHistoryAppliedRef = useRef(false);

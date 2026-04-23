@@ -54,3 +54,5 @@ agent_configs/prod/
 # Linear
 .linear_config
 scripts/lin
+
+.vercel
