@@ -770,7 +770,7 @@ export function CaseDetails({ id, filter }: CaseDetailsProps) {
             src={selected.image}
             alt=""
             onError={() => setImgError(true)}
-            className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+            className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
             loading="lazy"
           />
         )}
