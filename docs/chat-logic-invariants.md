@@ -19,9 +19,13 @@ These invariants define non-negotiable behavior for the Cieden chat UX. Any chan
 ## Estimate Flow Invariants
 
 - Estimate mode is isolated: onboarding-style assistant questions are filtered out while estimate collection is active.
+- Estimate entry card is mandatory at estimate start (the preliminary estimate card with cancel action must stay visible).
 - During estimate flow, only estimate-entry tool calls (`open_calculator`, `generate_estimate`) are allowed.
 - Non-estimate tool cards must not appear during active estimate Q&A.
 - Estimate chooser boilerplate text is suppressed; real estimate scoping questions remain visible.
+- While estimate session is active, chat content is limited to estimate-related assistant questions and user project answers (no unrelated cards/messages).
+- After estimate final result is shown, CTA text must be `Book Call`, and opening booking form should prefill `Tell us about your project` with the collected project summary from estimate session.
+- Any direct `Book Call` entry (quick prompts, tool cards, suggestions) must launch the estimate questionnaire first, then open booking form with prefilled project summary, without resetting or hiding existing chat history.
 
 ## Tool Card + Follow-up Invariants
 

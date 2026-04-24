@@ -6,12 +6,14 @@ import { CheckCircle2, Clock3, Loader2, MessageCircleMore, ShieldCheck, Sparkles
 
 type BookCallSidePanelProps = {
   onClose: () => void;
+  initialProjectDetails?: string;
 };
 
 type SubmitState = "idle" | "submitting" | "success" | "error";
 
 type BookCallFormBodyProps = {
   layout?: "inline" | "panelFill";
+  initialProjectDetails?: string;
 };
 
 const SOURCE_PRESETS = [
@@ -25,11 +27,14 @@ const SOURCE_PRESETS = [
 
 const MIN_PROJECT_CHARS = 20;
 
-export function BookCallFormBody({ layout = "inline" }: BookCallFormBodyProps) {
+export function BookCallFormBody({
+  layout = "inline",
+  initialProjectDetails = "",
+}: BookCallFormBodyProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [heardFrom, setHeardFrom] = useState("");
-  const [projectDetails, setProjectDetails] = useState("");
+  const [projectDetails, setProjectDetails] = useState(initialProjectDetails);
   const [status, setStatus] = useState<SubmitState>("idle");
   const [errorText, setErrorText] = useState("");
   const trimmedName = name.trim();
@@ -79,7 +84,7 @@ export function BookCallFormBody({ layout = "inline" }: BookCallFormBodyProps) {
     setName("");
     setEmail("");
     setHeardFrom("");
-    setProjectDetails("");
+    setProjectDetails(initialProjectDetails);
     setErrorText("");
     setStatus("idle");
   };
@@ -264,7 +269,7 @@ export function BookCallFormBody({ layout = "inline" }: BookCallFormBodyProps) {
   );
 }
 
-export function BookCallSidePanel({ onClose }: BookCallSidePanelProps) {
+export function BookCallSidePanel({ onClose, initialProjectDetails = "" }: BookCallSidePanelProps) {
   return (
     <motion.div
       initial={{ x: "100%" }}
@@ -287,7 +292,7 @@ export function BookCallSidePanel({ onClose }: BookCallSidePanelProps) {
         </button>
       </div>
 
-      <BookCallFormBody layout="panelFill" />
+      <BookCallFormBody layout="panelFill" initialProjectDetails={initialProjectDetails} />
     </motion.div>
   );
 }

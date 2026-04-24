@@ -97,7 +97,7 @@ export function EstimateFinalResultSidePanel({ result, onClose }: EstimateFinalR
 
       {showContactFull ? (
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden px-3 pb-4 pt-2 scrollbar-chat">
-          <BookCallFormBody layout="panelFill" />
+          <BookCallFormBody layout="panelFill" initialProjectDetails={result.projectSummary ?? ""} />
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 scrollbar-chat">
@@ -166,10 +166,10 @@ export function EstimateFinalResultSidePanel({ result, onClose }: EstimateFinalR
               type="button"
               onClick={() => setShowContactFull(true)}
               className="flex items-center justify-center gap-2 w-full rounded-xl bg-violet-600/30 hover:bg-violet-600/45 backdrop-blur-md border border-violet-400/30 py-3 px-4 text-sm font-medium text-white transition-all cursor-pointer shadow-[0_0_20px_rgba(139,92,246,0.15),inset_0_1px_0_rgba(255,255,255,0.08)] mt-4"
-              aria-label="Contact our manager — full page in panel"
+              aria-label="Book Call — full page in panel"
               aria-disabled={false}
             >
-              Contact our manager
+              Book Call
             </button>
           </div>
         </div>

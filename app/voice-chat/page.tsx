@@ -830,6 +830,30 @@ export default function VoiceChatPage() {
     window.dispatchEvent(new CustomEvent("close-all-right-panels"));
   }
 
+  const startEstimateQuestionnaireForBookCall = useCallback(() => {
+    requestCloseAllRightPanels();
+    openBookCallAfterEstimateRef.current = true;
+    // Keep current thread messages intact; only open estimate questionnaire panel.
+    setBookCallInitialProjectDetails("");
+    const lastVisible = visibleConvexChatMessagesRef.current.at(-1);
+    if (lastVisible?._id) {
+      setEstimateFirstMessageId(String(lastVisible._id));
+    }
+    setEstimateFlowWindowFlag(true);
+    setShowBookCallPanel(false);
+    setShowEstimateAssistantRunner(false);
+    setShowEstimateInline(false);
+    setEstimateFinalResult(null);
+    setEstimatePanelKey((prev) => prev + 1);
+    const nextToken = estimateFlowTokenRef.current + 1;
+    estimateFlowTokenRef.current = nextToken;
+    setEstimateFlowToken(nextToken);
+    setShowEstimatePanel(true);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("estimate-panel-opened"));
+    }
+  }, []);
+
   const hasUserStartedChat = useMemo(
     () =>
       (convexMessages || []).some((m) => {
@@ -849,8 +873,7 @@ export default function VoiceChatPage() {
       if (!trimmed) return;
       jumpToLatestMessages();
       if (isBookCallPrompt(trimmed)) {
-        requestCloseAllRightPanels();
-        setShowBookCallPanel(true);
+        startEstimateQuestionnaireForBookCall();
         return;
       }
 
@@ -950,8 +973,7 @@ export default function VoiceChatPage() {
     async (request: string) => {
       const trimmedRequest = request.trim();
       if (isBookCallPrompt(trimmedRequest)) {
-        requestCloseAllRightPanels();
-        setShowBookCallPanel(true);
+        startEstimateQuestionnaireForBookCall();
         return;
       }
       if (emailRequiredGate && !EMAIL_INLINE_RE.test(trimmedRequest)) {
@@ -969,6 +991,7 @@ export default function VoiceChatPage() {
       sendProgrammaticMessage,
       jumpToLatestMessages,
       promptEmailRequiredInChat,
+      startEstimateQuestionnaireForBookCall,
     ],
   );
 
@@ -1777,6 +1800,8 @@ export default function VoiceChatPage() {
   const [showEstimateAssistantRunner, setShowEstimateAssistantRunner] = useState(false);
   const [estimateFlowToken, setEstimateFlowToken] = useState(0);
   const estimateFlowTokenRef = useRef(estimateFlowToken);
+  const [bookCallInitialProjectDetails, setBookCallInitialProjectDetails] = useState("");
+  const openBookCallAfterEstimateRef = useRef(false);
 
   const closeAllRightPanels = useCallback(() => {
     setActivePanelDomain(null);
@@ -1903,6 +1928,24 @@ export default function VoiceChatPage() {
       const token = typeof detail.token === "number" ? detail.token : null;
       if (token !== estimateFlowTokenRef.current) return;
 
+      if (openBookCallAfterEstimateRef.current) {
+        closeAllRightPanels();
+        markCiedenEstimateSessionCompleted();
+        completeEstimateSession(detail as unknown as Record<string, unknown>);
+        setEstimateFlowWindowFlag(false);
+        setShowEstimatePanel(false);
+        setShowEstimateInline(false);
+        setShowEstimateAssistantRunner(false);
+        setEstimateFinalResult(null);
+        (window as any).__lastEstimateFinalResult = detail;
+        setBookCallInitialProjectDetails(detail.projectSummary ?? "");
+        setShowBookCallPanel(true);
+        openBookCallAfterEstimateRef.current = false;
+        window.dispatchEvent(new CustomEvent("estimate-panel-closed", { detail: { reason: "book-call-handoff" } }));
+        window.dispatchEvent(new CustomEvent("estimate-assistant-progress", { detail: { active: false } }));
+        return;
+      }
+
       closeAllRightPanels();
       markCiedenEstimateSessionCompleted();
       completeEstimateSession(detail as unknown as Record<string, unknown>);
@@ -1928,6 +1971,7 @@ export default function VoiceChatPage() {
       setEstimateFinalResult(null);
       setShowEstimateInline(false);
       setShowEstimateAssistantRunner(false);
+      openBookCallAfterEstimateRef.current = false;
       window.dispatchEvent(new CustomEvent("estimate-panel-closed", { detail: { reason: "cancel" } }));
     };
 
@@ -2127,12 +2171,11 @@ export default function VoiceChatPage() {
 
   useEffect(() => {
     const handleOpenBookCall = () => {
-      closeAllRightPanels();
-      setShowBookCallPanel(true);
+      startEstimateQuestionnaireForBookCall();
     };
     window.addEventListener("open-book-call-panel", handleOpenBookCall);
     return () => window.removeEventListener("open-book-call-panel", handleOpenBookCall);
-  }, [closeAllRightPanels]);
+  }, [startEstimateQuestionnaireForBookCall]);
 
   useEffect(() => {
     const handleOpenPricingModelDetails = (e: Event) => {
@@ -2792,8 +2835,7 @@ export default function VoiceChatPage() {
     book_call: async (params) => {
       console.log('📞 Bridge Handler - book_call called:', params);
       try {
-        closeAllRightPanels();
-        setShowBookCallPanel(true);
+        startEstimateQuestionnaireForBookCall();
         const safeParams =
           params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
         const toolCallMessage = `TOOL_CALL:book_call:${safeJSONStringify(safeParams)}`;
@@ -2824,7 +2866,7 @@ export default function VoiceChatPage() {
         console.error('❌ Failed to queue book_call:', error);
       }
 
-      return 'Opening the booking form on the right.';
+      return 'Starting preliminary estimate questionnaire before opening booking form.';
     },
 
     show_session_summary: async (params) => {
@@ -3461,6 +3503,10 @@ export default function VoiceChatPage() {
     if (!estimateEndMsgId) return -1;
     return visibleConvexChatMessages.findIndex(m => String(m._id) === estimateEndMsgId);
   }, [visibleConvexChatMessages, estimateEndMsgId]);
+  const estimateStartVisibleIdx = useMemo(() => {
+    if (!estimateFirstMessageId) return -1;
+    return visibleConvexChatMessages.findIndex((m) => String(m._id) === String(estimateFirstMessageId));
+  }, [visibleConvexChatMessages, estimateFirstMessageId]);
 
   const emptyLoadedThread = Boolean(
     conversationId &&
@@ -4218,10 +4264,24 @@ export default function VoiceChatPage() {
                     }
                   }
                   const currentToolName = parseToolCall(message.content)?.toolName ?? null;
+                  const isEstimateActiveForCards =
+                    showEstimateAssistantRunner || showEstimatePanel || hasActiveEstimateSession();
+                  const shouldApplyEstimateFilteringToThisMessage =
+                    estimateStartVisibleIdx >= 0 ? index >= estimateStartVisibleIdx : false;
+                  const isNonEstimateToolDuringEstimate =
+                    isToolCall &&
+                    isEstimateActiveForCards &&
+                    shouldApplyEstimateFilteringToThisMessage &&
+                    !isEstimateEntryToolName(currentToolName);
+                  if (isNonEstimateToolDuringEstimate) {
+                    return null;
+                  }
                   const segmentRows =
                     segmentUserIdx >= 0
                       ? visibleConvexChatMessages.slice(segmentUserIdx + 1, nextUserIdx)
                       : [];
+                  const segmentHasAnyToolCard =
+                    segmentRows.some((m) => !!parseToolCall(m.content || ""));
                   const segmentHasAnyAssistantText =
                     segmentRows.some(
                       (m) => m.role === "assistant" && !parseToolCall(m.content || ""),
@@ -4283,8 +4343,29 @@ export default function VoiceChatPage() {
                     currentToolName === segmentExpectedTool &&
                     segmentUserIdx >= 0 &&
                     index > segmentUserIdx &&
-                    index < nextUserIdx;
+                    index < nextUserIdx &&
+                    visibleConvexChatMessages
+                      .slice(segmentUserIdx + 1, index)
+                      .some((m) => {
+                        const prevTool = parseToolCall(m.content || "")?.toolName ?? null;
+                        return prevTool === currentToolName;
+                      });
+                  const shouldSuppressDuplicateEstimateEntryInSegment =
+                    isToolCall &&
+                    isEstimateEntryToolName(currentToolName) &&
+                    segmentUserIdx >= 0 &&
+                    index > segmentUserIdx &&
+                    index < nextUserIdx &&
+                    visibleConvexChatMessages
+                      .slice(segmentUserIdx + 1, index)
+                      .some((m) => {
+                        const prevTool = parseToolCall(m.content || "")?.toolName ?? null;
+                        return isEstimateEntryToolName(prevTool);
+                      });
                   if (shouldSuppressSegmentToolDuplicate) {
+                    return null;
+                  }
+                  if (shouldSuppressDuplicateEstimateEntryInSegment) {
                     return null;
                   }
                   if (isToolCall) {
@@ -4323,7 +4404,7 @@ export default function VoiceChatPage() {
                     .some((m) => m.role === "user");
                   const disableQuickPromptsForFirstGreeting =
                     message.role === "assistant" && !hasAnyUserBefore;
-                  const isEstimateActive = showEstimateAssistantRunner || showEstimatePanel;
+                  const isEstimateActive = isEstimateActiveForCards;
                   const isEstimateMessage = message.role === "assistant" &&
                     ((message.content || "").includes("[ESTIMATE") || (message.metadata as any)?.estimateFlow);
                   // Suppress suggestions for all messages that belong to a completed estimate session
@@ -4373,6 +4454,9 @@ export default function VoiceChatPage() {
                   const shouldRenderSegmentFallbackAfterUser =
                     message.role === "user" &&
                     !!segmentExpectedTool &&
+                    !segmentHasAnyToolCard &&
+                    !isEstimateActiveForCards &&
+                    !isEstimateEntryToolName(segmentExpectedTool) &&
                     !/^\[ESTIMATE\s+(MODE|PANEL)\]/i.test((message.content || "").trim());
                   return (
                     <React.Fragment key={message._id}>
@@ -4666,7 +4750,16 @@ export default function VoiceChatPage() {
                   onClick={() => setShowBookCallPanel(false)}
                   className="fixed inset-0 z-40 bg-black/40 sm:hidden"
                 />
-                <BookCallSidePanel onClose={() => setShowBookCallPanel(false)} />
+                <BookCallSidePanel
+                  onClose={() => setShowBookCallPanel(false)}
+                  initialProjectDetails={
+                    bookCallInitialProjectDetails ||
+                    estimateFinalResult?.projectSummary ||
+                    ((typeof window !== "undefined" &&
+                      (window as any).__lastEstimateFinalResult?.projectSummary) ||
+                      "")
+                  }
+                />
               </>
             )}
           </AnimatePresence>

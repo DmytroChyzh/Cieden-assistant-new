@@ -11,18 +11,25 @@ interface ChatMessageProps {
 }
 
 const DEFAULT_SUGGESTIONS_EN = [
+  "I want a preliminary estimate",
   "Book a call",
   "Tell me more about that",
+  "Show your best case",
   "Let's talk about something else",
 ];
 
 const DEFAULT_SUGGESTIONS_UA = [
+  "Хочу попередню оцінку",
   "Записатися на дзвінок",
   "Розкажи детальніше",
+  "Покажи найкращий кейс",
   "Давай поговоримо про інше",
 ];
 const BOOK_CALL_EN = "Book a call";
 const BOOK_CALL_UA = "Записатися на дзвінок";
+const ESTIMATE_EN = "I want a preliminary estimate";
+const ESTIMATE_UA = "Хочу попередню оцінку";
+const TARGET_SUGGESTIONS_COUNT = 5;
 
 /**
  * One message bubble — Chatbot visual style.
@@ -86,13 +93,15 @@ export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessagePro
     if (isUser || isTypingBubble || explicitSuggestions.length === 0) return explicitSuggestions;
     if (isPreliminaryEstimateMessage || isVoiceModeChooserMessage) return explicitSuggestions;
     const bookCallChip = hasUkrainian ? BOOK_CALL_UA : BOOK_CALL_EN;
-    const hasBookCall = explicitSuggestions.some(
-      (s) => s.trim().toLowerCase() === bookCallChip.toLowerCase(),
-    );
-    if (hasBookCall) return explicitSuggestions;
-    return [...explicitSuggestions, bookCallChip];
+    const estimateChip = hasUkrainian ? ESTIMATE_UA : ESTIMATE_EN;
+    const result = [...explicitSuggestions];
+    const hasBookCall = result.some((s) => s.trim().toLowerCase() === bookCallChip.toLowerCase());
+    const hasEstimate = result.some((s) => s.trim().toLowerCase() === estimateChip.toLowerCase());
+    if (!hasEstimate) result.push(estimateChip);
+    if (!hasBookCall) result.push(bookCallChip);
+    return result;
   })();
-  const suggestions =
+  const baseSuggestions =
     isUser || isTypingBubble
       ? []
       : message.suppressDefaultSuggestions
@@ -100,6 +109,19 @@ export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessagePro
         : ensuredExplicitSuggestions.length === 0
           ? defaultSuggestions
           : ensuredExplicitSuggestions;
+  const suggestions = (() => {
+    if (baseSuggestions.length === 0) return baseSuggestions;
+    if (isPreliminaryEstimateMessage || isVoiceModeChooserMessage) return baseSuggestions;
+    const pool = hasUkrainian ? DEFAULT_SUGGESTIONS_UA : DEFAULT_SUGGESTIONS_EN;
+    const unique = Array.from(new Set(baseSuggestions.map((s) => s.trim()).filter(Boolean)));
+    for (const option of pool) {
+      if (unique.length >= TARGET_SUGGESTIONS_COUNT) break;
+      if (!unique.some((s) => s.toLowerCase() === option.toLowerCase())) {
+        unique.push(option);
+      }
+    }
+    return unique.slice(0, TARGET_SUGGESTIONS_COUNT);
+  })();
 
   return (
     <div className="w-full py-2" style={{ display: "flex", justifyContent: "center" }}>

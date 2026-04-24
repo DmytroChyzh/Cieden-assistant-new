@@ -140,6 +140,7 @@ export type EstimateFinalResult = {
   maxPrice: number;
   weeks?: number;
   timeline?: string;
+  projectSummary?: string;
   // Wizard mode provides a range.
   minHours?: number;
   maxHours?: number;
@@ -435,6 +436,59 @@ export function EstimateWizardPanel({
       missing,
     };
   }, [estimateAnalysisMessages]);
+
+  const projectSummaryForBookCall = useMemo(() => {
+    const lookupLabel = <T extends string>(
+      options: ReadonlyArray<{ id: T; label: string }>,
+      id: T | null,
+      customValue?: string,
+    ) => {
+      if (customValue && customValue.trim().length > 0) return customValue.trim();
+      if (!id) return "";
+      return options.find((o) => o.id === id)?.label ?? String(id);
+    };
+
+    const wizardSummaryParts = [
+      `Platform: ${lookupLabel(PLATFORM_OPTIONS, platform, customByStep["platform"])}`,
+      `Stage: ${lookupLabel(STAGE_OPTIONS, stage, customByStep["stage"])}`,
+      `Goal: ${lookupLabel(GOAL_OPTIONS, goal, customByStep["goal"])}`,
+      `Specs: ${lookupLabel(SPECS_OPTIONS, specs, customByStep["specs"])}`,
+      `Scope: ${lookupLabel(SCOPE_OPTIONS, scope, customByStep["scope"])}`,
+      `Complexity: ${lookupLabel(COMPLEXITY_OPTIONS, complexity, customByStep["complexity"])}`,
+      `Timeline: ${lookupLabel(TIMELINE_OPTIONS, timeline, customByStep["timeline"])}`,
+      extraNotes.trim().length > 0 ? `Extra notes: ${extraNotes.trim()}` : "",
+    ].filter((line) => {
+      const value = line.split(":")[1]?.trim() ?? "";
+      return value.length > 0;
+    });
+
+    const wizardSummary = wizardSummaryParts.join("\n");
+    if (wizardSummary.length > 0) {
+      return wizardSummary.length > 1400 ? `${wizardSummary.slice(0, 1400).trim()}...` : wizardSummary;
+    }
+
+    if (!estimateAnalysisMessages) return "";
+    const userLines = estimateAnalysisMessages
+      .filter((m) => m.role === "user")
+      .map((m) => (m.content ?? "").trim())
+      .filter((content) => content.length > 0 && !isKickoffMessage(content))
+      .slice(-6);
+    if (userLines.length === 0) return "";
+    const text = userLines.join("\n");
+    return text.length > 1400 ? `${text.slice(0, 1400).trim()}...` : text;
+  }, [
+    estimateAnalysisMessages,
+    isKickoffMessage,
+    platform,
+    stage,
+    goal,
+    specs,
+    scope,
+    complexity,
+    timeline,
+    extraNotes,
+    customByStep,
+  ]);
 
   // Smart progress: count how many TOPICS the assistant has covered in questions.
   // Each topic the assistant mentions in a question counts as one "covered" topic.
@@ -968,6 +1022,7 @@ export function EstimateWizardPanel({
         minPrice: result.minPrice,
         maxPrice: result.maxPrice,
         timeline: result.timeline,
+        projectSummary: projectSummaryForBookCall,
         minHours: result.minHours,
         maxHours: result.maxHours,
         weeks: Math.max(1, Math.round(result.minHours / 40)),
@@ -977,7 +1032,10 @@ export function EstimateWizardPanel({
     }
 
     if (mode === "assistant") {
-      const isProgressComplete = estimateProgress.percent === 100 && !!displayedEstimate;
+      // Safe fallback: once all required estimate inputs are collected (8/8),
+      // finalize estimate even if the agent did not emit explicit final marker text yet.
+      const isProgressComplete =
+        estimateProgress.percent === 100 || estimateProgress.checks >= 8;
       const hasAgentFinalResult =
         assistantGaveFinalEstimate ||
         estimateSessionMessages?.some(
@@ -999,6 +1057,7 @@ export function EstimateWizardPanel({
                 minPrice: parsed.minPrice ?? displayedEstimate?.minPrice ?? 5000,
                 maxPrice: parsed.maxPrice ?? displayedEstimate?.maxPrice ?? 15000,
                 weeks: parsed.weeks ?? displayedEstimate?.weeks ?? 6,
+                projectSummary: projectSummaryForBookCall,
                 totalHours: parsed.totalHours ?? displayedEstimate?.totalHours ?? 200,
                 phaseHours: parsed.phaseHours ?? displayedEstimate?.phaseHours ?? {},
               });
@@ -1015,6 +1074,7 @@ export function EstimateWizardPanel({
           minPrice: est.minPrice,
           maxPrice: est.maxPrice,
           weeks: est.weeks,
+          projectSummary: projectSummaryForBookCall,
           totalHours: est.totalHours,
           phaseHours: est.phaseHours,
         });
@@ -1028,6 +1088,7 @@ export function EstimateWizardPanel({
     isResultStep,
     mode,
     onEstimateFinal,
+    projectSummaryForBookCall,
     result,
   ]);
 
