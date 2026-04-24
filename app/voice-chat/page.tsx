@@ -65,6 +65,14 @@ import {
 } from "@/src/utils/ciedenEstimateSession";
 import type { FindSimilarCasesToolPayload } from "@/src/lib/case-studies/types";
 import { VOICE_CHAT_COMPOSER_LAYOUT } from "@/src/components/cieden/EstimateAssistantProgressDock";
+import {
+  isEstimateFlowUiActive,
+  isLikelyDefaultCiedenGreeting,
+  normalizeIntroText,
+} from "@/src/utils/ciedenChatUi";
+import { useWelcomeHubFlow } from "@/src/hooks/useWelcomeHubFlow";
+import { useVisibleConvexMessages } from "@/src/hooks/useVisibleConvexMessages";
+import { useEmailGateFlow } from "@/src/hooks/useEmailGateFlow";
 
 /**
  * Sync before React commits so child estimate kickoff → sendProgrammaticMessage cannot
@@ -173,14 +181,6 @@ const isBookCallPrompt = (value?: string | null): boolean => {
     lower.includes("дзвінок")
   );
 };
-const isEstimateFlowUiActive = (): boolean => {
-  if (typeof window === "undefined") return false;
-  const w = window as unknown as {
-    __ciedenEstimatePanelOpen?: boolean;
-    __ciedenEstimateProgressActive?: boolean;
-  };
-  return w.__ciedenEstimatePanelOpen === true || w.__ciedenEstimateProgressActive === true;
-};
 const isEmailGateAssistantMessage = (value?: string | null): boolean => {
   const lower = (value || "").trim().toLowerCase();
   if (!lower) return false;
@@ -196,24 +196,18 @@ const isEmailGateAssistantMessage = (value?: string | null): boolean => {
     lower.includes("чудово — тепер, будь ласка, напишіть ваш email")
   );
 };
-
-function isLikelyDefaultCiedenGreeting(content: string): boolean {
-  const t = content.trim().toLowerCase();
-  if (t.length > 700) return false;
-  if (!t.includes("cieden")) return false;
-  const hints = [
-    "design assistant",
-    "ai design assistant",
-    "how can i help",
-    "how can i help you today",
-    "welcome to cieden",
-    "i'm the cieden",
-    "i am the cieden",
-    "i can explain who cieden",
-    "how would you like me to address you",
-  ];
-  return hints.some((h) => t.includes(h));
-}
+const isEstimateChooserBoilerplateMessage = (value?: string | null): boolean => {
+  const lower = (value || "").trim().toLowerCase();
+  if (!lower) return false;
+  return (
+    lower.includes("preliminary estimate chooser") ||
+    lower.includes("estimate chooser is now available") ||
+    lower.includes("please select an option there to proceed") ||
+    lower.includes("please select whether you'd like to work with the assistant") ||
+    lower.includes("виберіть опцію в картці естімейту") ||
+    lower.includes("оберіть варіант у попередньому естімейті")
+  );
+};
 
 /** Same copy as static intro(s) (dash/space tolerant) — hide duplicate agent bubble. */
 function matchesHardcodedStaticIntro(content: string): boolean {
@@ -384,22 +378,9 @@ export default function VoiceChatPage() {
   const [introRevealComplete, setIntroRevealComplete] = useState(false);
   const [introSessionKey, setIntroSessionKey] = useState(0);
   const [staticIntroTimestamp, setStaticIntroTimestamp] = useState(() => Date.now());
-  /** null until user picks onboarding mode; drives quick-prompt grid timing. */
-  const [welcomeHubMode, setWelcomeHubMode] = useState<null | "text" | "voice">(null);
-  const [introVisibleChars, setIntroVisibleChars] = useState(0);
-  const [introTypewriterDone, setIntroTypewriterDone] = useState(false);
-  const introTypewriterRunKeyRef = useRef<string | null>(null);
-  const [welcomeVoiceCueBuffer, setWelcomeVoiceCueBuffer] = useState("");
-  const [voiceWelcomeRevealAll, setVoiceWelcomeRevealAll] = useState(false);
-  /** When false, keep welcome intro + topic grid even if voice saved user rows to Convex. */
-  const [welcomeHubDismissed, setWelcomeHubDismissed] = useState(false);
-  const welcomeInitialGateDoneRef = useRef(false);
   useEffect(() => {
     setStaticIntroTimestamp(Date.now());
   }, [introSessionKey]);
-  const onWelcomeVoiceAgentText = useCallback((text: string) => {
-    setWelcomeVoiceCueBuffer(text);
-  }, []);
 
   const markOnboardingDoneCookie = useCallback(() => {
     // Used by middleware gating to avoid auth discovery until onboarding is done.
@@ -515,36 +496,31 @@ export default function VoiceChatPage() {
   const conversationIdRef = useRef<Id<"conversations"> | null>(null);
   // Custom hook for Convex message integration
   const { convexMessages, isLoading: convexMessagesLoading } = useChatMessages({ conversationId });
+  const {
+    welcomeHubMode,
+    setWelcomeHubMode,
+    introVisibleChars,
+    introTypewriterDone,
+    setWelcomeHubDismissed,
+    showIntroQuickPath,
+    welcomeVisiblePromptCount,
+    onWelcomeVoiceAgentText,
+    resetWelcomeHubFlow,
+  } = useWelcomeHubFlow({
+    conversationId,
+    convexMessagesLoading,
+    introSessionKey,
+    introText: VOICE_CHAT_HARDCODED_INTRO,
+    quickPromptTitles: VOICE_CHAT_QUICK_PROMPTS.map((p) => p.title),
+  });
   const convexMessagesRef = useRef(convexMessages);
   useEffect(() => {
     convexMessagesRef.current = convexMessages;
   }, [convexMessages]);
 
-  /** Count user rows like visibleConvexChatMessages (for email gate + quick prompts). */
-  const visibleUserMessageCountForEmailRef = useRef(0);
-  const emailRequiredGateRef = useRef(false);
-
   useEffect(() => {
     conversationIdRef.current = conversationId;
   }, [conversationId]);
-
-  useEffect(() => {
-    pendingEstimateIntentRef.current = null;
-  }, [conversationId]);
-
-  useEffect(() => {
-    if (!conversationId) {
-      setCapturedEmailConversationId(null);
-      return;
-    }
-    if (isValidEmail(selectedConversation?.guestEmail)) {
-      setCapturedEmailConversationId(String(conversationId));
-      return;
-    }
-    setCapturedEmailConversationId((prev) =>
-      prev === String(conversationId) ? prev : null,
-    );
-  }, [conversationId, selectedConversation?.guestEmail]);
 
   /** Same rules as initConversation: prefer last-open thread from localStorage. */
   const resolveExistingConversationId = useCallback(
@@ -798,62 +774,51 @@ export default function VoiceChatPage() {
   const setOnboardingMessages = useCallback((_updater: unknown) => {}, []);
   const [onboardingName, setOnboardingName] = useState("");
   const [onboardingEmail, setOnboardingEmail] = useState("");
-  const [emailCapturePromptVisible, setEmailCapturePromptVisible] = useState(false);
-  const [emailCaptureDismissed, setEmailCaptureDismissed] = useState(false);
-  const [emailCaptureAwaitingInput, setEmailCaptureAwaitingInput] = useState(false);
-  const [emailComposerGateNotice, setEmailComposerGateNotice] = useState<string | null>(null);
   const lastSavedConversationEmailRef = useRef("");
   const hasAskedEmailRef = useRef(false);
   const lastUserLanguageRef = useRef<"en" | "ua">("en");
-  const [emailRequiredGate, setEmailRequiredGate] = useState(false);
-  const estimateEmailPromptCooldownRef = useRef(0);
-  const pendingEstimateIntentRef = useRef<string | null>(null);
-  const [capturedEmailConversationId, setCapturedEmailConversationId] = useState<string | null>(null);
-  const hasCapturedEmailForGate = useMemo(() => {
-    if (isValidEmail(selectedConversation?.guestEmail)) return true;
-    if (conversationId && capturedEmailConversationId && String(conversationId) === capturedEmailConversationId) {
-      return true;
+  const {
+    emailCapturePromptVisible,
+    setEmailCapturePromptVisible,
+    emailCaptureDismissed,
+    setEmailCaptureDismissed,
+    emailCaptureAwaitingInput,
+    setEmailCaptureAwaitingInput,
+    emailComposerGateNotice,
+    emailRequiredGate,
+    emailRequiredGateRef,
+    hasCapturedEmailForGate,
+    setCapturedEmailConversationId,
+    pendingEstimateIntentRef,
+    promptEmailRequiredInChat,
+  } = useEmailGateFlow({
+    conversationId,
+    convexMessages,
+    selectedConversationGuestEmail: selectedConversation?.guestEmail,
+    appendMessageToConvex,
+    minUserMessagesForGate: EMAIL_CAPTURE_MIN_USER_MESSAGES,
+    isEstimateFlowActive: () => isEstimateFlowUiActive() || hasActiveEstimateSession(),
+    resolveLanguage: (contextText?: string) =>
+      contextText ? detectLanguageFromText(contextText) : lastUserLanguageRef.current,
+  });
+
+  useEffect(() => {
+    pendingEstimateIntentRef.current = null;
+  }, [conversationId, pendingEstimateIntentRef]);
+
+  useEffect(() => {
+    if (!conversationId) {
+      setCapturedEmailConversationId(null);
+      return;
     }
-    return false;
-  }, [selectedConversation?.guestEmail, conversationId, capturedEmailConversationId]);
-  const promptEmailRequiredInChat = useCallback((reason: "general" | "estimate" = "general", contextText?: string) => {
-    const now = Date.now();
-    // Avoid repeating the same assistant prompt when multiple gate paths trigger at once.
-    if (now - estimateEmailPromptCooldownRef.current < 2500) return;
-    estimateEmailPromptCooldownRef.current = now;
-    if (reason === "estimate" && contextText?.trim()) {
-      pendingEstimateIntentRef.current = contextText.trim();
+    if (isValidEmail(selectedConversation?.guestEmail)) {
+      setCapturedEmailConversationId(String(conversationId));
+      return;
     }
-    const language = contextText ? detectLanguageFromText(contextText) : lastUserLanguageRef.current;
-    const promptText =
-      language === "ua"
-        ? (reason === "estimate"
-            ? "Щоб продовжити естімейт, вкажіть ваш email у чаті. Одразу після цього я продовжу розрахунок."
-            : "Щоб далі продовжувати спілкування з асистентом, введіть свій email письмово в чаті для подальшого покращення комунікації.")
-        : (reason === "estimate"
-            ? "To continue with the estimate, please type your email in chat. Right after that I will continue the calculation."
-            : "To continue chatting with the assistant, please type your email in chat (written text) for better ongoing communication.");
-    // Keep UX chat-native: show this as an assistant bubble, not a composer notice.
-    setEmailComposerGateNotice(null);
-    setEmailCaptureAwaitingInput(true);
-    setEmailCapturePromptVisible(false);
-    setEmailCaptureDismissed(false);
-    void (async () => {
-      const attempts = [0, 350, 900];
-      for (const delay of attempts) {
-        if (delay > 0) {
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
-        const ok = await appendMessageToConvex({
-          role: "assistant",
-          source: "text",
-          content: promptText,
-        });
-        if (ok) return;
-      }
-      console.error("⚠️ Failed to persist estimate email gate prompt after retries");
-    })();
-  }, [appendMessageToConvex]);
+    setCapturedEmailConversationId((prev) =>
+      prev === String(conversationId) ? prev : null,
+    );
+  }, [conversationId, selectedConversation?.guestEmail, setCapturedEmailConversationId]);
 
   const sendQuickPrompt = useCallback(
     (value: string) => {
@@ -947,34 +912,6 @@ export default function VoiceChatPage() {
       promptEmailRequiredInChat,
     ],
   );
-
-  useEffect(() => {
-    const raw = convexMessages || [];
-    let n = 0;
-    for (const m of raw) {
-      if (m.role !== "user") continue;
-      const c = (m.content || "").trim();
-      if (c.startsWith("I selected:")) continue;
-      if (/^\[ESTIMATE\s+(MODE|PANEL)\]/i.test(c)) continue;
-      const mode = (parseToolCall(m.content || "")?.mode) || "default";
-      if (mode === "update") continue;
-      n++;
-    }
-    visibleUserMessageCountForEmailRef.current = n;
-    const estimateFlowActive = isEstimateFlowUiActive() || hasActiveEstimateSession();
-    const gate = Boolean(
-      conversationId &&
-        !hasCapturedEmailForGate &&
-        n >= EMAIL_CAPTURE_MIN_USER_MESSAGES &&
-        !estimateFlowActive,
-    );
-    emailRequiredGateRef.current = gate;
-    setEmailRequiredGate(gate);
-  }, [convexMessages, conversationId, hasCapturedEmailForGate]);
-
-  useEffect(() => {
-    if (!emailRequiredGate) setEmailComposerGateNotice(null);
-  }, [emailRequiredGate]);
 
   const handleComposerQuickSelect = useCallback(
     async (request: string) => {
@@ -3349,12 +3286,7 @@ export default function VoiceChatPage() {
       setShowIntroHubPinned(false);
       setShowIntroAddressPinned(false);
       setPinnedFirstAssistantMessage(null);
-      setWelcomeHubMode(null);
-      setWelcomeHubDismissed(false);
-      setWelcomeVoiceCueBuffer("");
-      setVoiceWelcomeRevealAll(false);
-      setIntroTypewriterDone(false);
-      setIntroVisibleChars(0);
+      resetWelcomeHubFlow();
       setShowVoicePickerCard(false);
       setPickerConfirmedVoice(null);
       setEmailCapturePromptVisible(false);
@@ -3372,77 +3304,19 @@ export default function VoiceChatPage() {
     } finally {
       creatingConversationRef.current = false;
     }
-  }, [canUseChat, createConversation, onboardingEmail, onboardingName]);
+  }, [canUseChat, createConversation, onboardingEmail, onboardingName, resetWelcomeHubFlow]);
   
   // Extract mode from message content via shared util
   const getMessageMode = useCallback((content: string): 'default' | 'update' | 'overlay' => {
     return (parseToolCall(content)?.mode) || 'default';
   }, []);
 
-  const visibleConvexChatMessages = useMemo(() => {
-    const raw = convexMessages || [];
-    const firstUserIdx = raw.findIndex((m) => m.role === "user");
-    const nextUserAfterFirst =
-      firstUserIdx === -1 ? -1 : raw.findIndex((m, i) => i > firstUserIdx && m.role === "user");
-    const segmentAfterFirstUserEnd = nextUserAfterFirst === -1 ? raw.length : nextUserAfterFirst;
-    const firstAssistantAfterFirstUserIdx =
-      firstUserIdx === -1
-        ? -1
-        : raw.findIndex(
-            (m, i) =>
-              i > firstUserIdx &&
-              i < segmentAfterFirstUserEnd &&
-              m.role === "assistant",
-          );
-    const filtered = raw.filter((message, idx) => {
-      if (message.role === "system" && message.source === "contextual") return false;
-      if (message.role === "user" && message.content.startsWith("I selected:")) return false;
-      if (/onboarding complete\./i.test((message.content || "").trim())) return false;
-      if (message.role === "assistant" && (message.content || "").trim() === ESTIMATE_TOOL_ONLY_MARKER) {
-        return false;
-      }
-      const mode = getMessageMode(message.content);
-      if (mode === "update") return false;
-      const c = message.content || "";
-      if (message.role === "user" && /^\[ESTIMATE\s+(MODE|PANEL)\]/i.test(c.trim())) return false;
-      if (
-        message.role === "assistant" &&
-        firstAssistantAfterFirstUserIdx === idx &&
-        isFirstTurnIntroEcho(c)
-      ) {
-        return false;
-      }
-      return true;
-    });
-    const toolDeduped = filtered.filter((message, index, arr) => {
-      const isTool = !!parseToolCall(message.content);
-      if (!isTool) {
-        if (message.role === "assistant") {
-          const normalize = (value: string) =>
-            (value || "")
-              .toLowerCase()
-              .replace(/\s+/g, " ")
-              .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")
-              .replace(/[.,!?;:]+$/g, "")
-              .trim();
-          const currentNorm = normalize(message.content || "");
-          for (let i = index - 1; i >= 0; i--) {
-            const prev = arr[i];
-            if (prev.role !== "assistant") continue;
-            if (parseToolCall(prev.content)) continue;
-            if (normalize(prev.content || "") === currentNorm) return false;
-            break;
-          }
-        }
-        return true;
-      }
-      const prev = index > 0 ? arr[index - 1] : null;
-      const prevIsTool = !!(prev && parseToolCall(prev.content));
-      if (prevIsTool && prev?.content === message.content) return false;
-      return true;
-    });
-    return toolDeduped;
-  }, [convexMessages, getMessageMode]);
+  const visibleConvexChatMessages = useVisibleConvexMessages({
+    convexMessages,
+    getMessageMode,
+    isFirstTurnIntroEcho,
+    estimateToolOnlyMarker: ESTIMATE_TOOL_ONLY_MARKER,
+  });
 
   const visibleConvexChatMessagesRef = useRef(visibleConvexChatMessages);
   useEffect(() => { visibleConvexChatMessagesRef.current = visibleConvexChatMessages; }, [visibleConvexChatMessages]);
@@ -3536,80 +3410,15 @@ export default function VoiceChatPage() {
   }, [convexMessages, getMessageMode]);
   const hasVisibleUserMessages = preUserPhaseMessages.some((m) => m.role === "user");
 
-  useEffect(() => {
-    welcomeInitialGateDoneRef.current = false;
-  }, [conversationId]);
-
-  useEffect(() => {
-    if (!conversationId || convexMessagesLoading) return;
-    if (welcomeInitialGateDoneRef.current) return;
-    welcomeInitialGateDoneRef.current = true;
-    setWelcomeHubDismissed(false);
-  }, [conversationId, convexMessagesLoading]);
-
   /**
    * Core chat UX contract:
    * keep first-message hub (robot + intro + big suggestions) visible in the same thread
    * even after user selects mode and continues chatting.
    */
-  const showIntroQuickPath = Boolean(
-    conversationId && !convexMessagesLoading && !welcomeHubDismissed,
-  );
   /** Same 6 buttons as onboarding, but kept at the bottom of the thread after the first user message. */
   const showFollowUpQuickPromptGrid = Boolean(
     conversationId && !convexMessagesLoading && hasVisibleUserMessages,
   );
-
-  const voiceWelcomeVisiblePromptCount = useMemo(() => {
-    if (welcomeHubMode !== "voice") return 0;
-    const lower = welcomeVoiceCueBuffer.toLowerCase();
-    let c = 0;
-    for (const p of VOICE_CHAT_QUICK_PROMPTS) {
-      if (!lower.includes(p.title.toLowerCase())) break;
-      c++;
-    }
-    return c;
-  }, [welcomeHubMode, welcomeVoiceCueBuffer]);
-
-  const welcomeVisiblePromptCount =
-    welcomeHubMode === "text"
-      ? 6
-      : welcomeHubMode === "voice"
-        ? Math.min(6, Math.max(voiceWelcomeVisiblePromptCount, voiceWelcomeRevealAll ? 6 : 0))
-        : 0;
-
-  useEffect(() => {
-    if (!showIntroQuickPath) {
-      introTypewriterRunKeyRef.current = null;
-      return;
-    }
-    const runKey = String(introSessionKey);
-    if (introTypewriterRunKeyRef.current === runKey) return;
-    introTypewriterRunKeyRef.current = runKey;
-    setWelcomeHubMode(null);
-    setWelcomeVoiceCueBuffer("");
-    setVoiceWelcomeRevealAll(false);
-    setIntroTypewriterDone(false);
-    setIntroVisibleChars(0);
-    // Keep this reveal deterministic and single-shot to avoid render loops.
-    const t0 = window.setTimeout(() => {
-      setIntroVisibleChars(VOICE_CHAT_HARDCODED_INTRO.length);
-      setIntroTypewriterDone(true);
-    }, 240);
-    return () => {
-      window.clearTimeout(t0);
-    };
-  }, [showIntroQuickPath, introSessionKey]);
-
-  useEffect(() => {
-    if (welcomeHubMode !== "voice" || !showIntroQuickPath) {
-      setVoiceWelcomeRevealAll(false);
-      return;
-    }
-    setVoiceWelcomeRevealAll(false);
-    const t = window.setTimeout(() => setVoiceWelcomeRevealAll(true), 14000);
-    return () => window.clearTimeout(t);
-  }, [welcomeHubMode, showIntroQuickPath, introSessionKey]);
 
   const hasVisibleAssistantMessages = preUserPhaseMessages.some((m) => m.role === "assistant");
   /**
@@ -4238,12 +4047,6 @@ export default function VoiceChatPage() {
 
 
                 {visibleConvexChatMessages.map((message, index) => {
-                  const normalizeIntroText = (value: string) =>
-                    value
-                      .toLowerCase()
-                      .replace(/\s+/g, " ")
-                      .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")
-                      .trim();
                   // Only suppress “static intro / legacy onboarding” duplicates *before* any user row.
                   // After the user sends text (e.g. "Привіт"), real replies often repeat phrases like
                   // "before we begin… address you" in English — those must still render.
@@ -4409,8 +4212,19 @@ export default function VoiceChatPage() {
                       visibleConvexChatMessages
                         .slice(segmentUserIdx + 1, nextUserIdx)
                         .some((m) => isEstimateEntryToolName(parseToolCall(m.content)?.toolName)));
+                  const shouldSuppressAssistantTextForEstimateChooser =
+                    message.role === "assistant" &&
+                    !isToolCall &&
+                    segmentUserIdx >= 0 &&
+                    index > segmentUserIdx &&
+                    segmentHasEstimateEntryCard &&
+                    isEstimateChooserBoilerplateMessage(message.content || "") &&
+                    !isCiedenEstimateSessionCompleted();
                   const isEmailGateMessage =
                     message.role === "assistant" && isEmailGateAssistantMessage(message.content);
+                  if (shouldSuppressAssistantTextForEstimateChooser && !isEmailGateMessage) {
+                    return null;
+                  }
                   const suppressSuggestions =
                     disableQuickPromptsForFirstGreeting ||
                     isEstimateActive ||

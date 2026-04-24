@@ -582,7 +582,7 @@ function SidePanelCaseCard({ item, onSelect }: { item: CaseSummary; onSelect: ()
               src={item.image}
               alt=""
               onError={() => setImgError(true)}
-              className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+              className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
               loading="lazy"
             />
           )}
@@ -641,7 +641,9 @@ function SidePanelCaseCard({ item, onSelect }: { item: CaseSummary; onSelect: ()
           </span>
         </div>
 
-        <div className={`relative h-[500px] w-[500px] shrink-0 rounded-xl overflow-hidden border border-white/10 ${CASE_CARD_BG}`}>
+        <div
+          className={`relative h-[280px] w-[280px] xl:h-[360px] xl:w-[360px] [@media(min-width:1920px)]:h-[500px] [@media(min-width:1920px)]:w-[500px] shrink-0 rounded-xl overflow-hidden border border-white/10 ${CASE_CARD_BG}`}
+        >
           {item.image && !imgError ? (
             <img
               src={item.image}

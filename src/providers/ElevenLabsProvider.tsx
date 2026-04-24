@@ -105,7 +105,7 @@ const ElevenLabsContext = createContext<ElevenLabsContextValue | null>(null);
 const TEXT_CONNECT_TIMEOUT_MS = 8000;
 const TEXT_DISCONNECT_TIMEOUT_MS = 5000;
 const VOICE_CONNECT_TIMEOUT_MS = 10000;
-const TEXT_IDLE_CLOSE_MS = 5 * 60 * 1000;
+const TEXT_IDLE_CLOSE_MS = 60 * 60 * 1000;
 const TEXT_WS_AUTOSTART = process.env.NEXT_PUBLIC_TEXT_WS_AUTOSTART !== 'false';
 /** Max wait for site KB before sending the user line to ConvAI (avoids multi-second stalls; skips KB for that turn if slower). */
 const KB_INJECT_BEFORE_SEND_BUDGET_MS = 1200;

@@ -21,6 +21,8 @@ const DEFAULT_SUGGESTIONS_UA = [
   "Розкажи детальніше",
   "Давай поговоримо про інше",
 ];
+const BOOK_CALL_EN = "Book a call";
+const BOOK_CALL_UA = "Записатися на дзвінок";
 
 /**
  * One message bubble — Chatbot visual style.
@@ -74,14 +76,30 @@ export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessagePro
       : fallbackAnswers) || [];
   const hasUkrainian = /[іїєґІЇЄҐ]/.test(cleanContent);
   const defaultSuggestions = hasUkrainian ? DEFAULT_SUGGESTIONS_UA : DEFAULT_SUGGESTIONS_EN;
+  const isPreliminaryEstimateMessage =
+    /preliminary\s+estimate|попередн\w*\s+оцінк/i.test(cleanContent);
+  const isVoiceModeChooserMessage = explicitSuggestions.some((s) => {
+    const n = s.trim().toLowerCase();
+    return n === "continue by voice" || n === "continue by text";
+  });
+  const ensuredExplicitSuggestions = (() => {
+    if (isUser || isTypingBubble || explicitSuggestions.length === 0) return explicitSuggestions;
+    if (isPreliminaryEstimateMessage || isVoiceModeChooserMessage) return explicitSuggestions;
+    const bookCallChip = hasUkrainian ? BOOK_CALL_UA : BOOK_CALL_EN;
+    const hasBookCall = explicitSuggestions.some(
+      (s) => s.trim().toLowerCase() === bookCallChip.toLowerCase(),
+    );
+    if (hasBookCall) return explicitSuggestions;
+    return [...explicitSuggestions, bookCallChip];
+  })();
   const suggestions =
     isUser || isTypingBubble
       ? []
       : message.suppressDefaultSuggestions
-        ? explicitSuggestions
-        : explicitSuggestions.length === 0
+        ? ensuredExplicitSuggestions
+        : ensuredExplicitSuggestions.length === 0
           ? defaultSuggestions
-          : explicitSuggestions;
+          : ensuredExplicitSuggestions;
 
   return (
     <div className="w-full py-2" style={{ display: "flex", justifyContent: "center" }}>

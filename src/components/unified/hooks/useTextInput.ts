@@ -13,6 +13,12 @@ import { extractContextFromMessages } from '@/src/utils/agentContext';
 import { parseToolCall } from '@/src/utils/parseToolCall';
 import { getGuestIdentityFromCookie } from '@/src/utils/guestIdentity';
 import { resetCiedenEstimateSessionCompleted } from '@/src/utils/ciedenEstimateSession';
+import {
+  isEstimateFlowUiActive,
+  isEstimateRelevantAssistantQuestion,
+  isLikelyDefaultCiedenGreeting,
+  normalizeAssistantMessage,
+} from '@/src/utils/ciedenChatUi';
 
 interface UseTextInputProps {
   conversationId?: Id<"conversations"> | null;
@@ -36,23 +42,29 @@ const ESTIMATE_CHOOSER_NOISE_RE =
   /(opened .*estimate chooser|preliminary estimate chooser|please select (an )?option|to proceed|provide a range|connect with a manager)/i;
 const ESTIMATE_FINAL_RE =
   /ESTIMATE_PANEL_RESULT:\s*\{|(preliminary|попередн|оцінк|estimate|вартіст|cost|budget).*(\d|\$|usd|грн)/i;
-
-function isEstimateSessionUiActive(): boolean {
-  if (typeof window === "undefined") return false;
-  const w = window as unknown as {
-    __ciedenEstimatePanelOpen?: boolean;
-    __ciedenEstimateProgressActive?: boolean;
-  };
-  return w.__ciedenEstimatePanelOpen === true || w.__ciedenEstimateProgressActive === true;
-}
+const ESTIMATE_ACK_PROGRESS_RE =
+  /(got it|thanks|thank you|great|perfect|understood|makes sense|let'?s continue|moving on|next|дякую|зрозуміло|чудово|рухаємось далі|йдемо далі)/i;
+const ESTIMATE_ONBOARDING_NOISE_RE =
+  /(how should i address you|what would you like to explore|before we begin|continue by voice|continue by text|your guide to our ui\/ux|cieden ai assistant)/i;
 
 function shouldKeepAssistantMessageInEstimateMode(text: string): boolean {
   const t = (text || "").trim();
   if (!t) return false;
   if (ESTIMATE_CHOOSER_NOISE_RE.test(t)) return false;
+  if (ESTIMATE_ONBOARDING_NOISE_RE.test(t)) return false;
+  if (isLikelyDefaultCiedenGreeting(t)) return false;
   if (ESTIMATE_FINAL_RE.test(t)) return true;
-  // During active estimate session prefer one-question-at-a-time flow.
-  return t.includes("?");
+  // During active estimate session keep project-scoping questions and
+  // short transition/ack messages to avoid "typing" getting stuck.
+  if (isEstimateRelevantAssistantQuestion(t)) return true;
+  return ESTIMATE_ACK_PROGRESS_RE.test(t);
+}
+
+function isAllowedToolCallInEstimateMode(text: string): boolean {
+  const toolName = parseToolCall(text)?.toolName;
+  if (!toolName) return true;
+  // Keep estimate lane focused: only estimate entry tools are allowed while active.
+  return toolName === "open_calculator" || toolName === "generate_estimate";
 }
 
 export function useTextInput({
@@ -429,7 +441,11 @@ export function useTextInput({
   useEffect(() => {
     const unsubscribe = registerTextHandler(async (event: NormalizedMessageEvent) => {
       if (event.source !== 'ai' || event.via !== 'websocket') return;
-      if (isEstimateSessionUiActive() && !shouldKeepAssistantMessageInEstimateMode(event.message)) {
+      if (
+        isEstimateFlowUiActive() &&
+        (!shouldKeepAssistantMessageInEstimateMode(event.message) ||
+          !isAllowedToolCallInEstimateMode(event.message))
+      ) {
         // Keep estimate thread focused: ignore generic/non-question chatter while runner is active.
         return;
       }
@@ -444,14 +460,7 @@ export function useTextInput({
       }
 
       try {
-        const normalizeAssistantText = (value: string) =>
-          (value || "")
-            .toLowerCase()
-            .replace(/\s+/g, " ")
-            .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")
-            .replace(/[.,!?;:]+$/g, "")
-            .trim();
-        const dedupKey = normalizeAssistantText(event.message);
+        const dedupKey = normalizeAssistantMessage(event.message);
         const now = Date.now();
         const prev = recentAiPersistRef.current;
         if (dedupKey && prev && prev.key === dedupKey && now - prev.at < 2500) {
