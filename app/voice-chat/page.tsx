@@ -831,28 +831,61 @@ export default function VoiceChatPage() {
   }
 
   const startEstimateQuestionnaireForBookCall = useCallback(() => {
-    requestCloseAllRightPanels();
-    openBookCallAfterEstimateRef.current = true;
-    // Keep current thread messages intact; only open estimate questionnaire panel.
-    setBookCallInitialProjectDetails("");
-    const lastVisible = visibleConvexChatMessagesRef.current.at(-1);
-    if (lastVisible?._id) {
-      setEstimateFirstMessageId(String(lastVisible._id));
+    const openEstimateNow = () => {
+      requestCloseAllRightPanels();
+      openBookCallAfterEstimateRef.current = true;
+      // Keep current thread messages intact; only open estimate questionnaire panel.
+      setBookCallInitialProjectDetails("");
+      const lastVisible = visibleConvexChatMessagesRef.current.at(-1);
+      if (lastVisible?._id) {
+        setEstimateFirstMessageId(String(lastVisible._id));
+      }
+      setEstimateFlowWindowFlag(true);
+      setShowBookCallPanel(false);
+      setShowEstimateAssistantRunner(false);
+      setShowEstimateInline(false);
+      setEstimateFinalResult(null);
+      setEstimatePanelKey((prev) => prev + 1);
+      const nextToken = estimateFlowTokenRef.current + 1;
+      estimateFlowTokenRef.current = nextToken;
+      setEstimateFlowToken(nextToken);
+      setShowEstimatePanel(true);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("estimate-panel-opened"));
+      }
+    };
+
+    const lastUserText =
+      [...visibleConvexChatMessagesRef.current]
+        .reverse()
+        .find((m) => m.role === "user" && (m.content || "").trim().length > 0)
+        ?.content || "";
+    const lang = detectLanguageFromText(lastUserText);
+    const bridgeText =
+      lang === "ua"
+        ? "Давай спочатку швидко оцінимо ваш проект, а потім перейдемо до бронювання дзвінка."
+        : "Let's quickly estimate your project first, then we will continue with booking your call.";
+
+    if (conversationId) {
+      void appendMessageToConvex({
+        role: "assistant",
+        source: "text",
+        content: bridgeText,
+      });
+    } else {
+      setOnboardingMessages((prev) => [
+        ...prev,
+        {
+          id: `onb-book-call-estimate-bridge-${Date.now()}`,
+          role: "assistant",
+          content: bridgeText,
+          timestamp: Date.now(),
+        },
+      ]);
     }
-    setEstimateFlowWindowFlag(true);
-    setShowBookCallPanel(false);
-    setShowEstimateAssistantRunner(false);
-    setShowEstimateInline(false);
-    setEstimateFinalResult(null);
-    setEstimatePanelKey((prev) => prev + 1);
-    const nextToken = estimateFlowTokenRef.current + 1;
-    estimateFlowTokenRef.current = nextToken;
-    setEstimateFlowToken(nextToken);
-    setShowEstimatePanel(true);
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("estimate-panel-opened"));
-    }
-  }, []);
+
+    window.setTimeout(openEstimateNow, 280);
+  }, [appendMessageToConvex, conversationId]);
 
   const hasUserStartedChat = useMemo(
     () =>
