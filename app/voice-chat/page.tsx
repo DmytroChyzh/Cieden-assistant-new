@@ -409,11 +409,11 @@ export default function VoiceChatPage() {
   const [previewPlayingVoice, setPreviewPlayingVoice] = useState<string | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewCacheRef = useRef<Record<string, string>>({});
-  // Keep default "Jessica" preview distinct from custom "Jess".
-  const DEFAULT_VOICE_PREVIEW_ID = "21m00Tcm4TlvDq8ikWAM";
+  // Match preview to the real default agent voice (male).
+  const DEFAULT_VOICE_PREVIEW_ID = "cjVigY5qzO86Huf0OWal";
 
   const VOICE_OPTIONS = [
-    { id: '', name: 'Jessica', label: 'Default' },
+    { id: '', name: 'Male', label: 'Default' },
     { id: 'zubqz6JC54rePKNCKZLG', name: 'Jess', label: 'Custom' },
     { id: 'ys3XeJJA4ArWMhRpcX1D', name: 'Sue', label: 'Custom' },
     { id: 'bu5eKETbFKC8G702EAU4', name: 'Liam', label: 'Custom' },
@@ -4218,16 +4218,23 @@ export default function VoiceChatPage() {
                     }
                   }
                   const currentToolName = parseToolCall(message.content)?.toolName ?? null;
-                  const hasAssistantTextAfterCurrentToolInSegment =
+                  const segmentRows =
+                    segmentUserIdx >= 0
+                      ? visibleConvexChatMessages.slice(segmentUserIdx + 1, nextUserIdx)
+                      : [];
+                  const segmentHasAnyAssistantText =
+                    segmentRows.some(
+                      (m) => m.role === "assistant" && !parseToolCall(m.content || ""),
+                    );
+                  const isLastToolInSegment =
                     isToolCall &&
-                    visibleConvexChatMessages
+                    !visibleConvexChatMessages
                       .slice(index + 1, nextUserIdx)
-                      .some(
-                        (m) => m.role === "assistant" && !parseToolCall(m.content || ""),
-                      );
+                      .some((m) => !!parseToolCall(m.content || ""));
                   const shouldRenderToolCompanionText =
                     isToolCall &&
-                    !hasAssistantTextAfterCurrentToolInSegment &&
+                    !segmentHasAnyAssistantText &&
+                    isLastToolInSegment &&
                     !isEstimateEntryToolName(currentToolName);
                   const toolCompanionText = (() => {
                     if (!shouldRenderToolCompanionText) return "";
