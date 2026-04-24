@@ -2055,10 +2055,21 @@ export default function VoiceChatPage() {
     const lastContent = (last as any)?.content;
     const isLastToolCall = !!(typeof lastContent === "string" && parseToolCall(lastContent));
 
-    // If the latest visible message is a TOOL_CALL card, we should not show
-    // a typing indicator after it (tool cards can appear before the assistant
-    // "final" reply text is persisted).
+    // If the latest visible message is a TOOL_CALL card, we usually hide typing.
+    // Exception: during active estimate flow, a non-estimate tool can be dropped
+    // by UI guards before the next valid estimate question appears. In that case
+    // keep typing/progress visible instead of flashing a temporary recovery text.
     if (isLastToolCall) {
+      const lastToolName = parseToolCall(lastContent)?.toolName ?? null;
+      const estimateActive =
+        showEstimatePanel || showEstimateAssistantRunner || showEstimateInline || hasActiveEstimateSession();
+      const isBlockedNonEstimateTool =
+        estimateActive && !!lastToolName && !isEstimateEntryToolName(lastToolName);
+      if (isBlockedNonEstimateTool) {
+        setEstimateTyping({ active: true, label: "Generating estimate…" });
+        setPendingAssistantBubble(true);
+        return;
+      }
       lastUserTypingMessageIdRef.current = null;
       if (typingHoldTimeoutRef.current) clearTimeout(typingHoldTimeoutRef.current);
       typingHoldTimeoutRef.current = null;
@@ -2092,7 +2103,7 @@ export default function VoiceChatPage() {
       setEstimateTyping((prev) => (prev.active ? { active: false, label: "" } : prev));
       setPendingAssistantBubble(false);
     }
-  }, [convexMessages, onboardingStep]);
+  }, [convexMessages, onboardingStep, showEstimatePanel, showEstimateAssistantRunner, showEstimateInline]);
 
   // Fallback typing indicator: if panel is open and last visible message is from user,
   // show "thinking" bubble above input even if events are missed.
@@ -3065,7 +3076,7 @@ export default function VoiceChatPage() {
           },
         });
         setPendingAssistantBubble(false);
-        setEstimateTyping(null);
+        setEstimateTyping({ active: false, label: "" });
       }
       return;
     }
@@ -3085,7 +3096,7 @@ export default function VoiceChatPage() {
         },
       });
       setPendingAssistantBubble(false);
-      setEstimateTyping(null);
+      setEstimateTyping({ active: false, label: "" });
       return;
     }
     if (source === "text" && trimmedUserText) {
@@ -3375,6 +3386,27 @@ export default function VoiceChatPage() {
     if (creatingConversationRef.current) return;
     creatingConversationRef.current = true;
     try {
+      // Hard reset transient estimate state before switching thread.
+      cancelEstimateSession();
+      resetCiedenEstimateSessionCompleted();
+      openBookCallAfterEstimateRef.current = false;
+      setEstimateFlowWindowFlag(false);
+      setShowEstimatePanel(false);
+      setShowEstimateInline(false);
+      setShowEstimateAssistantRunner(false);
+      setEstimateFinalResult(null);
+      setEstimateFirstMessageId(null);
+      setEstimateEndMsgId(null);
+      setBookCallInitialProjectDetails("");
+      setShowBookCallPanel(false);
+      setEstimateTyping({ active: false, label: "" });
+      setEstimateDockActive(false);
+      if (typeof window !== "undefined") {
+        (window as unknown as { __ciedenEstimateProgressActive?: boolean }).__ciedenEstimateProgressActive = false;
+        window.dispatchEvent(new CustomEvent("estimate-assistant-progress", { detail: { active: false } }));
+        window.dispatchEvent(new CustomEvent("estimate-panel-closed", { detail: { reason: "new-chat" } }));
+      }
+
       let id: Id<"conversations">;
       if (canUseChat) {
         id = await createConversation({ title: "Voice Chat" });
@@ -4273,9 +4305,6 @@ export default function VoiceChatPage() {
                     isEstimateActiveForCards &&
                     shouldApplyEstimateFilteringToThisMessage &&
                     !isEstimateEntryToolName(currentToolName);
-                  if (isNonEstimateToolDuringEstimate) {
-                    return null;
-                  }
                   const segmentRows =
                     segmentUserIdx >= 0
                       ? visibleConvexChatMessages.slice(segmentUserIdx + 1, nextUserIdx)
@@ -4291,6 +4320,9 @@ export default function VoiceChatPage() {
                     !visibleConvexChatMessages
                       .slice(index + 1, nextUserIdx)
                       .some((m) => !!parseToolCall(m.content || ""));
+                  if (isNonEstimateToolDuringEstimate) {
+                    return null;
+                  }
                   const shouldRenderToolCompanionText =
                     isToolCall &&
                     !segmentHasAnyAssistantText &&

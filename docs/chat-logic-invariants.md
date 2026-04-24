@@ -26,6 +26,7 @@ These invariants define non-negotiable behavior for the Cieden chat UX. Any chan
 - While estimate session is active, chat content is limited to estimate-related assistant questions and user project answers (no unrelated cards/messages).
 - After estimate final result is shown, CTA text must be `Book Call`, and opening booking form should prefill `Tell us about your project` with the collected project summary from estimate session.
 - Any direct `Book Call` entry (quick prompts, tool cards, suggestions) must launch the estimate questionnaire first, then open booking form with prefilled project summary, without resetting or hiding existing chat history.
+- Clicking `New Chat` must fully reset transient UI/session state from previous thread (estimate panel, estimate dock/progress strip, booking prefill handoff, typing state), so the new thread starts clean with no leftover cards or progress bars.
 
 ## Tool Card + Follow-up Invariants
 
