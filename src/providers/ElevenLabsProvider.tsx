@@ -27,6 +27,7 @@ import {
 } from '@/src/utils/crossTabSession';
 import { useElevenLabsMessages } from '@/src/hooks/useElevenLabsMessages';
 import { type Id } from '@/convex/_generated/dataModel';
+import { normalizeIncomingEvent as normalizeIncomingEventUtil } from '@/src/providers/normalizeIncomingEvent';
 
 export type SessionMode = 'idle' | 'text' | 'voice';
 export type TransportKind = 'websocket' | 'webrtc';
@@ -264,65 +265,12 @@ function summarizeElevenLabsEventForDiag(event: unknown): Record<string, unknown
   return out;
 }
 
-const normalizeIncomingEvent = (event: unknown): { source: 'ai' | 'user'; message: string } | null => {
-  try {
-    const recordEvent = (typeof event === 'object' && event !== null)
-      ? (event as Record<string, unknown>)
-      : undefined;
-
-    const type = typeof recordEvent?.type === 'string' ? (recordEvent?.type as string) : undefined;
-
-    if (type === 'agent_response') {
-      const agentResponse =
-        typeof recordEvent?.agent_response === 'string' ? recordEvent.agent_response : null;
-      const message =
-        typeof recordEvent?.message === 'string' ? recordEvent.message : null;
-      const text = typeof recordEvent?.text === 'string' ? recordEvent.text : null;
-      const nestedResponse = typeof recordEvent?.agent_response_event === 'object' && recordEvent.agent_response_event !== null
-        ? (recordEvent.agent_response_event as Record<string, unknown>).agent_response
-        : null;
-      const resolved = agentResponse ?? message ?? text ?? (typeof nestedResponse === 'string' ? nestedResponse : null);
-      if (resolved) {
-        return { source: 'ai', message: resolved };
-      }
-    }
-
-    if (recordEvent?.agent_response_event && typeof recordEvent.agent_response_event === 'object') {
-      const nested = (recordEvent.agent_response_event as Record<string, unknown>).agent_response;
-      if (typeof nested === 'string') {
-        return { source: 'ai', message: nested };
-      }
-    }
-
-    if (type === 'user_transcript') {
-      const userTranscript =
-        typeof recordEvent?.user_transcript === 'string' ? recordEvent.user_transcript : null;
-      const nestedTranscript = typeof recordEvent?.user_transcription_event === 'object' && recordEvent.user_transcription_event !== null
-        ? (recordEvent.user_transcription_event as Record<string, unknown>).user_transcript
-        : null;
-      const resolved = userTranscript ?? (typeof nestedTranscript === 'string' ? nestedTranscript : null);
-      if (resolved) {
-        return { source: 'user', message: resolved };
-      }
-    }
-
-    const message = typeof recordEvent?.message === 'string' ? recordEvent.message : null;
-    const source = typeof recordEvent?.source === 'string' ? (recordEvent.source as string) : null;
-    if (message && (source === 'ai' || source === 'user')) {
-      return { source, message };
-    }
-
-    if (typeof event === 'string') {
-      return { source: 'ai', message: event };
-    }
-  } catch (error) {
-    console.error('Failed to normalize ElevenLabs event', error, event);
-  }
-
-  if (isDiagnosticsEnabled()) {
+export const normalizeIncomingEvent = (event: unknown): { source: 'ai' | 'user'; message: string } | null => {
+  const normalized = normalizeIncomingEventUtil(event);
+  if (!normalized && isDiagnosticsEnabled()) {
     console.info('[VoiceDiag] normalizeIncomingEvent: unmatched shape', summarizeElevenLabsEventForDiag(event));
   }
-  return null;
+  return normalized;
 };
 
 const emitToHandlers = (
@@ -766,10 +714,12 @@ export function ElevenLabsProvider({
 
   const handleVoiceMessage = useCallback((event: unknown) => {
     const mode = sessionModeRef.current;
-    if (mode !== 'voice') {
+    const transportState = voiceConnectionStateRef.current;
+    if (mode !== 'voice' && transportState === 'idle') {
       if (isDiagnosticsEnabled()) {
         console.info('[VoiceDiag] handleVoiceMessage skipped: sessionMode is not voice', {
           sessionMode: mode,
+          transportState,
           eventSummary: summarizeElevenLabsEventForDiag(event)
         });
       }
@@ -1120,8 +1070,12 @@ export function ElevenLabsProvider({
       isTransitioning: transitionPromiseRef.current !== null
     });
 
-    if (sessionModeRef.current !== 'voice') {
-      console.log('[stopVoice] Skipping - not in voice mode');
+    const voiceStatus = voiceRef.current?.getStatus?.();
+    const canStopWhileConnecting =
+      sessionModeRef.current === 'idle' &&
+      (voiceStatus === 'connecting' || transitionPromiseRef.current !== null);
+    if (sessionModeRef.current !== 'voice' && !canStopWhileConnecting) {
+      console.log('[stopVoice] Skipping - not in voice/connecting mode');
       return;
     }
 

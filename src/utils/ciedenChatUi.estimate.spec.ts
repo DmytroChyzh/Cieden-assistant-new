@@ -21,6 +21,14 @@ describe("estimate message guards", () => {
     ).toBe(true);
   });
 
+  it("rejects generic non-question estimate chatter", () => {
+    expect(
+      isEstimateRelevantAssistantQuestion(
+        "Great, thanks for the details. Let's continue step by step.",
+      ),
+    ).toBe(false);
+  });
+
   it("matches extended default intro greeting variants", () => {
     expect(
       isLikelyDefaultCiedenGreeting(

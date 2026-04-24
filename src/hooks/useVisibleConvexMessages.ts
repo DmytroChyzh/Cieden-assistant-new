@@ -56,26 +56,33 @@ export function useVisibleConvexMessages({
       return true;
     });
 
-    const toolDeduped = filtered.filter((message, index, arr) => {
-      const isTool = !!parseToolCall(message.content);
-      if (!isTool) {
-        if (message.role === "assistant") {
-          const currentNorm = normalizeAssistantMessage(message.content || "");
-          for (let i = index - 1; i >= 0; i--) {
-            const prev = arr[i];
-            if (prev.role !== "assistant") continue;
-            if (parseToolCall(prev.content)) continue;
-            if (normalizeAssistantMessage(prev.content || "") === currentNorm) return false;
-            break;
-          }
-        }
-        return true;
+    const toolDeduped: ChatRow[] = [];
+    const seenAssistantInSegment = new Set<string>();
+    for (const message of filtered) {
+      // Reset assistant dedupe scope after each user turn.
+      if (message.role === "user") {
+        seenAssistantInSegment.clear();
+        toolDeduped.push(message);
+        continue;
       }
-      const prev = index > 0 ? arr[index - 1] : null;
-      const prevIsTool = !!(prev && parseToolCall(prev.content));
-      if (prevIsTool && prev?.content === message.content) return false;
-      return true;
-    });
+
+      const isTool = !!parseToolCall(message.content);
+      if (isTool) {
+        const prev = toolDeduped.length > 0 ? toolDeduped[toolDeduped.length - 1] : null;
+        const prevIsTool = !!(prev && parseToolCall(prev.content));
+        if (prevIsTool && prev?.content === message.content) continue;
+        toolDeduped.push(message);
+        continue;
+      }
+
+      if (message.role === "assistant") {
+        const normalized = normalizeAssistantMessage(message.content || "");
+        if (normalized && seenAssistantInSegment.has(normalized)) continue;
+        if (normalized) seenAssistantInSegment.add(normalized);
+      }
+
+      toolDeduped.push(message);
+    }
 
     return toolDeduped;
   }, [convexMessages, estimateToolOnlyMarker, getMessageMode, isFirstTurnIntroEcho]);

@@ -409,6 +409,8 @@ export default function VoiceChatPage() {
   const [previewPlayingVoice, setPreviewPlayingVoice] = useState<string | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewCacheRef = useRef<Record<string, string>>({});
+  // Keep default "Jessica" preview distinct from custom "Jess".
+  const DEFAULT_VOICE_PREVIEW_ID = "21m00Tcm4TlvDq8ikWAM";
 
   const VOICE_OPTIONS = [
     { id: '', name: 'Jessica', label: 'Default' },
@@ -464,6 +466,9 @@ export default function VoiceChatPage() {
     setWelcomeHubMode("voice");
     updateSettings({ voice: pickerSelectedVoice });
     setPickerConfirmedVoice(pickerSelectedVoice);
+    // After voice selection, immediately return to the welcome hub
+    // so large suggestion buttons are visible in voice onboarding.
+    setShowVoicePickerCard(false);
     setTimeout(() => {
       console.log('[VoicePicker] Dispatching voice-chat-mode-choice after settings sync');
       if (typeof window !== "undefined") {
@@ -820,12 +825,31 @@ export default function VoiceChatPage() {
     );
   }, [conversationId, selectedConversation?.guestEmail, setCapturedEmailConversationId]);
 
+  function requestCloseAllRightPanels() {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("close-all-right-panels"));
+  }
+
+  const hasUserStartedChat = useMemo(
+    () =>
+      (convexMessages || []).some((m) => {
+        if (m.role !== "user") return false;
+        const c = (m.content || "").trim();
+        if (!c) return false;
+        if (c.startsWith("I selected:")) return false;
+        if (/^\[ESTIMATE\s+(MODE|PANEL)\]/i.test(c)) return false;
+        return true;
+      }),
+    [convexMessages],
+  );
+
   const sendQuickPrompt = useCallback(
     (value: string) => {
       const trimmed = value.trim();
       if (!trimmed) return;
       jumpToLatestMessages();
       if (isBookCallPrompt(trimmed)) {
+        requestCloseAllRightPanels();
         setShowBookCallPanel(true);
         return;
       }
@@ -841,6 +865,10 @@ export default function VoiceChatPage() {
       }
 
       if (trimmed === "Continue by voice") {
+        // If user has not started chat yet, switch cleanly to voice onboarding lane.
+        if (!hasUserStartedChat) {
+          setWelcomeHubMode("voice");
+        }
         setPickerSelectedVoice(settings.voice ?? "");
         setPickerConfirmedVoice(null);
         setShowVoicePickerCard(true);
@@ -848,6 +876,8 @@ export default function VoiceChatPage() {
       }
       if (trimmed === "Continue by text") {
         setWelcomeHubMode("text");
+        setShowVoicePickerCard(false);
+        stopPreviewAudio();
         if (typeof window !== "undefined") {
           window.dispatchEvent(
             new CustomEvent("voice-chat-mode-choice", {
@@ -910,6 +940,9 @@ export default function VoiceChatPage() {
       jumpToLatestMessages,
       hasCapturedEmailForGate,
       promptEmailRequiredInChat,
+      hasUserStartedChat,
+      settings.voice,
+      stopPreviewAudio,
     ],
   );
 
@@ -917,6 +950,7 @@ export default function VoiceChatPage() {
     async (request: string) => {
       const trimmedRequest = request.trim();
       if (isBookCallPrompt(trimmedRequest)) {
+        requestCloseAllRightPanels();
         setShowBookCallPanel(true);
         return;
       }
@@ -929,7 +963,13 @@ export default function VoiceChatPage() {
       jumpToLatestMessages();
       await sendProgrammaticMessage(request);
     },
-    [emailRequiredGate, hasCapturedEmailForGate, sendProgrammaticMessage, jumpToLatestMessages, promptEmailRequiredInChat],
+    [
+      emailRequiredGate,
+      hasCapturedEmailForGate,
+      sendProgrammaticMessage,
+      jumpToLatestMessages,
+      promptEmailRequiredInChat,
+    ],
   );
 
   const resolveQuickPromptTool = useCallback((promptText: string) => {
@@ -1738,6 +1778,21 @@ export default function VoiceChatPage() {
   const [estimateFlowToken, setEstimateFlowToken] = useState(0);
   const estimateFlowTokenRef = useRef(estimateFlowToken);
 
+  const closeAllRightPanels = useCallback(() => {
+    setActivePanelDomain(null);
+    setInitialPanelCaseId(null);
+    setShowAboutPanel(false);
+    setShowBookCallPanel(false);
+    setActivePricingModelId(null);
+    setShowEstimatePanel(false);
+  }, []);
+
+  useEffect(() => {
+    const handleCloseAll = () => closeAllRightPanels();
+    window.addEventListener("close-all-right-panels", handleCloseAll);
+    return () => window.removeEventListener("close-all-right-panels", handleCloseAll);
+  }, [closeAllRightPanels]);
+
   useEffect(() => {
     estimateFlowTokenRef.current = estimateFlowToken;
     if (typeof window !== "undefined") {
@@ -1807,6 +1862,7 @@ export default function VoiceChatPage() {
     const handleChooseQuick = (e: Event) => {
       // Open the right-side questionnaire panel immediately.
       const detail = (e as CustomEvent).detail;
+      closeAllRightPanels();
       bumpToken();
       pendingEstimateAssistantUserMessagesRef.current = [];
       pendingEstimateContextualMessagesRef.current = [];
@@ -1825,6 +1881,7 @@ export default function VoiceChatPage() {
     const handleChooseAssistant = (e: Event) => {
       // No side panel while assistant is collecting info.
       const detail = (e as CustomEvent).detail;
+      closeAllRightPanels();
       bumpToken();
       pendingEstimateAssistantUserMessagesRef.current = [];
       pendingEstimateContextualMessagesRef.current = [];
@@ -1846,6 +1903,7 @@ export default function VoiceChatPage() {
       const token = typeof detail.token === "number" ? detail.token : null;
       if (token !== estimateFlowTokenRef.current) return;
 
+      closeAllRightPanels();
       markCiedenEstimateSessionCompleted();
       completeEstimateSession(detail as unknown as Record<string, unknown>);
       setEstimateFlowWindowFlag(true);
@@ -1876,6 +1934,7 @@ export default function VoiceChatPage() {
     const handleReopen = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (!detail) return;
+      closeAllRightPanels();
       setEstimateFinalResult(detail);
       setShowEstimatePanel(true);
       setEstimatePanelKey((prev) => prev + 1);
@@ -1896,7 +1955,7 @@ export default function VoiceChatPage() {
       window.removeEventListener("estimate-final-ready", handleEstimateFinal);
       window.removeEventListener("estimate-reopen", handleReopen);
     };
-  }, []);
+  }, [closeAllRightPanels]);
 
   /** Closing the final-result side panel. End-of-session anchor is derived from chat (see effect below). */
   const dismissFinalEstimatePanel = useCallback(() => {
@@ -2018,6 +2077,7 @@ export default function VoiceChatPage() {
       const detail = (e as CustomEvent).detail;
       const domain = detail?.domain;
       if (domain) {
+        closeAllRightPanels();
         if (typeof window !== "undefined") {
           // When opening from tool call, allow auto-open again unless the user manually closes.
           (window as any).__ciedenCasesPanelUserClosed = false;
@@ -2035,6 +2095,7 @@ export default function VoiceChatPage() {
       const domain = detail?.domain;
       const caseId = detail?.caseId;
       if (domain && caseId) {
+        closeAllRightPanels();
         if (typeof window !== "undefined") {
           (window as any).__ciedenCasesPanelUserClosed = false;
           (window as any).__ciedenCasesPanelOpen = true;
@@ -2052,25 +2113,32 @@ export default function VoiceChatPage() {
       window.removeEventListener("open-cases-panel", handleCasesPanel);
       window.removeEventListener("open-case-in-panel", handleOpenCaseInPanel);
     };
-  }, []);
+  }, [closeAllRightPanels]);
 
   // Open About Cieden panel from about card
   useEffect(() => {
-    const handleOpenAbout = () => setShowAboutPanel(true);
+    const handleOpenAbout = () => {
+      closeAllRightPanels();
+      setShowAboutPanel(true);
+    };
     window.addEventListener("open-about-panel", handleOpenAbout);
     return () => window.removeEventListener("open-about-panel", handleOpenAbout);
-  }, []);
+  }, [closeAllRightPanels]);
 
   useEffect(() => {
-    const handleOpenBookCall = () => setShowBookCallPanel(true);
+    const handleOpenBookCall = () => {
+      closeAllRightPanels();
+      setShowBookCallPanel(true);
+    };
     window.addEventListener("open-book-call-panel", handleOpenBookCall);
     return () => window.removeEventListener("open-book-call-panel", handleOpenBookCall);
-  }, []);
+  }, [closeAllRightPanels]);
 
   useEffect(() => {
     const handleOpenPricingModelDetails = (e: Event) => {
       const detail = (e as CustomEvent<{ modelId?: PricingModelDetailsId }>).detail;
       if (!detail?.modelId) return;
+      closeAllRightPanels();
       setActivePricingModelId(detail.modelId);
       if (sendContextualUpdateRef.current) {
         sendContextualUpdateRef.current(
@@ -2096,7 +2164,7 @@ export default function VoiceChatPage() {
       window.removeEventListener("open-pricing-model-details-panel", handleOpenPricingModelDetails);
       window.removeEventListener("pricing-model-compare-requested", handleCompareRequested);
     };
-  }, []);
+  }, [closeAllRightPanels]);
 
   const closeCasesPanel = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -2724,6 +2792,7 @@ export default function VoiceChatPage() {
     book_call: async (params) => {
       console.log('📞 Bridge Handler - book_call called:', params);
       try {
+        closeAllRightPanels();
         setShowBookCallPanel(true);
         const safeParams =
           params && typeof params === "object" ? { ...(params as any), mode: "default" } : { mode: "default" };
@@ -3864,19 +3933,16 @@ export default function VoiceChatPage() {
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                   {VOICE_OPTIONS.map((voice) => {
                                     const isSelected = pickerSelectedVoice === voice.id;
-                                    const isLoading = previewLoadingVoice === voice.id;
-                                    const isPlaying = previewPlayingVoice === voice.id;
+                                    const previewKey = voice.id || DEFAULT_VOICE_PREVIEW_ID;
+                                    const isLoading = previewLoadingVoice === previewKey;
+                                    const isPlaying = previewPlayingVoice === previewKey;
                                     return (
                                       <motion.button
                                         key={voice.id}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={() => {
                                           setPickerSelectedVoice(voice.id);
-                                          if (voice.id) {
-                                            void playVoicePreview(voice.id);
-                                          } else {
-                                            stopPreviewAudio();
-                                          }
+                                          void playVoicePreview(previewKey);
                                         }}
                                         className={`relative flex flex-col items-center gap-1.5 px-4 py-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
                                           isSelected
@@ -3931,7 +3997,7 @@ export default function VoiceChatPage() {
                         </motion.div>
                       )}
                     </AnimatePresence>
-                    {showIntroQuickPath && welcomeHubMode !== null && introTypewriterDone && (
+                    {showIntroQuickPath && !showVoicePickerCard && welcomeHubMode !== null && introTypewriterDone && (
                       <motion.div
                         className="pt-1 space-y-3"
                         initial={{ opacity: 0, y: 16 }}
@@ -4152,6 +4218,58 @@ export default function VoiceChatPage() {
                     }
                   }
                   const currentToolName = parseToolCall(message.content)?.toolName ?? null;
+                  const hasAssistantTextAfterCurrentToolInSegment =
+                    isToolCall &&
+                    visibleConvexChatMessages
+                      .slice(index + 1, nextUserIdx)
+                      .some(
+                        (m) => m.role === "assistant" && !parseToolCall(m.content || ""),
+                      );
+                  const shouldRenderToolCompanionText =
+                    isToolCall &&
+                    !hasAssistantTextAfterCurrentToolInSegment &&
+                    !isEstimateEntryToolName(currentToolName);
+                  const toolCompanionText = (() => {
+                    if (!shouldRenderToolCompanionText) return "";
+                    const isUa = /[іїєґІЇЄҐ]/.test(segmentUserContent || "");
+                    switch (currentToolName) {
+                      case "show_about":
+                        return isUa
+                          ? "Коротко пояснив про Cieden. Якщо хочете, розкрию будь-який пункт детальніше."
+                          : "I shared a quick overview of Cieden. I can expand any part in more detail.";
+                      case "show_cases":
+                      case "show_best_case":
+                      case "find_similar_cases":
+                        return isUa
+                          ? "Підібрав релевантні кейси. Можу також пояснити, що саме у них найближче до вашого продукту."
+                          : "I shared relevant case studies. I can also explain which parts are closest to your product.";
+                      case "show_process":
+                        return isUa
+                          ? "Ось наш процес роботи. Можу окремо розписати етапи, строки та очікувані результати."
+                          : "That is our process. I can break down phases, timelines, and expected deliverables.";
+                      case "show_engagement_models":
+                        return isUa
+                          ? "Показав моделі співпраці. Можу допомогти вибрати оптимальну під ваші цілі."
+                          : "I shared collaboration models. I can help pick the best one for your goals.";
+                      case "show_getting_started":
+                      case "show_next_steps":
+                        return isUa
+                          ? "Показав наступні кроки. Готовий провести вас по кожному кроку."
+                          : "I shared the next steps. I can guide you through each one.";
+                      case "show_support":
+                        return isUa
+                          ? "Описав варіанти підтримки. Можу уточнити формат саме для вашого кейсу."
+                          : "I shared support options. I can tailor the recommendation to your case.";
+                      case "book_call":
+                        return isUa
+                          ? "Форма для дзвінка відкрита. Заповніть поля, і команда зв'яжеться з вами."
+                          : "The booking form is open. Fill it in and our team will contact you.";
+                      default:
+                        return isUa
+                          ? "Готово. Якщо хочете, деталізую саме те, що вам важливо."
+                          : "Done. I can expand on any part you care about.";
+                    }
+                  })();
                   const shouldSuppressSegmentToolDuplicate =
                     isToolCall &&
                     !!segmentExpectedTool &&
@@ -4170,6 +4288,19 @@ export default function VoiceChatPage() {
                           onUserAction={handleUserAction}
                           compact={isMobile}
                         />
+                        {shouldRenderToolCompanionText && !!toolCompanionText && (
+                          <ChatMessage
+                            message={{
+                              id: `tool-companion-${String(message._id)}`,
+                              role: "assistant",
+                              content: toolCompanionText,
+                              timestamp:
+                                ((message as { _creationTime?: number })._creationTime ?? Date.now()) + 1,
+                            }}
+                            onQuickPrompt={(text) => sendQuickPrompt(text)}
+                            userName={userDisplayName}
+                          />
+                        )}
                         {estimateEndButton}
                       </React.Fragment>
                     );

@@ -460,7 +460,7 @@ export function UnifiedChatInput({
             isRecording={isRecording}
             voiceStatus={voiceStatus}
             onStartRecording={handleStartCall}
-            onStopRecording={stopRecording}
+            onStopRecording={handleEndCall}
             onToggleMute={handleToggleMute}
             isMuted={isMuted}
             isCallActive={isCallActive}
@@ -482,7 +482,7 @@ export function UnifiedChatInput({
               }
               startRecording();
             }}
-            onStopRecording={stopRecording}
+            onStopRecording={handleEndCall}
             waveformData={agentWaveformData}
             onExitGoMode={() => setMode('normal')}
           />

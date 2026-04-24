@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const PREVIEW_TEXT = "Hi there! I'm your Cieden assistant, ready to help you with design, portfolio, and project estimates.";
 
 const ALLOWED_VOICE_IDS = new Set([
+  "21m00Tcm4TlvDq8ikWAM",
   "zubqz6JC54rePKNCKZLG",
   "ys3XeJJA4ArWMhRpcX1D",
   "bu5eKETbFKC8G702EAU4",

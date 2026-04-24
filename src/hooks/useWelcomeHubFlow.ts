@@ -21,6 +21,7 @@ export function useWelcomeHubFlow({
   const [introTypewriterDone, setIntroTypewriterDone] = useState(false);
   const [welcomeVoiceCueBuffer, setWelcomeVoiceCueBuffer] = useState("");
   const [voiceWelcomeRevealAll, setVoiceWelcomeRevealAll] = useState(false);
+  const [voicePromptRevealCount, setVoicePromptRevealCount] = useState(0);
   const [welcomeHubDismissed, setWelcomeHubDismissed] = useState(false);
 
   const introTypewriterRunKeyRef = useRef<string | null>(null);
@@ -35,6 +36,7 @@ export function useWelcomeHubFlow({
     setWelcomeHubDismissed(false);
     setWelcomeVoiceCueBuffer("");
     setVoiceWelcomeRevealAll(false);
+    setVoicePromptRevealCount(0);
     setIntroTypewriterDone(false);
     setIntroVisibleChars(0);
     introTypewriterRunKeyRef.current = null;
@@ -73,7 +75,14 @@ export function useWelcomeHubFlow({
     welcomeHubMode === "text"
       ? 6
       : welcomeHubMode === "voice"
-        ? Math.min(6, Math.max(voiceWelcomeVisiblePromptCount, voiceWelcomeRevealAll ? 6 : 0))
+        ? Math.min(
+            6,
+            Math.max(
+              voiceWelcomeVisiblePromptCount,
+              voicePromptRevealCount,
+              voiceWelcomeRevealAll ? 6 : 0,
+            ),
+          )
         : 0;
 
   useEffect(() => {
@@ -87,6 +96,7 @@ export function useWelcomeHubFlow({
     setWelcomeHubMode(null);
     setWelcomeVoiceCueBuffer("");
     setVoiceWelcomeRevealAll(false);
+    setVoicePromptRevealCount(0);
     setIntroTypewriterDone(false);
     setIntroVisibleChars(0);
     const timeout = window.setTimeout(() => {
@@ -100,11 +110,29 @@ export function useWelcomeHubFlow({
 
   useEffect(() => {
     if (welcomeHubMode !== "voice" || !showIntroQuickPath) {
+      setVoicePromptRevealCount(0);
+      return;
+    }
+    setVoicePromptRevealCount(0);
+    const initial = window.setTimeout(() => {
+      setVoicePromptRevealCount(1);
+    }, 900);
+    const interval = window.setInterval(() => {
+      setVoicePromptRevealCount((prev) => Math.min(6, prev + 1));
+    }, 900);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+    };
+  }, [welcomeHubMode, showIntroQuickPath, introSessionKey]);
+
+  useEffect(() => {
+    if (welcomeHubMode !== "voice" || !showIntroQuickPath) {
       setVoiceWelcomeRevealAll(false);
       return;
     }
     setVoiceWelcomeRevealAll(false);
-    const timeout = window.setTimeout(() => setVoiceWelcomeRevealAll(true), 14000);
+    const timeout = window.setTimeout(() => setVoiceWelcomeRevealAll(true), 7000);
     return () => window.clearTimeout(timeout);
   }, [welcomeHubMode, showIntroQuickPath, introSessionKey]);
 
