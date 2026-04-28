@@ -6,6 +6,7 @@ type ChatRow = {
   role: "user" | "assistant" | "system";
   content: string;
   source?: string;
+  metadata?: Record<string, unknown>;
 };
 
 export function useVisibleConvexMessages({
@@ -37,6 +38,8 @@ export function useVisibleConvexMessages({
 
     const filtered = raw.filter((message, idx) => {
       if (message.role === "system" && message.source === "contextual") return false;
+      const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+      if (metadata.threadType === "estimate") return false;
       if (message.role === "user" && message.content.startsWith("I selected:")) return false;
       if (/onboarding complete\./i.test((message.content || "").trim())) return false;
       if (message.role === "assistant" && (message.content || "").trim() === estimateToolOnlyMarker) {

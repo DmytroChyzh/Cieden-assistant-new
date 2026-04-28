@@ -13,6 +13,7 @@ import { extractContextFromMessages } from '@/src/utils/agentContext';
 import { parseToolCall } from '@/src/utils/parseToolCall';
 import { getGuestIdentityFromCookie } from '@/src/utils/guestIdentity';
 import { resetCiedenEstimateSessionCompleted } from '@/src/utils/ciedenEstimateSession';
+import { getActiveEstimateThreadId } from '@/src/utils/ciedenEstimateSession';
 import {
   isEstimateFlowUiActive,
   isEstimateRelevantAssistantQuestion,
@@ -50,14 +51,13 @@ const ESTIMATE_ONBOARDING_NOISE_RE =
 function shouldKeepAssistantMessageInEstimateMode(text: string): boolean {
   const t = (text || "").trim();
   if (!t) return false;
-  if (ESTIMATE_CHOOSER_NOISE_RE.test(t)) return false;
+  // Keep estimate thread robust: drop only obvious non-estimate noise.
   if (ESTIMATE_ONBOARDING_NOISE_RE.test(t)) return false;
   if (isLikelyDefaultCiedenGreeting(t)) return false;
-  if (ESTIMATE_FINAL_RE.test(t)) return true;
-  // During active estimate session keep project-scoping questions and
-  // short transition/ack messages to avoid "typing" getting stuck.
-  if (isEstimateRelevantAssistantQuestion(t)) return true;
-  return ESTIMATE_ACK_PROGRESS_RE.test(t);
+  if (ESTIMATE_CHOOSER_NOISE_RE.test(t)) return false;
+  // Keep all other assistant replies (including clarifications and follow-ups)
+  // so step-by-step flow cannot get stuck due to over-filtering.
+  return true;
 }
 
 function isAllowedToolCallInEstimateMode(text: string): boolean {
@@ -91,6 +91,15 @@ export function useTextInput({
   conversationIdRef.current = conversationId;
   /** Guard against duplicate websocket assistant persists from racey multi-handler events. */
   const recentAiPersistRef = useRef<{ key: string; at: number } | null>(null);
+  const buildEstimateThreadMetadata = useCallback((base?: Record<string, unknown>) => {
+    const activeThreadId = getActiveEstimateThreadId();
+    if (!activeThreadId) return base;
+    return {
+      ...(base ?? {}),
+      threadType: "estimate",
+      estimateThreadId: activeThreadId,
+    };
+  }, []);
 
   // ElevenLabs/ConvAI can hard-fail on very large payloads.
   // We only apply truncation for ESTIMATE MODE messages (where the user may paste big specs).
@@ -474,11 +483,11 @@ export function useTextInput({
           content: event.message,
           role: 'assistant',
           source: 'text',
-          metadata: {
+          metadata: buildEstimateThreadMetadata({
             elevenLabsTextResponse: true,
             via: 'websocket',
             timestamp: Date.now()
-          },
+          }),
           guestId: guestId ?? undefined,
         });
       } catch (error) {
@@ -555,6 +564,7 @@ export function useTextInput({
     }
 
     const isGuest = !conversationId && !onPreAuthMessage;
+    const estimateUiActive = isEstimateFlowUiActive();
 
     // Pre-auth onboarding flow: let caller handle onboarding logic and skip Convex/ElevenLabs.
     // Guest mode: when `onPreAuthMessage` is not provided, we still send via ElevenLabs.
@@ -577,18 +587,39 @@ export function useTextInput({
         trimmed.startsWith("[ESTIMATE MODE]") || trimmed.includes("[ESTIMATE MODE]");
       const transportText = isEstimatePayload ? truncateForTransport(trimmed) : trimmed;
 
-      // Optimistically reflect in UI
-      onMessage?.(isGuest ? `__GUEST_USER__:${trimmed}` : trimmed);
+      // In estimate mode, route user input to estimate thread only (not main chat lane).
+      if (!estimateUiActive) {
+        // Optimistically reflect in UI for regular chat mode.
+        onMessage?.(isGuest ? `__GUEST_USER__:${trimmed}` : trimmed);
 
-      // Persist user message via buffered hook (handles missing conversationId)
-      try {
-        await handleUserMessage(trimmed, {
-          messageType: 'text',
-          via: sessionMode === 'voice' ? 'webrtc' : 'websocket',
-          timestamp: Date.now()
-        });
-      } catch (error) {
-        console.error('Failed to persist user text message:', error);
+        // Persist user message via buffered hook (handles missing conversationId)
+        try {
+          await handleUserMessage(trimmed, {
+            messageType: 'text',
+            via: sessionMode === 'voice' ? 'webrtc' : 'websocket',
+            timestamp: Date.now()
+          });
+        } catch (error) {
+          console.error('Failed to persist user text message:', error);
+        }
+      } else if (conversationId) {
+        // Persist directly with estimate thread metadata so main feed can filter it out.
+        try {
+          const guestFromCookie = getGuestIdentityFromCookie()?.guestId;
+          await createMessage({
+            conversationId,
+            content: trimmed,
+            role: "user",
+            source: "text",
+            metadata: buildEstimateThreadMetadata({
+              via: sessionMode === "voice" ? "webrtc" : "websocket",
+              timestamp: Date.now(),
+            }),
+            guestId: guestFromCookie ?? undefined,
+          });
+        } catch (error) {
+          console.error("Failed to persist estimate-thread user message:", error);
+        }
       }
 
       if (sessionMode !== 'voice') {
@@ -704,6 +735,7 @@ export function useTextInput({
     emailRequiredGate,
     emailRequiredForEstimate,
     onEmailGateBlocked,
+    buildEstimateThreadMetadata,
   ]);
 
   // Cleanup on unmount
@@ -793,6 +825,7 @@ export function useTextInput({
       return;
     }
 
+    const estimateUiActive = isEstimateFlowUiActive();
     const isEstimatePayload =
       trimmed.startsWith("[ESTIMATE MODE]") || trimmed.includes("[ESTIMATE MODE]");
     const transportText = isEstimatePayload ? truncateForTransport(trimmed) : trimmed;
@@ -800,20 +833,21 @@ export function useTextInput({
     try {
       console.log('📝 Sending specific message via ElevenLabs:', trimmed);
 
-      if (!isEstimatePayload) {
+      if (!isEstimatePayload && !estimateUiActive) {
         onMessage?.(trimmed);
 
         try {
           const guestId = getGuestIdentityFromCookie()?.guestId;
+          const baseMetadata = {
+            via: sessionMode === 'voice' ? 'webrtc' : 'websocket',
+            timestamp: Date.now(),
+          };
           await createMessage({
             conversationId,
             content: trimmed,
             role: 'user',
             source: 'text',
-            metadata: {
-              via: sessionMode === 'voice' ? 'webrtc' : 'websocket',
-              timestamp: Date.now()
-            },
+            metadata: isEstimatePayload ? buildEstimateThreadMetadata(baseMetadata) : baseMetadata,
             guestId: guestId ?? undefined,
           });
         } catch (error) {
@@ -821,6 +855,24 @@ export function useTextInput({
         }
 
         await maybeInjectToolCardForUserIntent(trimmed);
+      } else if (!isEstimatePayload && estimateUiActive && conversationId) {
+        // Route plain user replies into estimate thread while estimate mode is active.
+        try {
+          const guestId = getGuestIdentityFromCookie()?.guestId;
+          await createMessage({
+            conversationId,
+            content: trimmed,
+            role: "user",
+            source: "text",
+            metadata: buildEstimateThreadMetadata({
+              via: sessionMode === "voice" ? "webrtc" : "websocket",
+              timestamp: Date.now(),
+            }),
+            guestId: guestId ?? undefined,
+          });
+        } catch (error) {
+          console.error("Failed to persist estimate-thread specific message:", error);
+        }
       }
 
       if (sessionMode !== 'voice') {
@@ -915,7 +967,7 @@ export function useTextInput({
       }
       return;
     }
-  }, [conversationId, onMessage, onPreAuthMessage, createMessage, maybeInjectToolCardForUserIntent, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory, sendContextualUpdateOverSocket, emailRequiredGate, emailRequiredForEstimate, onDailyLimitReached, onEmailGateBlocked]);
+  }, [conversationId, onMessage, onPreAuthMessage, createMessage, maybeInjectToolCardForUserIntent, sessionMode, startText, sendViaProvider, resetTextIdleTimer, messages, isTextConnected, setPendingConversationHistory, sendContextualUpdateOverSocket, emailRequiredGate, emailRequiredForEstimate, onDailyLimitReached, onEmailGateBlocked, buildEstimateThreadMetadata]);
 
   // Apply prior-only history once messages are loaded (handles autostart race)
   const priorHistoryAppliedRef = useRef(false);

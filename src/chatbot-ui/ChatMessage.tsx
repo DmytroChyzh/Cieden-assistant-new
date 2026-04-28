@@ -52,7 +52,14 @@ export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessagePro
     const match = cleanContent.match(/\[([\s\S]*?)\]\s*$/);
     if (match) {
       try {
-        const arr = JSON.parse(match[0].replace(/'/g, '"'));
+        // Parse suggestions payload as strict JSON first. Some options contain apostrophes
+        // (e.g. "I'd like ..."), so replacing all single quotes breaks valid JSON.
+        let arr: unknown = null;
+        try {
+          arr = JSON.parse(match[0]);
+        } catch {
+          arr = JSON.parse(match[0].replace(/'/g, '"'));
+        }
         if (Array.isArray(arr)) {
           fallbackAnswers.push(...arr.map((s: unknown) => String(s).trim()).filter(Boolean));
           cleanContent = cleanContent.replace(match[0], "").trim();

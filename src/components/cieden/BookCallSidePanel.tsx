@@ -89,25 +89,65 @@ export function BookCallFormBody({
     setStatus("idle");
   };
 
-  const rootClassName =
-    layout === "panelFill"
-      ? "flex-1 min-h-0 overflow-y-auto scrollbar-drawer px-4 py-5 sm:px-6 sm:py-6 lg:px-7"
-      : "w-full";
+  const isPanelFill = layout === "panelFill";
 
-  const inputClassName =
-    "w-full rounded-xl border border-white/22 bg-white/[0.06] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/50 focus:border-violet-300/80 focus:bg-white/[0.08]";
+  const rootClassName = isPanelFill
+    ? "w-full font-[Gilroy]"
+    : "w-full";
+
+  const inputClassName = isPanelFill
+    ? "w-full rounded-xl border border-indigo-400/25 bg-gradient-to-br from-indigo-500/[0.14] to-violet-600/[0.08] px-4 py-3.5 text-base leading-relaxed text-white/95 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition placeholder:text-white/45 hover:border-indigo-300/45 hover:from-indigo-500/[0.18] hover:to-violet-600/[0.12] focus:border-violet-400/55 focus:ring-2 focus:ring-violet-400/25"
+    : "w-full rounded-xl border border-white/22 bg-white/[0.06] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/50 focus:border-violet-300/80 focus:bg-white/[0.08]";
+
+  const textareaClassName = isPanelFill
+    ? `${inputClassName} min-h-[168px] resize-y selection:bg-violet-500/40`
+    : `${inputClassName} min-h-[150px] resize-y`;
+
+  const labelClass =
+    "mb-2 block uppercase " +
+    (isPanelFill ? "text-[11px] font-semibold tracking-[0.14em] text-white/55" : "text-xs tracking-wide text-white/72");
+
+  const formShellClass = isPanelFill
+    ? "w-full space-y-5"
+    : "space-y-4 rounded-2xl border border-white/16 bg-white/[0.045] p-4 sm:p-5";
+
+  const nextStepsClass = isPanelFill
+    ? "rounded-2xl border border-indigo-400/15 bg-gradient-to-br from-indigo-500/[0.12] to-violet-600/[0.08] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+    : "rounded-xl border border-white/16 bg-black/20 p-3";
+
+  const innerShellClass = isPanelFill
+    ? "w-full space-y-6 rounded-2xl border border-indigo-400/20 bg-gradient-to-br from-indigo-500/[0.12] to-violet-600/[0.08] p-5 shadow-[0_0_32px_rgba(99,102,241,0.12),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md"
+    : "mx-auto w-full max-w-[860px] space-y-5";
+
+  const sectionClass = isPanelFill
+    ? "rounded-xl border border-indigo-400/15 bg-indigo-500/[0.06] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+    : "";
 
   return (
     <div className={rootClassName}>
-      <div className="mx-auto w-full max-w-[860px] space-y-5 font-[Gilroy]">
-        <div className="rounded-2xl border border-violet-300/35 bg-gradient-to-br from-violet-500/20 via-indigo-500/14 to-transparent p-4">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-violet-300/35 bg-violet-500/20 text-violet-100">
+      <div className={`${innerShellClass} font-[Gilroy]`}>
+        <div
+          className={
+            isPanelFill
+              ? "border-b border-indigo-400/15 pb-5"
+              : "rounded-2xl border border-violet-300/35 bg-gradient-to-br from-violet-500/20 via-indigo-500/14 to-transparent p-4"
+          }
+        >
+          <div className={`flex items-start gap-3 ${isPanelFill ? "" : ""}`}>
+            <span
+              className={
+                isPanelFill
+                  ? "mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-400/25 bg-indigo-500/20 text-violet-200 shadow-[0_0_20px_rgba(99,102,241,0.25)]"
+                  : "mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-violet-300/35 bg-violet-500/20 text-violet-100"
+              }
+            >
               <Sparkles className="h-4 w-4" aria-hidden />
             </span>
-            <div className="space-y-1">
-              <h3 className="text-2xl font-semibold text-white">Schedule a discovery call</h3>
-              <p className="text-sm leading-relaxed text-white/82">
+            <div className="min-w-0 space-y-1.5">
+              <h3 className={`font-semibold ${isPanelFill ? "text-2xl sm:text-[2rem] text-white" : "text-2xl text-white"}`}>
+                Schedule a discovery call
+              </h3>
+              <p className={`leading-relaxed ${isPanelFill ? "text-base text-white/70" : "text-sm text-white/82"}`}>
                 Share project basics and we will come back with the next step and realistic timeline.
               </p>
             </div>
@@ -136,10 +176,10 @@ export function BookCallFormBody({
             </button>
           </div>
         ) : (
-          <form className="space-y-4 rounded-2xl border border-white/16 bg-white/[0.045] p-4 sm:p-5" onSubmit={handleSubmit}>
-            <div className="grid gap-4 sm:grid-cols-2">
+          <form className={formShellClass} onSubmit={handleSubmit}>
+            <div className={`${sectionClass} grid gap-4 sm:grid-cols-2`}>
               <label className="block">
-                <span className="mb-1.5 block text-xs uppercase tracking-wide text-white/72">Name</span>
+                <span className={labelClass}>Name</span>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -152,7 +192,7 @@ export function BookCallFormBody({
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs uppercase tracking-wide text-white/72">Email</span>
+                <span className={labelClass}>Email</span>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -169,8 +209,8 @@ export function BookCallFormBody({
               </label>
             </div>
 
-            <div className="space-y-2">
-              <span className="mb-1.5 block text-xs uppercase tracking-wide text-white/72">How did you hear about us?</span>
+            <div className={`${sectionClass} space-y-3`}>
+              <span className={labelClass}>How did you hear about us?</span>
               <div className="flex flex-wrap gap-2">
                 {SOURCE_PRESETS.map((preset) => {
                   const active = heardFrom.trim().toLowerCase() === preset.toLowerCase();
@@ -179,10 +219,12 @@ export function BookCallFormBody({
                       key={preset}
                       type="button"
                       onClick={() => setHeardFrom(preset)}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                      className={`rounded-lg border px-3.5 py-2 text-sm font-medium transition ${
                         active
-                          ? "border-violet-300/70 bg-violet-500/25 text-violet-100"
-                          : "border-white/20 bg-white/[0.05] text-white/88 hover:bg-white/[0.10]"
+                          ? "border-violet-400/50 bg-violet-500/25 text-white shadow-[0_0_18px_rgba(139,92,246,0.25)]"
+                          : isPanelFill
+                            ? "border-indigo-400/20 bg-indigo-500/10 text-white/85 hover:border-violet-400/35 hover:bg-violet-500/15 hover:text-white"
+                            : "border-white/20 bg-white/[0.05] text-white/88 hover:bg-white/[0.10]"
                       }`}
                       aria-label={`Select source ${preset}`}
                       aria-disabled={false}
@@ -201,21 +243,36 @@ export function BookCallFormBody({
               />
             </div>
 
-            <label className="block">
+            <label className={`block ${sectionClass}`}>
               <div className="mb-1.5 flex items-center justify-between gap-2">
-                <span className="block text-xs uppercase tracking-wide text-white/72">Tell us about your project</span>
-                <span className={`text-xs ${projectCharsLeft > 0 ? "text-amber-200/90" : "text-emerald-200/90"}`}>
+                <span className={labelClass}>Tell us about your project</span>
+                <span
+                  className={`text-sm font-medium ${projectCharsLeft > 0 ? "text-amber-300/95" : "text-emerald-300/95"}`}
+                >
                   {projectCharsLeft > 0 ? `${projectCharsLeft} chars left` : "Looks good"}
                 </span>
               </div>
-              <textarea
-                value={projectDetails}
-                onChange={(e) => setProjectDetails(e.target.value)}
-                className={`${inputClassName} min-h-[150px] resize-y`}
-                placeholder="Project type, goals, stage, deadlines, and expectations."
-                required
-                aria-label="Project details"
-              />
+              {isPanelFill ? (
+                <div className="rounded-xl border border-indigo-400/20 bg-gradient-to-br from-indigo-500/[0.1] to-violet-600/[0.06] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                  <textarea
+                    value={projectDetails}
+                    onChange={(e) => setProjectDetails(e.target.value)}
+                    className={`${textareaClassName} !border-0 !bg-transparent !shadow-none rounded-lg ring-0 focus:!ring-2 focus:!ring-violet-400/30`}
+                    placeholder="Project type, goals, stage, deadlines, and expectations."
+                    required
+                    aria-label="Project details"
+                  />
+                </div>
+              ) : (
+                <textarea
+                  value={projectDetails}
+                  onChange={(e) => setProjectDetails(e.target.value)}
+                  className={textareaClassName}
+                  placeholder="Project type, goals, stage, deadlines, and expectations."
+                  required
+                  aria-label="Project details"
+                />
+              )}
             </label>
 
             {status === "error" && (
@@ -224,20 +281,30 @@ export function BookCallFormBody({
               </div>
             )}
 
-            <div className="rounded-xl border border-white/16 bg-black/20 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/68">What happens next</p>
-              <div className="mt-2 space-y-1.5 text-sm text-white/88">
-                <p className="inline-flex items-center gap-2">
-                  <Clock3 className="h-4 w-4 text-violet-200/90" aria-hidden />
-                  Response within 1 business day
+            <div className={nextStepsClass}>
+              <p
+                className={`text-xs font-semibold uppercase tracking-wide ${isPanelFill ? "text-white/50" : "text-white/68"}`}
+              >
+                What happens next
+              </p>
+              <div className={`mt-3 space-y-2.5 text-[15px] leading-snug ${isPanelFill ? "text-white/90" : "text-white/88"}`}>
+                <p className="flex items-start gap-3">
+                  <Clock3 className={`mt-0.5 h-5 w-5 shrink-0 ${isPanelFill ? "text-sky-400" : "text-violet-200/90"}`} aria-hidden />
+                  <span>Response within 1 business day</span>
                 </p>
-                <p className="inline-flex items-center gap-2">
-                  <MessageCircleMore className="h-4 w-4 text-violet-200/90" aria-hidden />
-                  30-min discovery call with clear next actions
+                <p className="flex items-start gap-3">
+                  <MessageCircleMore
+                    className={`mt-0.5 h-5 w-5 shrink-0 ${isPanelFill ? "text-violet-300" : "text-violet-200/90"}`}
+                    aria-hidden
+                  />
+                  <span>30-min discovery call with clear next actions</span>
                 </p>
-                <p className="inline-flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-violet-200/90" aria-hidden />
-                  Your details are used only for this request
+                <p className="flex items-start gap-3">
+                  <ShieldCheck
+                    className={`mt-0.5 h-5 w-5 shrink-0 ${isPanelFill ? "text-emerald-400" : "text-violet-200/90"}`}
+                    aria-hidden
+                  />
+                  <span>Your details are used only for this request</span>
                 </p>
               </div>
             </div>
@@ -247,10 +314,12 @@ export function BookCallFormBody({
               disabled={!canSubmit || status === "submitting"}
               aria-label="Submit booking request"
               aria-disabled={!canSubmit || status === "submitting"}
-              className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3.5 text-sm font-semibold transition ${
+              className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-4 text-base font-semibold transition ${
                 !canSubmit || status === "submitting"
-                  ? "cursor-not-allowed border-white/16 bg-white/[0.08] text-white/60"
-                  : "border-violet-200/75 bg-gradient-to-r from-violet-500/40 to-indigo-500/35 text-white hover:from-violet-500/50 hover:to-indigo-500/45"
+                  ? isPanelFill
+                    ? "cursor-not-allowed border-violet-300/20 bg-[#211a4c]/70 text-white/55"
+                    : "cursor-not-allowed border-white/16 bg-white/[0.08] text-white/60"
+                  : "border-violet-400/40 bg-gradient-to-r from-violet-600/50 to-indigo-600/45 text-white shadow-[0_0_28px_rgba(99,102,241,0.35)] hover:from-violet-500/60 hover:to-indigo-500/55"
               }`}
             >
               {status === "submitting" ? (
@@ -292,7 +361,9 @@ export function BookCallSidePanel({ onClose, initialProjectDetails = "" }: BookC
         </button>
       </div>
 
-      <BookCallFormBody layout="panelFill" initialProjectDetails={initialProjectDetails} />
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-5 py-4 scrollbar-chat">
+        <BookCallFormBody layout="panelFill" initialProjectDetails={initialProjectDetails} />
+      </div>
     </motion.div>
   );
 }

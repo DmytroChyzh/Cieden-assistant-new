@@ -13,6 +13,11 @@ export interface EstimateSessionData {
   result?: Record<string, unknown>;
   /** Index-based first message ID (the open_calculator tool call) */
   chooserMessageId: string;
+  /** Logical estimate thread id for isolated message grouping */
+  threadId: string;
+  startedAt: number;
+  /** Which path the user chose from the inline card (used when React state remounts). */
+  flow?: "assistant" | "quick";
 }
 
 type SessionMap = Map<string, EstimateSessionData>;
@@ -38,7 +43,10 @@ function setActiveSessionId(id: string | null): void {
 }
 
 /** Register a new estimate session tied to the chooser card's messageId. */
-export function startEstimateSession(chooserMessageId: string): void {
+export function startEstimateSession(
+  chooserMessageId: string,
+  flow: "assistant" | "quick" = "assistant",
+): void {
   const map = getSessionMap();
   // Mark any previously active session as cancelled (if it wasn't completed)
   const prevId = getActiveEstimateSessionId();
@@ -48,7 +56,14 @@ export function startEstimateSession(chooserMessageId: string): void {
       prev.status = "cancelled";
     }
   }
-  map.set(chooserMessageId, { status: "active", chooserMessageId });
+  const threadId = `estimate-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  map.set(chooserMessageId, {
+    status: "active",
+    chooserMessageId,
+    threadId,
+    startedAt: Date.now(),
+    flow,
+  });
   setActiveSessionId(chooserMessageId);
 }
 
@@ -79,6 +94,13 @@ export function cancelEstimateSession(): void {
 /** Get session data for a specific chooser messageId. */
 export function getEstimateSession(chooserMessageId: string): EstimateSessionData | undefined {
   return getSessionMap().get(chooserMessageId);
+}
+
+/** Get active estimate thread id for metadata tagging/filtering. */
+export function getActiveEstimateThreadId(): string | null {
+  const activeId = getActiveEstimateSessionId();
+  if (!activeId) return null;
+  return getSessionMap().get(activeId)?.threadId ?? null;
 }
 
 /** Check if any session is currently active. */

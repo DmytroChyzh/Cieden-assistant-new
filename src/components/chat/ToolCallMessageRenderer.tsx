@@ -27,12 +27,14 @@ interface ToolCallMessageRendererProps {
   content: string;
   onUserAction?: ((text: string) => void) | null;
   messageId?: Id<"messages">;
+  conversationId?: Id<"conversations"> | null;
 }
 
 export function ToolCallMessageRenderer({
   content,
   onUserAction,
-  messageId
+  messageId,
+  conversationId,
 }: ToolCallMessageRendererProps) {
   const toolCall = parseToolCall(content);
   const toolName = toolCall?.toolName ?? null;
@@ -174,7 +176,7 @@ export function ToolCallMessageRenderer({
 
     case "generate_estimate":
     case "open_calculator":
-      return <EstimateInlineChooserCard messageId={messageId} />;
+      return <EstimateInlineChooserCard messageId={messageId} conversationId={conversationId} />;
 
     case "show_about":
       return (

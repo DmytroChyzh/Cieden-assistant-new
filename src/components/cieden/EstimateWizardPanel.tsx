@@ -9,7 +9,6 @@ import {
   ListChecks,
   Sparkles,
   Clock3,
-  Layers3,
   Search,
   LayoutTemplate,
   Palette,
@@ -129,6 +128,7 @@ interface EstimateWizardPanelProps {
   onClose: () => void;
   conversationId?: Id<"conversations"> | null;
   variant?: "panel" | "inline" | "hidden";
+  estimateThreadId?: string | null;
   onEstimateFinal?: (result: EstimateFinalResult) => void;
   onEstimateInlineActiveChange?: (active: boolean) => void;
   initialMode?: EstimateMode;
@@ -153,6 +153,7 @@ export function EstimateWizardPanel({
   onClose,
   conversationId,
   variant = "panel",
+  estimateThreadId = null,
   onEstimateFinal,
   onEstimateInlineActiveChange,
   initialMode,
@@ -189,7 +190,15 @@ export function EstimateWizardPanel({
   const guestId = getGuestIdentityFromCookie()?.guestId;
   const allMessages = useQuery(
     api.messages.list,
-    conversationId ? { conversationId, guestId: guestId ?? undefined } : "skip",
+    conversationId
+      ? {
+          conversationId,
+          guestId: guestId ?? undefined,
+          includeEstimateThread: true,
+          estimateThreadId:
+            mode === "assistant" && estimateThreadId ? estimateThreadId : undefined,
+        }
+      : "skip",
   );
 
   // Capture user messages forwarded from page.tsx when estimate panel is open.
@@ -197,8 +206,14 @@ export function EstimateWizardPanel({
   // can update immediately even if Convex persistence is delayed.
   useEffect(() => {
     const handler = (e: Event) => {
-      const ev = e as CustomEvent<{ content: string; role?: "user" | "assistant"; createdAt?: number }>;
+      const ev = e as CustomEvent<{
+        content: string;
+        role?: "user" | "assistant";
+        createdAt?: number;
+        threadId?: string | null;
+      }>;
       if (!ev.detail?.content) return;
+      if (estimateThreadId && ev.detail?.threadId && ev.detail.threadId !== estimateThreadId) return;
       setLocalMessages((prev) => [
         ...prev,
         {
@@ -211,7 +226,7 @@ export function EstimateWizardPanel({
     };
     window.addEventListener("estimate-local-user-message", handler as EventListener);
     return () => window.removeEventListener("estimate-local-user-message", handler as EventListener);
-  }, []);
+  }, [estimateThreadId]);
 
   const estimateSessionMessages = useMemo(() => {
     const fallbackStart = Date.now() - 2 * 60 * 60 * 1000; // 2h
@@ -551,7 +566,14 @@ export function EstimateWizardPanel({
     const hasEstimateLanguage =
       /(попередн|preliminary|оцінк|estimate|вартіст|cost|бюджет|budget|підсум|summar|результат|result)/i.test(lower);
     const hasNumbers = /\d/.test(last);
-    return hasEstimateLanguage && hasNumbers;
+    if (hasEstimateLanguage && hasNumbers) return true;
+    // Some model replies end estimate mode with a handoff summary
+    // (book call / estimate card mention) without explicit numeric block.
+    const hasWrapUpHandoff =
+      /(estimate card|preliminary estimate.*available|ballpark|book a call|schedule( a)? call|relevant case stud|for a precise quote)/i.test(
+        lower,
+      );
+    return hasWrapUpHandoff && assistantQuestionCount >= 4;
   }, [estimateSessionMessages, assistantQuestionCount]);
 
   const estimateProgress = useMemo(() => {
@@ -1036,8 +1058,17 @@ export function EstimateWizardPanel({
       // finalize estimate even if the agent did not emit explicit final marker text yet.
       const isProgressComplete =
         estimateProgress.percent === 100 || estimateProgress.checks >= 8;
+      const hasWrapUpHandoffMessage =
+        !!estimateSessionMessages?.some(
+          (m) =>
+            m.role === "assistant" &&
+            /(estimate card|preliminary estimate.*available|ballpark|book a call|schedule( a)? call|relevant case stud|for a precise quote)/i.test(
+              (m.content ?? "").toLowerCase(),
+            ),
+        );
       const hasAgentFinalResult =
         assistantGaveFinalEstimate ||
+        hasWrapUpHandoffMessage ||
         estimateSessionMessages?.some(
           (m) => m.role === "assistant" && /ESTIMATE_PANEL_RESULT:\s*\{/.test(m.content ?? "")
         );
@@ -1378,10 +1409,6 @@ export function EstimateWizardPanel({
                           <Clock3 className="w-3.5 h-3.5 text-sky-400" />
                           {displayedEstimate?.weeks ?? 0} weeks
                         </span>
-                        <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/[0.07] border border-white/[0.10] px-3 py-1.5 text-[12px] font-medium text-white/75">
-                          <Layers3 className="w-3.5 h-3.5 text-fuchsia-400" />
-                          {displayedEstimate ? `${displayedEstimate.totalHours ?? 0} hrs` : "0 hrs"}
-                        </span>
                         <span className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[12px] font-medium ${displayedEstimate ? "bg-violet-500/10 border-violet-400/20 text-violet-300" : "bg-white/[0.04] border-white/[0.08] text-white/40"}`}>
                           <MessagesSquare className="w-3.5 h-3.5" />
                           {displayedEstimate ? "draft ready" : "awaiting details"}
@@ -1419,7 +1446,7 @@ export function EstimateWizardPanel({
 
                     {/* Phase breakdown — 2-column grid */}
                     <div className="p-5">
-                      <p className="text-[11px] font-semibold text-white/40 uppercase tracking-widest mb-3">Phase breakdown</p>
+                      <p className="text-[11px] font-semibold text-white/40 uppercase tracking-widest mb-3">Work included</p>
                       <div className="grid grid-cols-2 gap-3">
                         {[
                           { label: "Discovery",           Icon: Search,         desc: "Research, audits & project scope definition" },
@@ -1430,36 +1457,18 @@ export function EstimateWizardPanel({
                           { label: "Testing & iteration", Icon: FlaskConical,   desc: "Usability tests, feedback & design fixes" },
                           { label: "Handoff & support",   Icon: PackageCheck,   desc: "Dev specs, assets export & QA support" },
                           { label: "PM / communication",  Icon: MessagesSquare, desc: "Planning, syncs, reviews & team coordination" },
-                        ].map(({ label, Icon, desc }) => {
-                          const value = displayedEstimate?.phaseHours?.[label] ?? 0;
-                          const total = displayedEstimate?.totalHours ?? 0;
-                          const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-                          return (
-                            <div
-                              key={label}
-                              className="rounded-2xl border border-indigo-400/15 bg-gradient-to-br from-indigo-500/10 to-violet-600/[0.06] p-4 flex flex-col gap-3"
-                            >
-                              {/* Icon + hours */}
-                              <div className="flex items-start justify-between gap-2">
-                                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/15 border border-indigo-400/20 text-indigo-300">
-                                  <Icon className="w-4 h-4" />
-                                </span>
-                                <span className="text-[15px] font-bold text-white/90 tabular-nums leading-none pt-1">{value}h</span>
-                              </div>
-                              {/* Label */}
-                              <p className="text-[12px] font-semibold text-white leading-tight">{label}</p>
-                              {/* Description */}
-                              <p className="text-[10px] text-white/40 leading-relaxed">{desc}</p>
-                              {/* Progress bar */}
-                              <div className="h-1 rounded-full bg-white/[0.08] overflow-hidden mt-auto">
-                                <div
-                                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-700"
-                                  style={{ width: `${pct}%` }}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
+                        ].map(({ label, Icon, desc }) => (
+                          <div
+                            key={label}
+                            className="rounded-2xl border border-indigo-400/15 bg-gradient-to-br from-indigo-500/10 to-violet-600/[0.06] p-4 flex flex-col gap-2"
+                          >
+                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/15 border border-indigo-400/20 text-indigo-300">
+                              <Icon className="w-4 h-4" />
+                            </span>
+                            <p className="text-[12px] font-semibold text-white leading-tight">{label}</p>
+                            <p className="text-[10px] text-white/40 leading-relaxed">{desc}</p>
+                          </div>
+                        ))}
                       </div>
 
                       {/* Hint */}
@@ -1695,23 +1704,20 @@ export function EstimateWizardPanel({
           {/* ── Result step ── */}
           {mode === "wizard" && isResultStep && (() => {
             // Phase distribution ratios (must sum to 1)
-            const PHASE_RATIOS: { label: string; Icon: React.ElementType; desc: string; ratio: number }[] = [
-              { label: "Discovery",           Icon: Search,         desc: "Research, audits & project scope definition",      ratio: 0.10 },
-              { label: "UX / IA",             Icon: LayoutTemplate, desc: "User flows, wireframes & information architecture", ratio: 0.20 },
-              { label: "UI design",           Icon: Palette,        desc: "Visual screens, components & final UI",             ratio: 0.28 },
-              { label: "Design system",       Icon: Component,      desc: "Token library, component kit & guidelines",         ratio: 0.10 },
-              { label: "Prototyping",         Icon: Wand2,          desc: "Interactive clickable prototype for testing",       ratio: 0.10 },
-              { label: "Testing & iteration", Icon: FlaskConical,   desc: "Usability tests, feedback & design fixes",          ratio: 0.10 },
-              { label: "Handoff & support",   Icon: PackageCheck,   desc: "Dev specs, assets export & QA support",             ratio: 0.07 },
-              { label: "PM / communication",  Icon: MessagesSquare, desc: "Planning, syncs, reviews & team coordination",      ratio: 0.05 },
+            const PHASE_ROWS: { label: string; Icon: React.ElementType; desc: string }[] = [
+              { label: "Discovery",           Icon: Search,         desc: "Research, audits & project scope definition" },
+              { label: "UX / IA",             Icon: LayoutTemplate, desc: "User flows, wireframes & information architecture" },
+              { label: "UI design",           Icon: Palette,        desc: "Visual screens, components & final UI" },
+              { label: "Design system",       Icon: Component,      desc: "Token library, component kit & guidelines" },
+              { label: "Prototyping",         Icon: Wand2,          desc: "Interactive clickable prototype for testing" },
+              { label: "Testing & iteration", Icon: FlaskConical,   desc: "Usability tests, feedback & design fixes" },
+              { label: "Handoff & support",   Icon: PackageCheck,   desc: "Dev specs, assets export & QA support" },
+              { label: "PM / communication",  Icon: MessagesSquare, desc: "Planning, syncs, reviews & team coordination" },
             ];
 
             const answeredCount = [platform, stage, goal, specs, scope, complexity, timeline].filter(Boolean).length;
             const totalAnswers = 7;
             const readinessPct = Math.round((answeredCount / totalAnswers) * 90) + (extraNotes.trim() ? 10 : 0);
-
-            const weeksMin = result ? Math.round((result.minHours / 40)) : 0;
-            const weeksMax = result ? Math.round((result.maxHours / 40)) : 0;
 
             return (
               <motion.div key="result" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
@@ -1735,18 +1741,11 @@ export function EstimateWizardPanel({
                     <p className="text-4xl font-bold text-white/30 leading-none">$0 – $0</p>
                   )}
 
-                  {/* Pills */}
+                  {/* Timeline from estimation catalog (not hour-derived) */}
                   <div className="flex flex-wrap gap-2 mt-3">
                     <span className="flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.06] px-3 py-1 text-xs text-white/70">
                       <Clock3 className="w-3 h-3" />
-                      {result ? `${weeksMin}–${weeksMax} weeks` : "0 weeks"}
-                    </span>
-                    <span className="flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.06] px-3 py-1 text-xs text-white/70">
-                      <Layers3 className="w-3 h-3" />
-                      {result ? `${result.minHours}–${result.maxHours} hrs` : "0 hrs"}
-                    </span>
-                    <span className="flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.06] px-3 py-1 text-xs text-white/70">
-                      {result?.timeline ?? "awaiting details"}
+                      {result?.timeline ?? "—"}
                     </span>
                 </div>
 
@@ -1775,35 +1774,24 @@ export function EstimateWizardPanel({
                   </div>
                 </div>
 
-                {/* Phase breakdown */}
+                {/* Work types included (no hour split — illustrative only) */}
                 <div className="space-y-2">
-                  <p className="text-[10px] uppercase tracking-wider text-white/40 font-semibold px-0.5">Phase breakdown</p>
+                  <p className="text-[10px] uppercase tracking-wider text-white/40 font-semibold px-0.5">Work included</p>
                   <div className="grid grid-cols-2 gap-3">
-                    {PHASE_RATIOS.map(({ label, Icon, desc, ratio }) => {
-                      const minH = result ? Math.round(result.minHours * ratio) : 0;
-                      const maxH = result ? Math.round(result.maxHours * ratio) : 0;
-                      const pct  = result ? ratio * 100 : 0;
-                      return (
-                        <div key={label}
-                          className="rounded-2xl border border-indigo-400/15 bg-gradient-to-br from-indigo-500/10 to-violet-600/[0.06] p-4 flex flex-col gap-3">
-                          <div className="flex items-center justify-between">
-                            <div className="rounded-xl bg-indigo-500/20 p-2 text-indigo-300">
-                              <Icon className="h-4 w-4" />
-                            </div>
-                            <span className="text-[15px] font-bold text-white/90">
-                              {result ? `${minH}–${maxH}h` : "0h"}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold text-white">{label}</p>
-                            <p className="text-[10px] text-white/45 mt-0.5 leading-snug">{desc}</p>
-                          </div>
-                          <div className="h-0.5 rounded-full bg-white/10 overflow-hidden">
-                            <div className="h-full bg-indigo-400/50 rounded-full" style={{ width: `${pct}%` }} />
-                          </div>
+                    {PHASE_ROWS.map(({ label, Icon, desc }) => (
+                      <div
+                        key={label}
+                        className="rounded-2xl border border-indigo-400/15 bg-gradient-to-br from-indigo-500/10 to-violet-600/[0.06] p-4 flex flex-col gap-2"
+                      >
+                        <div className="rounded-xl bg-indigo-500/20 p-2 text-indigo-300 w-fit">
+                          <Icon className="h-4 w-4" />
                         </div>
-                      );
-                    })}
+                        <div>
+                          <p className="text-xs font-semibold text-white">{label}</p>
+                          <p className="text-[10px] text-white/45 mt-0.5 leading-snug">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

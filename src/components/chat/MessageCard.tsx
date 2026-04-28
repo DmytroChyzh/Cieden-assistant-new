@@ -19,9 +19,10 @@ interface MessageCardProps {
   };
   onUserAction?: ((text: string) => void) | null;
   compact?: boolean;
+  conversationId?: Id<"conversations"> | null;
 }
 
-export function MessageCard({ message, onUserAction, compact = false }: MessageCardProps) {
+export function MessageCard({ message, onUserAction, compact = false, conversationId = null }: MessageCardProps) {
   const toolCall = parseToolCall(message.content);
   const isToolMessage = !!toolCall;
   const isUser = message.role === "user";
@@ -267,6 +268,7 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
                 content={message.content}
                 onUserAction={onUserAction}
                 messageId={message._id}
+                conversationId={conversationId}
               />
             </div>
           </div>
@@ -292,6 +294,7 @@ export function MessageCard({ message, onUserAction, compact = false }: MessageC
                 content={message.content}
                 onUserAction={onUserAction}
                 messageId={message._id}
+                conversationId={conversationId}
               />
             </CardContent>
           </Card>

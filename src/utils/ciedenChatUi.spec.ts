@@ -11,6 +11,7 @@ describe("ciedenChatUi utils", () => {
   it("normalizes assistant text for stable dedupe", () => {
     expect(normalizeAssistantMessage("  Hello   there!!! ")).toBe("hello there");
     expect(normalizeAssistantMessage("A—B")).toBe("a-b");
+    expect(normalizeAssistantMessage("**Hello** there")).toBe("hello there");
   });
 
   it("normalizes intro text without trimming trailing punctuation", () => {

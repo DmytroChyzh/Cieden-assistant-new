@@ -1,5 +1,12 @@
+/** Normalize assistant text for dedupe keys (strips estimate protocol + light markdown). */
 export const normalizeAssistantMessage = (value: string): string =>
   (value || "")
+    .replace(/\[ESTIMATE\s+(?:MODE|PANEL)\][^\n]*\n?/gi, "")
+    .replace(/ESTIMATE_PANEL_RESULT:\s*\{[\s\S]*?\}/gi, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/`+/g, "")
+    .replace(/#{1,6}\s?/g, "")
     .toLowerCase()
     .replace(/\s+/g, " ")
     .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")

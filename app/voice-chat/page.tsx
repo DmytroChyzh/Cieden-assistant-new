@@ -62,6 +62,9 @@ import {
   cancelEstimateSession,
   completeEstimateSession,
   getActiveEstimateSessionId,
+  getActiveEstimateThreadId,
+  getEstimateSession,
+  startEstimateSession,
 } from "@/src/utils/ciedenEstimateSession";
 import type { FindSimilarCasesToolPayload } from "@/src/lib/case-studies/types";
 import { VOICE_CHAT_COMPOSER_LAYOUT } from "@/src/components/cieden/EstimateAssistantProgressDock";
@@ -102,6 +105,8 @@ function looksLikeAssistantFinalEstimateContent(content: string | undefined): bo
       lower,
     );
   if (strongClosing) return true;
+  if (/thanks for the details.*preliminary range/i.test(lower)) return true;
+  if (/дякуємо за деталі.*попередн/i.test(lower)) return true;
   const hasEstimateWords =
     /(попередн|preliminary|оцінк|estimate|вартіст|cost|бюджет|budget|підсум|summar|годин|hours|тижн|weeks|phase|range)/i.test(
       lower,
@@ -169,6 +174,19 @@ const detectLanguageFromText = (value?: string | null): "en" | "ua" =>
   CYRILLIC_RE.test(value || "") ? "ua" : "en";
 const isEstimateEntryToolName = (toolName?: string | null): boolean =>
   toolName === "open_calculator" || toolName === "generate_estimate";
+
+/** Sales / explainer cards the model often stacks right after a delivered estimate — hide until the user sends another message. */
+const POST_ESTIMATE_SUPPRESSED_TOOL_NAMES = new Set<string>([
+  "show_process",
+  "show_cases",
+  "show_best_case",
+  "find_similar_cases",
+  "show_engagement_models",
+  "show_getting_started",
+  "show_next_steps",
+  "show_support",
+  "show_about",
+]);
 const isBookCallPrompt = (value?: string | null): boolean => {
   const lower = (value || "").trim().toLowerCase();
   if (!lower) return false;
@@ -206,6 +224,18 @@ const isEstimateChooserBoilerplateMessage = (value?: string | null): boolean => 
     lower.includes("please select whether you'd like to work with the assistant") ||
     lower.includes("виберіть опцію в картці естімейту") ||
     lower.includes("оберіть варіант у попередньому естімейті")
+  );
+};
+
+/** Assistant repeats the estimate opener after the flow already completed — hide in main feed. */
+const isPostEstimateRedundantOpenerMessage = (value?: string | null): boolean => {
+  const lower = (value || "").trim().toLowerCase();
+  if (!lower) return false;
+  if (!/preliminary estimate|попередн\w* оцінк/i.test(lower)) return false;
+  return (
+    (/opened (a )?card|i've opened|i can help|відкрив|картк/i.test(lower) &&
+      /questionnaire|анкет|chooser|choose to|work with (me|the assistant)|зі мною/i.test(lower)) ||
+    (/for an exact quote|точн\w* (цін|котиру)/i.test(lower) && /manager|менедж/i.test(lower) && /choose|вибер/i.test(lower))
   );
 };
 
@@ -653,13 +683,29 @@ export default function VoiceChatPage() {
         // Read guest identity at send time. During first-turn guest bootstrap,
         // the cookie can be created moments before this call.
         const runtimeGuestId = getGuestIdentityFromCookie()?.guestId;
+        const skipEstimateThreadTag =
+          (metadata as { estimateCompletionFollowUp?: boolean } | undefined)?.estimateCompletionFollowUp === true;
+        const isEstimatePayload =
+          !skipEstimateThreadTag &&
+          typeof content === "string" &&
+          (/^\[ESTIMATE\s+(MODE|PANEL)\]/i.test(content.trim()) ||
+            (window as any).__ciedenEstimatePanelOpen === true);
+        const activeEstimateThreadId = isEstimatePayload ? getActiveEstimateThreadId() : null;
+        const nextMetadata =
+          isEstimatePayload && activeEstimateThreadId
+            ? {
+                ...(metadata ?? {}),
+                threadType: "estimate",
+                estimateThreadId: activeEstimateThreadId,
+              }
+            : metadata;
         await createMessage({
           conversationId: activeConversationId,
           content,
           role,
           source,
           guestId: runtimeGuestId ?? guestId ?? undefined,
-          metadata,
+          metadata: nextMetadata,
         });
         return true;
       } catch (error) {
@@ -709,8 +755,8 @@ export default function VoiceChatPage() {
 
         if (await trySend()) return;
 
-        // Not ready — wait and retry
-        for (const delay of [500, 1500, 3000]) {
+        // Not ready — ultra-fast retry path for estimate UX.
+        for (const delay of [40, 80, 140]) {
           await new Promise(r => setTimeout(r, delay));
           if (await trySend()) return;
         }
@@ -1939,6 +1985,9 @@ export default function VoiceChatPage() {
     const handleChooseAssistant = (e: Event) => {
       // No side panel while assistant is collecting info.
       const detail = (e as CustomEvent).detail;
+      if (detail?.messageId && !getActiveEstimateSessionId()) {
+        startEstimateSession(String(detail.messageId), "assistant");
+      }
       closeAllRightPanels();
       bumpToken();
       pendingEstimateAssistantUserMessagesRef.current = [];
@@ -1952,6 +2001,50 @@ export default function VoiceChatPage() {
       setShowEstimateInline(false);
       setEstimatePanelKey((prev) => prev + 1);
       setShowEstimateAssistantRunner(true);
+      window.dispatchEvent(
+        new CustomEvent("estimate-assistant-progress", {
+          detail: {
+            active: true,
+            title: "Preliminary estimate",
+            subtitle: "Work with the assistant",
+            asked: 0,
+            answered: 0,
+            total: 8,
+            percent: 0,
+          },
+        }),
+      );
+
+      // Fallback kickoff: if hidden runner fails to emit first question,
+      // seed estimate mode once to avoid "silent" assistant state.
+      setTimeout(() => {
+        if (typeof window === "undefined") return;
+        if ((window as unknown as { __ciedenEstimateProgressActive?: boolean }).__ciedenEstimateProgressActive) {
+          return;
+        }
+        window.dispatchEvent(
+          new CustomEvent("estimate-assistant-message", {
+            detail: {
+              text:
+                "ESTIMATE MODE. Ask ONE question at a time about the project to produce a cost estimate. " +
+                "Reply in the same language as the client. Do not switch to onboarding. " +
+                "Start now with the first question about product type (website, mobile app, or both).",
+              inputKind: "text",
+              visibility: "contextual",
+            },
+          }),
+        );
+        window.dispatchEvent(
+          new CustomEvent("estimate-assistant-message", {
+            detail: {
+              text:
+                "I chose \"Work with the assistant\" for my estimate. Please start with one question at a time, beginning with product type.",
+              inputKind: "text",
+              visibility: "user",
+            },
+          }),
+        );
+      }, 80);
     };
 
     const handleEstimateFinal = (e: Event) => {
@@ -1960,6 +2053,47 @@ export default function VoiceChatPage() {
 
       const token = typeof detail.token === "number" ? detail.token : null;
       if (token !== estimateFlowTokenRef.current) return;
+
+      const appendEstimateFollowUpToMainChat = () => {
+        const msgs = convexMessagesRef.current ?? [];
+        if (
+          msgs.some(
+            (m) =>
+              m.role === "assistant" &&
+              (m.metadata as { estimateFollowUpToken?: number } | undefined)?.estimateFollowUpToken === token,
+          )
+        ) {
+          return;
+        }
+        let isUa = false;
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          const row = msgs[i];
+          if (row.role === "user" && (row.content || "").trim()) {
+            isUa = detectLanguageFromText(row.content || "") === "ua";
+            break;
+          }
+        }
+        const body = isUa
+          ? `Що б ви хотіли зробити далі?\n${JSON.stringify([
+              "Записатися на дзвінок з менеджерами",
+              "Продовжити розмову",
+              "Хочу дізнатися більше про послуги",
+            ])}`
+          : `What would you like to do next?\n${JSON.stringify([
+              "Book a call with our managers",
+              "Continue the conversation",
+              "I'd like to learn more about your services",
+            ])}`;
+        void appendMessageToConvex({
+          role: "assistant",
+          source: "text",
+          content: body,
+          metadata: {
+            estimateCompletionFollowUp: true,
+            estimateFollowUpToken: token,
+          },
+        });
+      };
 
       if (openBookCallAfterEstimateRef.current) {
         closeAllRightPanels();
@@ -1991,6 +2125,7 @@ export default function VoiceChatPage() {
       setEstimatePanelKey((prev) => prev + 1);
       window.dispatchEvent(new CustomEvent("estimate-panel-opened"));
       window.dispatchEvent(new CustomEvent("estimate-assistant-progress", { detail: { active: false } }));
+      appendEstimateFollowUpToMainChat();
     };
 
     const handleCancel = () => {
@@ -2008,6 +2143,22 @@ export default function VoiceChatPage() {
       window.dispatchEvent(new CustomEvent("estimate-panel-closed", { detail: { reason: "cancel" } }));
     };
 
+    const handleStartOver = (e: Event) => {
+      const detail = (e as CustomEvent<{ messageId?: string | null }>).detail;
+      handleCancel();
+      // Run restart after the cancel reset has been applied.
+      setTimeout(() => {
+        if (detail?.messageId) {
+          startEstimateSession(String(detail.messageId), "assistant");
+        }
+        handleChooseAssistant(
+          new CustomEvent("estimate-choose-assistant", {
+            detail: { messageId: detail?.messageId ?? null, restart: true },
+          }),
+        );
+      }, 0);
+    };
+
     const handleReopen = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (!detail) return;
@@ -2021,6 +2172,7 @@ export default function VoiceChatPage() {
     window.addEventListener("estimate-inline-active-change", handleInlineActive);
     window.addEventListener("estimate-choose-quick", handleChooseQuick);
     window.addEventListener("estimate-choose-assistant", handleChooseAssistant);
+    window.addEventListener("estimate-start-over", handleStartOver);
     window.addEventListener("estimate-cancel", handleCancel);
     window.addEventListener("estimate-final-ready", handleEstimateFinal);
     window.addEventListener("estimate-reopen", handleReopen);
@@ -2028,11 +2180,12 @@ export default function VoiceChatPage() {
       window.removeEventListener("estimate-inline-active-change", handleInlineActive);
       window.removeEventListener("estimate-choose-quick", handleChooseQuick);
       window.removeEventListener("estimate-choose-assistant", handleChooseAssistant);
+      window.removeEventListener("estimate-start-over", handleStartOver);
       window.removeEventListener("estimate-cancel", handleCancel);
       window.removeEventListener("estimate-final-ready", handleEstimateFinal);
       window.removeEventListener("estimate-reopen", handleReopen);
     };
-  }, [closeAllRightPanels]);
+  }, [appendMessageToConvex, closeAllRightPanels]);
 
   /** Closing the final-result side panel. End-of-session anchor is derived from chat (see effect below). */
   const dismissFinalEstimatePanel = useCallback(() => {
@@ -3247,9 +3400,15 @@ export default function VoiceChatPage() {
 
     // Forward user message to EstimateWizardPanel local tracker
     if (conversationId && (window as any).__ciedenEstimatePanelOpen === true && normalizedIncomingText) {
+      const activeEstimateThreadId = getActiveEstimateThreadId();
       window.dispatchEvent(
         new CustomEvent("estimate-local-user-message", {
-          detail: { content: normalizedIncomingText, role: "user", createdAt: Date.now() },
+          detail: {
+            content: normalizedIncomingText,
+            role: "user",
+            createdAt: Date.now(),
+            threadId: activeEstimateThreadId ?? null,
+          },
         }),
       );
     }
@@ -3572,6 +3731,15 @@ export default function VoiceChatPage() {
     if (!estimateFirstMessageId) return -1;
     return visibleConvexChatMessages.findIndex((m) => String(m._id) === String(estimateFirstMessageId));
   }, [visibleConvexChatMessages, estimateFirstMessageId]);
+
+  /** First user message after the pinned final-estimate summary (exclusive upper bound for auto-follow-up tool suppression). */
+  const estimatePostCompletionExclusiveEndIdx = useMemo(() => {
+    if (estimateButtonIdx < 0) return -1;
+    for (let i = estimateButtonIdx + 1; i < visibleConvexChatMessages.length; i++) {
+      if (visibleConvexChatMessages[i].role === "user") return i;
+    }
+    return visibleConvexChatMessages.length;
+  }, [visibleConvexChatMessages, estimateButtonIdx]);
 
   const emptyLoadedThread = Boolean(
     conversationId &&
@@ -4274,7 +4442,12 @@ export default function VoiceChatPage() {
                   // Show end-session card whenever we have a pinned message (do not hide while result panel is open).
                   const isEstimateEndMsg =
                     estimateEndMsgId !== null && String(message._id) === String(estimateEndMsgId);
-                  const estimateEndButton = isEstimateEndMsg ? (
+                  // Inline chooser already shows Completed + View at the end for any completed session.
+                  const suppressPinnedEstimateSessionCard =
+                    Boolean(estimateFirstMessageId) &&
+                    getEstimateSession(String(estimateFirstMessageId))?.status === "completed";
+                  const estimateEndButton =
+                    isEstimateEndMsg && !suppressPinnedEstimateSessionCard ? (
                     <div key={`est-card-${message._id}`} className="w-full max-w-[900px] mx-auto my-3">
                       <div className="rounded-2xl border border-white/[0.12] bg-white/[0.04] backdrop-blur-sm px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                         <p className="text-xs font-medium text-white/70 uppercase tracking-widest">
@@ -4344,64 +4517,22 @@ export default function VoiceChatPage() {
                       : [];
                   const segmentHasAnyToolCard =
                     segmentRows.some((m) => !!parseToolCall(m.content || ""));
-                  const segmentHasAnyAssistantText =
-                    segmentRows.some(
-                      (m) => m.role === "assistant" && !parseToolCall(m.content || ""),
-                    );
-                  const isLastToolInSegment =
-                    isToolCall &&
-                    !visibleConvexChatMessages
-                      .slice(index + 1, nextUserIdx)
-                      .some((m) => !!parseToolCall(m.content || ""));
                   if (isNonEstimateToolDuringEstimate) {
                     return null;
                   }
-                  const shouldRenderToolCompanionText =
+                  const suppressPostEstimateSalesToolCard =
                     isToolCall &&
-                    !segmentHasAnyAssistantText &&
-                    isLastToolInSegment &&
-                    !isEstimateEntryToolName(currentToolName);
-                  const toolCompanionText = (() => {
-                    if (!shouldRenderToolCompanionText) return "";
-                    const isUa = /[іїєґІЇЄҐ]/.test(segmentUserContent || "");
-                    switch (currentToolName) {
-                      case "show_about":
-                        return isUa
-                          ? "Коротко пояснив про Cieden. Якщо хочете, розкрию будь-який пункт детальніше."
-                          : "I shared a quick overview of Cieden. I can expand any part in more detail.";
-                      case "show_cases":
-                      case "show_best_case":
-                      case "find_similar_cases":
-                        return isUa
-                          ? "Підібрав релевантні кейси. Можу також пояснити, що саме у них найближче до вашого продукту."
-                          : "I shared relevant case studies. I can also explain which parts are closest to your product.";
-                      case "show_process":
-                        return isUa
-                          ? "Ось наш процес роботи. Можу окремо розписати етапи, строки та очікувані результати."
-                          : "That is our process. I can break down phases, timelines, and expected deliverables.";
-                      case "show_engagement_models":
-                        return isUa
-                          ? "Показав моделі співпраці. Можу допомогти вибрати оптимальну під ваші цілі."
-                          : "I shared collaboration models. I can help pick the best one for your goals.";
-                      case "show_getting_started":
-                      case "show_next_steps":
-                        return isUa
-                          ? "Показав наступні кроки. Готовий провести вас по кожному кроку."
-                          : "I shared the next steps. I can guide you through each one.";
-                      case "show_support":
-                        return isUa
-                          ? "Описав варіанти підтримки. Можу уточнити формат саме для вашого кейсу."
-                          : "I shared support options. I can tailor the recommendation to your case.";
-                      case "book_call":
-                        return isUa
-                          ? "Форма для дзвінка відкрита. Заповніть поля, і команда зв'яжеться з вами."
-                          : "The booking form is open. Fill it in and our team will contact you.";
-                      default:
-                        return isUa
-                          ? "Готово. Якщо хочете, деталізую саме те, що вам важливо."
-                          : "Done. I can expand on any part you care about.";
-                    }
-                  })();
+                    isCiedenEstimateSessionCompleted() &&
+                    !!estimateFirstMessageId &&
+                    estimateButtonIdx >= 0 &&
+                    estimatePostCompletionExclusiveEndIdx >= 0 &&
+                    index > estimateButtonIdx &&
+                    index < estimatePostCompletionExclusiveEndIdx &&
+                    currentToolName != null &&
+                    POST_ESTIMATE_SUPPRESSED_TOOL_NAMES.has(currentToolName);
+                  if (suppressPostEstimateSalesToolCard) {
+                    return null;
+                  }
                   const shouldSuppressSegmentToolDuplicate =
                     isToolCall &&
                     !!segmentExpectedTool &&
@@ -4440,24 +4571,15 @@ export default function VoiceChatPage() {
                           message={message}
                           onUserAction={handleUserAction}
                           compact={isMobile}
+                          conversationId={conversationId}
                         />
-                        {shouldRenderToolCompanionText && !!toolCompanionText && (
-                          <ChatMessage
-                            message={{
-                              id: `tool-companion-${String(message._id)}`,
-                              role: "assistant",
-                              content: toolCompanionText,
-                              timestamp:
-                                ((message as { _creationTime?: number })._creationTime ?? Date.now()) + 1,
-                            }}
-                            onQuickPrompt={(text) => sendQuickPrompt(text)}
-                            userName={userDisplayName}
-                          />
-                        )}
                         {estimateEndButton}
                       </React.Fragment>
                     );
                   }
+                  const isEstimateCompletionFollowUpBubble =
+                    (message.metadata as { estimateCompletionFollowUp?: boolean } | undefined)
+                      ?.estimateCompletionFollowUp === true;
                   const botMsg: ChatbotMessage = {
                     id: message._id,
                     role: message.role as "user" | "assistant",
@@ -4509,13 +4631,25 @@ export default function VoiceChatPage() {
                   if (shouldSuppressAssistantTextForEstimateChooser && !isEmailGateMessage) {
                     return null;
                   }
+                  const shouldSuppressPostEstimateRedundantOpener =
+                    message.role === "assistant" &&
+                    !isToolCall &&
+                    isCiedenEstimateSessionCompleted() &&
+                    isPostEstimateRedundantOpenerMessage(message.content);
+                  if (shouldSuppressPostEstimateRedundantOpener) {
+                    return null;
+                  }
                   const suppressSuggestions =
-                    disableQuickPromptsForFirstGreeting ||
-                    isEstimateActive ||
-                    isEstimateMessage ||
-                    isInsideCompletedEstimate ||
-                    isEmailGateMessage ||
-                    (message.role === "assistant" && segmentHasPrimaryCard && segmentHasEstimateEntryCard);
+                    !isEstimateCompletionFollowUpBubble &&
+                    (disableQuickPromptsForFirstGreeting ||
+                      isEstimateActive ||
+                      isEstimateMessage ||
+                      isInsideCompletedEstimate ||
+                      isEmailGateMessage ||
+                      (message.role === "assistant" &&
+                        !isToolCall &&
+                        looksLikeAssistantFinalEstimateContent(message.content)) ||
+                      (message.role === "assistant" && segmentHasPrimaryCard && segmentHasEstimateEntryCard));
                   const shouldRenderSegmentFallbackAfterUser =
                     message.role === "user" &&
                     !!segmentExpectedTool &&
@@ -4544,13 +4678,14 @@ export default function VoiceChatPage() {
                           }}
                           onUserAction={handleUserAction}
                           compact={isMobile}
+                          conversationId={conversationId}
                         />
                       )}
                       {estimateEndButton}
                     </React.Fragment>
                   );
                 })}
-                {pendingAssistantBubble && hasVisibleUserMessages && (
+                {pendingAssistantBubble && hasVisibleUserMessages && !isEstimateFlowUiActive() && (
                   <ChatMessage
                     key="pending-assistant-bubble"
                     message={{

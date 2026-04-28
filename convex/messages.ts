@@ -5,6 +5,8 @@ export const list = query({
   args: {
     conversationId: v.id("conversations"),
     guestId: v.optional(v.string()),
+    estimateThreadId: v.optional(v.string()),
+    includeEstimateThread: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -15,13 +17,33 @@ export const list = query({
       if (!conversation || conversation.userId !== args.guestId) return [];
     }
 
-    return await ctx.db
+    const messages = await ctx.db
       .query("messages")
       .withIndex("by_conversation_and_time", (q) =>
         q.eq("conversationId", args.conversationId)
       )
       .order("asc")
       .collect();
+
+    const includeEstimateThread = args.includeEstimateThread === true;
+    if (args.estimateThreadId) {
+      return messages.filter((message) => {
+        const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+        return (
+          metadata.threadType === "estimate" &&
+          metadata.estimateThreadId === args.estimateThreadId
+        );
+      });
+    }
+
+    if (!includeEstimateThread) {
+      return messages.filter((message) => {
+        const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+        return metadata.threadType !== "estimate";
+      });
+    }
+
+    return messages;
   },
 });
 
