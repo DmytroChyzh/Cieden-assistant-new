@@ -1,6 +1,27 @@
+const stripTrailingSuggestionArray = (value: string): string => {
+  const input = value || "";
+  const match = input.match(/\[([\s\S]*?)\]\s*$/);
+  if (!match) return input;
+  try {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(match[0]);
+    } catch {
+      parsed = JSON.parse(match[0].replace(/'/g, '"'));
+    }
+    if (!Array.isArray(parsed)) return input;
+    const allStrings = parsed.every((item) => typeof item === "string" && item.trim().length > 0);
+    if (!allStrings) return input;
+    return input.slice(0, input.length - match[0].length).trimEnd();
+  } catch {
+    return input;
+  }
+};
+
 /** Normalize assistant text for dedupe keys (strips estimate protocol + light markdown). */
 export const normalizeAssistantMessage = (value: string): string =>
-  (value || "")
+  stripTrailingSuggestionArray(value || "")
+    .replace(/^\s*\[[^\]]+\]\s*/g, "")
     .replace(/\[ESTIMATE\s+(?:MODE|PANEL)\][^\n]*\n?/gi, "")
     .replace(/ESTIMATE_PANEL_RESULT:\s*\{[\s\S]*?\}/gi, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
@@ -79,11 +100,53 @@ export function isEstimateRelevantAssistantQuestion(content: string): boolean {
 
   // Allow project/estimate-scoping questions.
   return (
-    /(project|product|scope|feature|screen|platform|timeline|deadline|budget|team|users|role|integrat|flow|requirements|mvp|complexity)/.test(
+    /(project|product|scope|feature|screen|platform|timeline|deadline|budget|team|users|user|audience|goal|business|role|integrat|flow|requirements|mvp|complexity|redesign|website|app)/.test(
       t,
     ) ||
-    /(проєкт|проект|обсяг|функц|екран|платформ|термін|дедлайн|бюджет|команд|користувач|рол|інтеграц|флоу|вимог|mvp|складн)/.test(
+    /(проєкт|проект|обсяг|функц|екран|платформ|термін|дедлайн|бюджет|команд|користувач|аудитор|ціл|бізнес|рол|інтеграц|флоу|вимог|mvp|складн|редизайн|сайт|додат)/.test(
       t,
     )
   );
+}
+
+/** In estimate mode keep only one concise, relevant question from noisy AI text. */
+export function extractPrimaryEstimateQuestion(content: string): string | null {
+  const raw = (content || "").trim();
+  if (!raw) return null;
+
+  // Prefer explicit question chunks first. This also handles malformed
+  // AI output like "?Understood..." (no whitespace after "?").
+  const questionChunks = (raw.match(/[^?]*\?/g) || [])
+    .map((chunk) => chunk.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .map((chunk) => {
+      const nextQuestionIdx = chunk.toLowerCase().indexOf("next question:");
+      return nextQuestionIdx >= 0 ? chunk.slice(nextQuestionIdx).trim() : chunk;
+    });
+  const relevantQuestion = questionChunks.find((s) =>
+    isEstimateRelevantAssistantQuestion(s),
+  );
+  if (relevantQuestion) return relevantQuestion;
+
+  // Fallback to sentence split for non-question punctuation layouts.
+  const sentences = raw
+    .split(/(?<=[.!?])(?:\s+|(?=[A-ZА-ЯІЇЄ]))/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const relevantSentence = sentences.find(
+    (s) => s.includes("?") && isEstimateRelevantAssistantQuestion(s),
+  );
+  if (relevantSentence) return relevantSentence;
+
+  // Fallback: if text contains a question mark, take the first question chunk.
+  const firstQuestionMark = raw.indexOf("?");
+  if (firstQuestionMark > 0) {
+    const chunkStart = Math.max(raw.lastIndexOf("\n", firstQuestionMark), raw.lastIndexOf(". ", firstQuestionMark - 1), raw.lastIndexOf("! ", firstQuestionMark - 1)) + 1;
+    const fallback = raw.slice(chunkStart, firstQuestionMark + 1).trim();
+    if (fallback && isEstimateRelevantAssistantQuestion(fallback)) {
+      return fallback;
+    }
+  }
+
+  return null;
 }

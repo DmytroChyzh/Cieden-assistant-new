@@ -93,4 +93,34 @@ describe("useVisibleConvexMessages", () => {
       "assistant:Valid assistant row",
     ]);
   });
+
+  it("keeps only one case-family tool card per user segment", () => {
+    const { result } = renderHook(() =>
+      useVisibleConvexMessages({
+        convexMessages: [
+          { role: "user", content: "show me your portfolio" },
+          { role: "assistant", content: "TOOL_CALL:show_cases:{\"mode\":\"default\"}" },
+          {
+            role: "assistant",
+            content:
+              "TOOL_CALL:find_similar_cases:{\"results\":[{\"id\":\"a\"}],\"overallConfidence\":0.7}",
+          },
+          { role: "assistant", content: "Here are relevant cases." },
+          { role: "user", content: "another request" },
+          { role: "assistant", content: "TOOL_CALL:show_cases:{\"mode\":\"default\"}" },
+        ],
+        getMessageMode: () => "default",
+        isFirstTurnIntroEcho: () => false,
+        estimateToolOnlyMarker: "[[TOOL_ONLY_ESTIMATE_ENTRY]]",
+      }),
+    );
+
+    expect(result.current.map((m) => `${m.role}:${m.content}`)).toEqual([
+      "user:show me your portfolio",
+      "assistant:TOOL_CALL:show_cases:{\"mode\":\"default\"}",
+      "assistant:Here are relevant cases.",
+      "user:another request",
+      "assistant:TOOL_CALL:show_cases:{\"mode\":\"default\"}",
+    ]);
+  });
 });

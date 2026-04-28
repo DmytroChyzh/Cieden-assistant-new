@@ -1036,14 +1036,6 @@ export function AboutCiedenCard() {
         </div>
       </CardContent>
 
-      <CardFooter className="mt-2 flex flex-col gap-2 border-t border-white/7 pt-4 sm:flex-row sm:items-center">
-        <p className="text-[16px] leading-relaxed text-white/70">
-          Cherishing the difference between leaders and bosses, partners and customers is the basis of our
-          team cooperation. We share the responsibility for our company among us and in return, everyone is
-          granted motivating compensation, unlimited vacations, and a remote-friendly working environment. This
-          is our vision of a perfect world and we invite you to join us.
-        </p>
-      </CardFooter>
     </Card>
   );
 }

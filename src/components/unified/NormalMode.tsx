@@ -7,6 +7,7 @@ import { Microphone, MicrophoneSlash, PaperPlaneRight } from '@phosphor-icons/re
 import { cn } from '@/lib/utils';
 import { QuickActionsDrawer } from '@/src/components/quick-actions/QuickActionsDrawer';
 import { useElevenLabsConversation } from '@/src/providers/ElevenLabsProvider';
+import { containsValidEmailInText } from '@/src/utils/emailValidation';
 
 interface NormalModeProps {
   textInput: string;
@@ -99,8 +100,7 @@ export function NormalMode({
 
   const hasText = textInput.trim().length > 0;
 
-  const emailInline = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/;
-  const hasEmailInDraft = emailInline.test(textInput.trim());
+  const hasEmailInDraft = containsValidEmailInText(textInput.trim());
   const allowSendWhileEmailGate =
     !emailRequiredGate ||
     hasEmailInDraft ||
@@ -109,8 +109,8 @@ export function NormalMode({
 
   const placeholderText = emailRequiredGate
     ? isMobile
-      ? "Work email required…"
-      : "Add your work email here to continue (required after several messages)"
+      ? "Enter work email: name@company.com"
+      : "To continue, enter your work email in this format: name@company.com"
     : isMobile
       ? (isRecording ? "Voice on - type" : "Type here")
       : (isRecording ? "type here" : "Type your question here");

@@ -71,11 +71,17 @@ import { VOICE_CHAT_COMPOSER_LAYOUT } from "@/src/components/cieden/EstimateAssi
 import {
   isEstimateFlowUiActive,
   isLikelyDefaultCiedenGreeting,
+  normalizeAssistantMessage,
   normalizeIntroText,
 } from "@/src/utils/ciedenChatUi";
 import { useWelcomeHubFlow } from "@/src/hooks/useWelcomeHubFlow";
 import { useVisibleConvexMessages } from "@/src/hooks/useVisibleConvexMessages";
 import { useEmailGateFlow } from "@/src/hooks/useEmailGateFlow";
+import {
+  containsValidEmailInText,
+  isValidEmailStrict,
+  normalizeEmail,
+} from "@/src/utils/emailValidation";
 
 /**
  * Sync before React commits so child estimate kickoff → sendProgrammaticMessage cannot
@@ -153,13 +159,12 @@ const VOICE_CHAT_QUICK_PROMPTS_FOLLOWUP_HINT =
 const EMAIL_CAPTURE_MIN_USER_MESSAGES = 5;
 
 const EMAIL_CAPTURE_PROMPT =
-  "You've already sent several messages. To continue, please type your work email in chat (written text) so we can improve follow-up communication.";
+  "To continue chatting, please send one message with only your work email in this format: name@company.com. This helps us keep better follow-up communication.";
 const EMAIL_CAPTURE_PROMPT_UA =
-  "Ви вже надіслали кілька повідомлень. Щоб продовжити, введіть ваш робочий email письмово в чаті для кращої подальшої комунікації.";
-const EMAIL_CAPTURE_CHOICE_EN = "Share email";
-const EMAIL_CAPTURE_CHOICE_UA = "Поділитися email";
+  "Щоб продовжити спілкування, надішліть одним повідомленням лише ваш робочий email у форматі name@company.com. Це потрібно для кращої подальшої комунікації.";
+const EMAIL_CAPTURE_CHOICE_EN = "Enter work email";
+const EMAIL_CAPTURE_CHOICE_UA = "Ввести робочий email";
 
-const EMAIL_INLINE_RE = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/;
 const ESTIMATE_TOOL_ONLY_MARKER = "[[TOOL_ONLY_ESTIMATE_ENTRY]]";
 const ESTIMATE_INTENT_RE =
   /(estimate|estimation|calculator|pricing|price|cost|budget|ballpark|естімейт|естимейт|оцінк|оценк|калькулятор|скільки кошту|сколько сто|вартіст|бюджет)/i;
@@ -167,8 +172,8 @@ const CYRILLIC_RE = /[А-Яа-яІіЇїЄєҐґ]/;
 const BOOK_CALL_CHIP_EN = "book a call";
 const BOOK_CALL_CHIP_UA = "записатися на дзвінок";
 
-const normalizeCapturedEmail = (value?: string | null): string => value?.trim().toLowerCase() ?? "";
-const isValidEmail = (value?: string | null): boolean => EMAIL_INLINE_RE.test(normalizeCapturedEmail(value));
+const normalizeCapturedEmail = (value?: string | null): string => normalizeEmail(value);
+const isValidEmail = (value?: string | null): boolean => isValidEmailStrict(value);
 const hasEstimateIntent = (value?: string | null): boolean => ESTIMATE_INTENT_RE.test((value || "").trim().toLowerCase());
 const detectLanguageFromText = (value?: string | null): "en" | "ua" =>
   CYRILLIC_RE.test(value || "") ? "ua" : "en";
@@ -199,14 +204,33 @@ const isBookCallPrompt = (value?: string | null): boolean => {
     lower.includes("дзвінок")
   );
 };
+const isTellMeMorePrompt = (value?: string | null): boolean => {
+  const lower = (value || "").trim().toLowerCase();
+  if (!lower) return false;
+  return (
+    lower === "tell me more about that" ||
+    lower === "tell me more" ||
+    lower === "розкажи детальніше" ||
+    lower === "розкажи більше" ||
+    lower.includes("more about that") ||
+    lower.includes("розкажи детальніше")
+  );
+};
 const isEmailGateAssistantMessage = (value?: string | null): boolean => {
   const lower = (value || "").trim().toLowerCase();
   if (!lower) return false;
   return (
     lower.includes("type your email in chat") ||
     lower.includes("to continue chatting with the assistant") ||
+    lower.includes("to continue chatting, please send one message with only your work email") ||
     lower.includes("to continue with the estimate") ||
+    lower.includes("send one message with only your work email") ||
+    lower.includes("name@company.com") ||
+    lower.includes("better follow-up communication") ||
     lower.includes("please type your email") ||
+    lower.includes("щоб продовжити спілкування") ||
+    lower.includes("одним повідомленням лише ваш робочий email") ||
+    lower.includes("кращої подальшої комунікації") ||
     lower.includes("вкажіть ваш email") ||
     lower.includes("введіть свій email") ||
     lower.includes("введіть ваш email") ||
@@ -552,6 +576,17 @@ export default function VoiceChatPage() {
   useEffect(() => {
     convexMessagesRef.current = convexMessages;
   }, [convexMessages]);
+
+  const hasRecentAssistantDuplicate = useCallback((text: string) => {
+    const normalizedTarget = normalizeAssistantMessage(text);
+    if (!normalizedTarget) return false;
+    const recent = (convexMessagesRef.current ?? []).slice(-18);
+    return recent.some((m) => {
+      if (m.role !== "assistant") return false;
+      const normalizedExisting = normalizeAssistantMessage((m.content ?? "").toString());
+      return normalizedExisting === normalizedTarget;
+    });
+  }, []);
 
   useEffect(() => {
     conversationIdRef.current = conversationId;
@@ -945,12 +980,18 @@ export default function VoiceChatPage() {
       }),
     [convexMessages],
   );
+  const hasKnownEmailForGate = hasCapturedEmailForGate || isValidEmail(onboardingEmail);
 
   const sendQuickPrompt = useCallback(
     (value: string) => {
       const trimmed = value.trim();
       if (!trimmed) return;
       jumpToLatestMessages();
+      if (isTellMeMorePrompt(trimmed)) {
+        sendContextualUpdateRef.current?.(
+          "User asked to continue this topic. Provide NEW details, examples, and practical next steps. Do not repeat previous paragraph verbatim.",
+        );
+      }
       if (isBookCallPrompt(trimmed)) {
         startEstimateQuestionnaireForBookCall();
         return;
@@ -958,9 +999,10 @@ export default function VoiceChatPage() {
 
       if (
         emailRequiredGateRef.current &&
+        !hasKnownEmailForGate &&
         trimmed !== EMAIL_CAPTURE_CHOICE_EN &&
         trimmed !== EMAIL_CAPTURE_CHOICE_UA &&
-        !EMAIL_INLINE_RE.test(trimmed)
+        !containsValidEmailInText(trimmed)
       ) {
         promptEmailRequiredInChat("general", trimmed);
         return;
@@ -998,8 +1040,8 @@ export default function VoiceChatPage() {
           source: "text",
           content:
             language === "ua"
-              ? "Чудово — тепер, будь ласка, напишіть ваш email у чаті."
-              : "Great - please type your email in this chat.",
+              ? "Добре. Надішліть одним повідомленням лише ваш робочий email у форматі name@company.com."
+              : "Great. Please send one message with only your work email in this format: name@company.com.",
         });
         return;
       }
@@ -1040,6 +1082,7 @@ export default function VoiceChatPage() {
       ensureConversationId,
       appendMessageToConvex,
       jumpToLatestMessages,
+      hasKnownEmailForGate,
       hasCapturedEmailForGate,
       promptEmailRequiredInChat,
       hasUserStartedChat,
@@ -1051,11 +1094,16 @@ export default function VoiceChatPage() {
   const handleComposerQuickSelect = useCallback(
     async (request: string) => {
       const trimmedRequest = request.trim();
+      if (isTellMeMorePrompt(trimmedRequest)) {
+        sendContextualUpdateRef.current?.(
+          "User asked to continue this topic. Provide NEW details, examples, and practical next steps. Do not repeat previous paragraph verbatim.",
+        );
+      }
       if (isBookCallPrompt(trimmedRequest)) {
         startEstimateQuestionnaireForBookCall();
         return;
       }
-      if (emailRequiredGate && !EMAIL_INLINE_RE.test(trimmedRequest)) {
+      if (emailRequiredGate && !hasKnownEmailForGate && !containsValidEmailInText(trimmedRequest)) {
         promptEmailRequiredInChat("general", trimmedRequest);
         return;
       }
@@ -1066,6 +1114,7 @@ export default function VoiceChatPage() {
     },
     [
       emailRequiredGate,
+      hasKnownEmailForGate,
       hasCapturedEmailForGate,
       sendProgrammaticMessage,
       jumpToLatestMessages,
@@ -1286,9 +1335,7 @@ export default function VoiceChatPage() {
       if (onboardingStep === "ask_email") {
         const email = value.trim();
 
-        // Basic email validation to prevent invalid formats
-        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailPattern.test(email)) {
+        if (!isValidEmailStrict(email)) {
           console.warn("🔐 [preAuth] invalid email format:", email);
           setOnboardingMessages((prev) => [
             ...prev,
@@ -2022,12 +2069,19 @@ export default function VoiceChatPage() {
         if ((window as unknown as { __ciedenEstimateProgressActive?: boolean }).__ciedenEstimateProgressActive) {
           return;
         }
+        // Hidden runner already produced kickoff messages - skip fallback to avoid duplicates.
+        if (
+          pendingEstimateAssistantUserMessagesRef.current.length > 0 ||
+          pendingEstimateContextualMessagesRef.current.length > 0
+        ) {
+          return;
+        }
         window.dispatchEvent(
           new CustomEvent("estimate-assistant-message", {
             detail: {
               text:
                 "ESTIMATE MODE. Ask ONE question at a time about the project to produce a cost estimate. " +
-                "Reply in the same language as the client. Do not switch to onboarding. " +
+                "Language policy: English user -> English response. Ukrainian or Russian user -> Ukrainian response. Never use Russian. Do not switch to onboarding. " +
                 "Start now with the first question about product type (website, mobile app, or both).",
               inputKind: "text",
               visibility: "contextual",
@@ -2767,6 +2821,29 @@ export default function VoiceChatPage() {
         queueToolMessageRef.current?.(toolCallMessage, {
           toolCall: true, toolName: 'show_about', timestamp: Date.now()
         });
+
+        const aboutFollowUp =
+          "We are an AI-native product team specializing in UX/UI and product design for B2B SaaS and complex digital systems. Instead of traditional design outsourcing, we deliver development-ready product solutions that simplify complex workflows and help companies launch and validate products faster.";
+        if (typeof window !== "undefined") {
+          const followUpKey = "__ciedenAboutFollowUpLastAt";
+          const lastAt = (window as any)[followUpKey] as number | undefined;
+          const now = Date.now();
+          if (!(typeof lastAt === "number" && now - lastAt < 4000)) {
+            (window as any)[followUpKey] = now;
+            if (!hasRecentAssistantDuplicate(aboutFollowUp)) {
+              await appendMessageToConvex({
+                content: aboutFollowUp,
+                role: "assistant",
+                source: "text",
+                metadata: {
+                  deterministicToolNarrative: true,
+                  toolName: "show_about",
+                  timestamp: now,
+                },
+              });
+            }
+          }
+        }
       } catch (error) {
         console.error('❌ Failed to queue show_about:', error);
       }
@@ -2833,6 +2910,34 @@ export default function VoiceChatPage() {
           queueToolMessageRef.current?.(toolCallMessage, {
             toolCall: true, toolName: 'show_process', timestamp: Date.now()
           });
+        }
+
+        const processFollowUp =
+          "Our design process is built around product thinking, not just visual design. We start by understanding your business goals, users, and key workflows, then move into research and discovery to define the real problems. Next, we design UX flows and UI solutions, test them, and iterate. The result is development-ready designs with clear logic and documentation, so you get a product that can be built and used.";
+        const processFollowUpExpanded =
+          "To expand on this: after discovery, we map decision-heavy flows and edge cases, then validate assumptions with quick prototypes before detailed UI. For each core flow, we define states, interactions, and handoff specs so engineering can estimate and build without ambiguity. We also align checkpoints with your stakeholders, so scope changes are managed early instead of late in development.";
+        if (typeof window !== "undefined") {
+          const followUpKey = "__ciedenProcessFollowUpLastAt";
+          const lastAt = (window as any)[followUpKey] as number | undefined;
+          const now = Date.now();
+          if (!(typeof lastAt === "number" && now - lastAt < 4000)) {
+            (window as any)[followUpKey] = now;
+            const chosenProcessNarrative = hasRecentAssistantDuplicate(processFollowUp)
+              ? processFollowUpExpanded
+              : processFollowUp;
+            if (!hasRecentAssistantDuplicate(chosenProcessNarrative)) {
+              await appendMessageToConvex({
+                content: chosenProcessNarrative,
+                role: "assistant",
+                source: "text",
+                metadata: {
+                  deterministicToolNarrative: true,
+                  toolName: "show_process",
+                  timestamp: now,
+                },
+              });
+            }
+          }
         }
       } catch (error) {
         console.error('❌ Failed to queue show_process:', error);
@@ -3293,7 +3398,7 @@ export default function VoiceChatPage() {
     if (trimmedUserText) {
       lastUserLanguageRef.current = detectLanguageFromText(trimmedUserText);
     }
-    const needsEmailForMessage = emailRequiredGateRef.current;
+    const needsEmailForMessage = emailRequiredGateRef.current && !hasKnownEmailForGate;
     if (source === "voice" && needsEmailForMessage) {
       promptEmailRequiredInChat("general", trimmedUserText);
       return;
@@ -3301,7 +3406,7 @@ export default function VoiceChatPage() {
     if (
       source === "text" &&
       needsEmailForMessage &&
-      !EMAIL_INLINE_RE.test(trimmedUserText)
+      !containsValidEmailInText(trimmedUserText)
     ) {
       promptEmailRequiredInChat("general", trimmedUserText);
       return;
@@ -3347,6 +3452,7 @@ export default function VoiceChatPage() {
       const candidateEmail = emailMatch?.[1]?.trim().toLowerCase();
       if (candidateEmail && candidateEmail !== onboardingEmail) {
         setOnboardingEmail(candidateEmail);
+        emailRequiredGateRef.current = false;
         if (conversationId) {
           setCapturedEmailConversationId(String(conversationId));
         }
@@ -3425,6 +3531,7 @@ export default function VoiceChatPage() {
     ensureConversationId,
     onboardingName,
     onboardingEmail,
+    hasKnownEmailForGate,
     hasCapturedEmailForGate,
     emailCaptureAwaitingInput,
     appendMessageToConvex,
@@ -3451,10 +3558,11 @@ export default function VoiceChatPage() {
     return () => container.removeEventListener("scroll", onScroll);
   }, []);
 
-  const forceScrollToBottom = useCallback(() => {
+  const forceScrollToBottom = useCallback((opts?: { force?: boolean }) => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    if (!autoScrollEnabledRef.current) return;
+    const force = opts?.force === true;
+    if (!force && !autoScrollEnabledRef.current) return;
 
     const scrollNow = () => {
       const latest = scrollContainerRef.current;
@@ -3476,12 +3584,12 @@ export default function VoiceChatPage() {
     setTimeout(scrollNow, 260);
   }, []);
 
-  // Auto-scroll when Convex messages change
+  // Auto-scroll on new messages (forced).
   useEffect(() => {
     const visibleCount = (convexMessages?.filter(message =>
       !(message.role === 'system' && message.source === 'contextual')
     ) || []).length;
-    if (visibleCount > 0) forceScrollToBottom();
+    if (visibleCount > 0) forceScrollToBottom({ force: true });
   }, [convexMessages, forceScrollToBottom]);
 
   // Track whether estimate assistant dock is active to tune bottom spacer height.
@@ -3527,9 +3635,9 @@ export default function VoiceChatPage() {
     return () => window.removeEventListener(VOICE_CHAT_COMPOSER_LAYOUT, bump);
   }, [forceScrollToBottom]);
 
-  // Final safety net: after any major stream update, pin to bottom.
+  // Final safety net: after message count updates, pin to bottom.
   useEffect(() => {
-    forceScrollToBottom();
+    forceScrollToBottom({ force: true });
   }, [convexMessages?.length, forceScrollToBottom]);
 
 
@@ -3651,6 +3759,7 @@ export default function VoiceChatPage() {
     getMessageMode,
     isFirstTurnIntroEcho,
     estimateToolOnlyMarker: ESTIMATE_TOOL_ONLY_MARKER,
+    isEstimateFlowActive: showEstimatePanel || showEstimateAssistantRunner || showEstimateInline,
   });
 
   const visibleConvexChatMessagesRef = useRef(visibleConvexChatMessages);
@@ -3972,6 +4081,12 @@ export default function VoiceChatPage() {
 
   // Hybrid callback that handles both tool calls to Convex and contextual updates to voice
   const handleUserAction = useCallback(async (text: string) => {
+    if (text === "OPEN_BOOK_CALL_PANEL") {
+      closeAllRightPanels();
+      setBookCallInitialProjectDetails("");
+      setShowBookCallPanel(true);
+      return;
+    }
     if (text === 'CLOSE_QUIZ_MODAL') {
       // Handle quiz modal closure directly - let it bubble up to QuizMessage
       if (sendContextualUpdate) {
@@ -4017,7 +4132,7 @@ export default function VoiceChatPage() {
       });
       console.log('🗂️ Saved contextual update to Convex');
     }
-  }, [appendMessageToConvex, sendContextualUpdate, sendProgrammaticMessage]);
+  }, [appendMessageToConvex, closeAllRightPanels, sendContextualUpdate, sendProgrammaticMessage]);
 
   // Auth discovery disabled for temporary guest-mode debugging.
 
@@ -4642,7 +4757,6 @@ export default function VoiceChatPage() {
                   const suppressSuggestions =
                     !isEstimateCompletionFollowUpBubble &&
                     (disableQuickPromptsForFirstGreeting ||
-                      isEstimateActive ||
                       isEstimateMessage ||
                       isInsideCompletedEstimate ||
                       isEmailGateMessage ||

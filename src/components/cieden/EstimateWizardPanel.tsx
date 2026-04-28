@@ -47,6 +47,7 @@ const ESTIMATE_PHASE_LABELS = [
   "Handoff & support",
   "PM / communication",
 ] as const;
+const ESTIMATE_REQUIRED_INPUTS = 8;
 
 type PhaseLabel = (typeof ESTIMATE_PHASE_LABELS)[number];
 
@@ -509,7 +510,7 @@ export function EstimateWizardPanel({
   // Each topic the assistant mentions in a question counts as one "covered" topic.
   // This is better than counting user answers — if user says "I don't know", the topic
   // was still asked, so progress should advance.
-  const ESTIMATE_TOPICS = 8;
+  const ESTIMATE_TOPICS = ESTIMATE_REQUIRED_INPUTS;
   const { topicsCovered, assistantQuestionCount } = useMemo(() => {
     if (!estimateSessionMessages || estimateSessionMessages.length === 0)
       return { topicsCovered: 0, assistantQuestionCount: 0 };
@@ -577,7 +578,7 @@ export function EstimateWizardPanel({
   }, [estimateSessionMessages, assistantQuestionCount]);
 
   const estimateProgress = useMemo(() => {
-    const requiredTotal = 8;
+    const requiredTotal = ESTIMATE_REQUIRED_INPUTS;
     const filled = extractedEstimateContext
       ? [
           !!extractedEstimateContext.filled.platform,
@@ -636,7 +637,7 @@ export function EstimateWizardPanel({
       // Progress is based on required details collected from user answers.
       asked: estimateProgress.checks,
       answered: estimateProgress.checks,
-      total: 8,
+      total: ESTIMATE_REQUIRED_INPUTS,
       percent: estimateProgress.percent,
     };
     const snap = JSON.stringify(payload);
@@ -928,7 +929,7 @@ export function EstimateWizardPanel({
     // 1) Hidden (contextual) guidance — kept SHORT to avoid overloading the agent
     const contextual =
       "ESTIMATE MODE. Ask ONE question at a time about the project to produce a cost estimate.\n" +
-      "Reply in the SAME language as the client.\n" +
+      "Language policy: English user -> English response. Ukrainian OR Russian user -> Ukrainian response. Never use Russian.\n" +
       "Do NOT send onboarding, chooser instructions, or manager/booking suggestions while estimate mode is active.\n" +
       "Topics: 1) type (web/mobile/both) 2) new or redesign 3) audience & goal 4) specs ready? 5) scope (screens/features) 6) complexity 7) timeline 8) extra notes.\n" +
       "Do NOT show prices until ALL questions answered. No tool calls in estimate mode.\n" +
@@ -1057,7 +1058,7 @@ export function EstimateWizardPanel({
       // Safe fallback: once all required estimate inputs are collected (8/8),
       // finalize estimate even if the agent did not emit explicit final marker text yet.
       const isProgressComplete =
-        estimateProgress.percent === 100 || estimateProgress.checks >= 8;
+        estimateProgress.percent === 100 || estimateProgress.checks >= ESTIMATE_REQUIRED_INPUTS;
       const hasWrapUpHandoffMessage =
         !!estimateSessionMessages?.some(
           (m) =>
@@ -1388,7 +1389,7 @@ export function EstimateWizardPanel({
                           </span>
                         </div>
                         <span className="text-[11px] text-white/40 tabular-nums">
-                          {estimateProgress.checks}/5 inputs
+                          {estimateProgress.checks}/{ESTIMATE_REQUIRED_INPUTS} inputs
                         </span>
                       </div>
 
@@ -1438,9 +1439,9 @@ export function EstimateWizardPanel({
                         />
                       </div>
                       <p className="mt-2 text-[11px] text-white/45">
-                        {estimateProgress.checks === 5
+                        {estimateProgress.checks >= ESTIMATE_REQUIRED_INPUTS
                           ? "All key inputs collected. Ready to finalize."
-                          : `${5 - estimateProgress.checks} more input${5 - estimateProgress.checks !== 1 ? "s" : ""} needed for a precise estimate.`}
+                          : `${Math.max(0, ESTIMATE_REQUIRED_INPUTS - estimateProgress.checks)} more input${Math.max(0, ESTIMATE_REQUIRED_INPUTS - estimateProgress.checks) !== 1 ? "s" : ""} needed for a precise estimate.`}
                       </p>
                     </div>
 
@@ -1480,7 +1481,7 @@ export function EstimateWizardPanel({
                 </div>
 
                 {/* "Contact manager" CTA — appears only when estimate is 60%+ ready */}
-                {estimateProgress.checks >= 4 && (
+                {estimateProgress.percent >= 60 && (
                   <div className="space-y-2">
                     <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/[0.07] p-3">
                       <p className="text-[11px] text-emerald-300/80 leading-relaxed">

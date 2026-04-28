@@ -14,7 +14,9 @@ import { parseToolCall } from '@/src/utils/parseToolCall';
 import { getGuestIdentityFromCookie } from '@/src/utils/guestIdentity';
 import { resetCiedenEstimateSessionCompleted } from '@/src/utils/ciedenEstimateSession';
 import { getActiveEstimateThreadId } from '@/src/utils/ciedenEstimateSession';
+import { containsValidEmailInText } from '@/src/utils/emailValidation';
 import {
+  extractPrimaryEstimateQuestion,
   isEstimateFlowUiActive,
   isEstimateRelevantAssistantQuestion,
   isLikelyDefaultCiedenGreeting,
@@ -34,7 +36,6 @@ interface UseTextInputProps {
   emailRequiredForEstimate?: boolean;
 }
 
-const EMAIL_INLINE_RE = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/;
 const ESTIMATE_INTENT_RE =
   /(estimate|estimation|calculator|pricing|price|cost|budget|ballpark|естімейт|естимейт|оцінк|оценк|калькулятор|скільки кошту|сколько сто|вартіст|бюджет)/i;
 const TRANSPORT_FALLBACK_ERROR_MESSAGE =
@@ -55,9 +56,11 @@ function shouldKeepAssistantMessageInEstimateMode(text: string): boolean {
   if (ESTIMATE_ONBOARDING_NOISE_RE.test(t)) return false;
   if (isLikelyDefaultCiedenGreeting(t)) return false;
   if (ESTIMATE_CHOOSER_NOISE_RE.test(t)) return false;
-  // Keep all other assistant replies (including clarifications and follow-ups)
-  // so step-by-step flow cannot get stuck due to over-filtering.
-  return true;
+  if (parseToolCall(t)) return true;
+  if (ESTIMATE_FINAL_RE.test(t)) return true;
+  if (isEstimateRelevantAssistantQuestion(t)) return true;
+  if (ESTIMATE_ACK_PROGRESS_RE.test(t)) return false;
+  return false;
 }
 
 function isAllowedToolCallInEstimateMode(text: string): boolean {
@@ -450,10 +453,14 @@ export function useTextInput({
   useEffect(() => {
     const unsubscribe = registerTextHandler(async (event: NormalizedMessageEvent) => {
       if (event.source !== 'ai' || event.via !== 'websocket') return;
+      const estimateMode = isEstimateFlowUiActive() || !!getActiveEstimateThreadId();
+      const normalizedEstimateText = estimateMode
+        ? extractPrimaryEstimateQuestion(event.message) ?? event.message
+        : event.message;
       if (
-        isEstimateFlowUiActive() &&
-        (!shouldKeepAssistantMessageInEstimateMode(event.message) ||
-          !isAllowedToolCallInEstimateMode(event.message))
+        estimateMode &&
+        (!shouldKeepAssistantMessageInEstimateMode(normalizedEstimateText) ||
+          !isAllowedToolCallInEstimateMode(normalizedEstimateText))
       ) {
         // Keep estimate thread focused: ignore generic/non-question chatter while runner is active.
         return;
@@ -469,7 +476,7 @@ export function useTextInput({
       }
 
       try {
-        const dedupKey = normalizeAssistantMessage(event.message);
+        const dedupKey = normalizeAssistantMessage(normalizedEstimateText);
         const now = Date.now();
         const prev = recentAiPersistRef.current;
         if (dedupKey && prev && prev.key === dedupKey && now - prev.at < 2500) {
@@ -480,7 +487,7 @@ export function useTextInput({
         const guestId = getGuestIdentityFromCookie()?.guestId;
         await createMessage({
           conversationId: activeConversationId,
-          content: event.message,
+            content: normalizedEstimateText,
           role: 'assistant',
           source: 'text',
           metadata: buildEstimateThreadMetadata({
@@ -558,7 +565,7 @@ export function useTextInput({
     if (!trimmed) return;
 
     const blockedForEstimate = emailRequiredForEstimate && isEstimateIntent(trimmed);
-    if ((emailRequiredGate || blockedForEstimate) && !EMAIL_INLINE_RE.test(trimmed)) {
+    if ((emailRequiredGate || blockedForEstimate) && !containsValidEmailInText(trimmed)) {
       onEmailGateBlocked?.(blockedForEstimate ? 'estimate' : 'general', trimmed);
       return;
     }
@@ -765,7 +772,7 @@ export function useTextInput({
     programmaticSendDedupeRef.current = { text: trimmed, at: now };
 
     const blockedForEstimate = emailRequiredForEstimate && isEstimateIntent(trimmed);
-    if ((emailRequiredGate || blockedForEstimate) && !EMAIL_INLINE_RE.test(trimmed)) {
+    if ((emailRequiredGate || blockedForEstimate) && !containsValidEmailInText(trimmed)) {
       onEmailGateBlocked?.(blockedForEstimate ? 'estimate' : 'general', trimmed);
       return;
     }

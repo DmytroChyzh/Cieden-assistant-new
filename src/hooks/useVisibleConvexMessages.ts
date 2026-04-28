@@ -9,16 +9,32 @@ type ChatRow = {
   metadata?: Record<string, unknown>;
 };
 
+const isEstimateChooserInstructionMessage = (content: string): boolean => {
+  const t = (content || "").trim().toLowerCase();
+  if (!t) return false;
+  return (
+    t.includes("we can provide a preliminary estimate") ||
+    t.includes("i've opened a card in the chat") ||
+    t.includes("i have opened a card in the chat") ||
+    t.includes("choose to either work with me to get an estimate or fill out a short questionnaire") ||
+    t.includes("for an exact quote, you can always speak with a manager")
+  );
+};
+
+const CASE_TOOL_FAMILY = new Set(["show_cases", "find_similar_cases"]);
+
 export function useVisibleConvexMessages({
   convexMessages,
   getMessageMode,
   isFirstTurnIntroEcho,
   estimateToolOnlyMarker,
+  isEstimateFlowActive = false,
 }: {
   convexMessages: ChatRow[];
   getMessageMode: (content: string) => "default" | "update" | "overlay";
   isFirstTurnIntroEcho: (content: string) => boolean;
   estimateToolOnlyMarker: string;
+  isEstimateFlowActive?: boolean;
 }) {
   return useMemo(() => {
     const raw = convexMessages || [];
@@ -45,6 +61,15 @@ export function useVisibleConvexMessages({
       if (message.role === "assistant" && (message.content || "").trim() === estimateToolOnlyMarker) {
         return false;
       }
+      // While estimate flow is active, hide chooser helper narration from the main feed.
+      // The user already sees the in-chat estimate card and runner.
+      if (
+        isEstimateFlowActive &&
+        message.role === "assistant" &&
+        isEstimateChooserInstructionMessage(message.content || "")
+      ) {
+        return false;
+      }
       const mode = getMessageMode(message.content);
       if (mode === "update") return false;
       const c = message.content || "";
@@ -61,16 +86,23 @@ export function useVisibleConvexMessages({
 
     const toolDeduped: ChatRow[] = [];
     const seenAssistantInSegment = new Set<string>();
+    let hasRenderedCaseFamilyToolInSegment = false;
     for (const message of filtered) {
       // Reset assistant dedupe scope after each user turn.
       if (message.role === "user") {
         seenAssistantInSegment.clear();
+        hasRenderedCaseFamilyToolInSegment = false;
         toolDeduped.push(message);
         continue;
       }
 
-      const isTool = !!parseToolCall(message.content);
+      const parsedTool = parseToolCall(message.content);
+      const isTool = !!parsedTool;
       if (isTool) {
+        if (parsedTool?.toolName && CASE_TOOL_FAMILY.has(parsedTool.toolName)) {
+          if (hasRenderedCaseFamilyToolInSegment) continue;
+          hasRenderedCaseFamilyToolInSegment = true;
+        }
         const prev = toolDeduped.length > 0 ? toolDeduped[toolDeduped.length - 1] : null;
         const prevIsTool = !!(prev && parseToolCall(prev.content));
         if (prevIsTool && prev?.content === message.content) continue;
@@ -88,5 +120,5 @@ export function useVisibleConvexMessages({
     }
 
     return toolDeduped;
-  }, [convexMessages, estimateToolOnlyMarker, getMessageMode, isFirstTurnIntroEcho]);
+  }, [convexMessages, estimateToolOnlyMarker, getMessageMode, isEstimateFlowActive, isFirstTurnIntroEcho]);
 }

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parseToolCall } from "@/src/utils/parseToolCall";
+import {
+  hasInvalidEmailLikeInput,
+  isValidEmailStrict,
+  normalizeEmail,
+} from "@/src/utils/emailValidation";
 
-const EMAIL_INLINE_RE = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/;
-
-const normalizeCapturedEmail = (value?: string | null): string => value?.trim().toLowerCase() ?? "";
-const isValidEmail = (value?: string | null): boolean => EMAIL_INLINE_RE.test(normalizeCapturedEmail(value));
+const normalizeCapturedEmail = (value?: string | null): string => normalizeEmail(value);
+const isValidEmail = (value?: string | null): boolean => isValidEmailStrict(value);
 
 interface UseEmailGateFlowParams {
   conversationId: unknown;
@@ -63,14 +66,23 @@ export function useEmailGateFlow({
         pendingEstimateIntentRef.current = contextText.trim();
       }
       const language = resolveLanguage(contextText);
+      const invalidEmailAttempt = hasInvalidEmailLikeInput(contextText);
       const promptText =
         language === "ua"
           ? reason === "estimate"
-            ? "Щоб продовжити естімейт, вкажіть ваш email у чаті. Одразу після цього я продовжу розрахунок."
-            : "Щоб далі продовжувати спілкування з асистентом, введіть свій email письмово в чаті для подальшого покращення комунікації."
+            ? invalidEmailAttempt
+              ? "Email виглядає некоректним. Надішліть, будь ласка, одним повідомленням лише ваш робочий email у форматі name@company.com — і я одразу продовжу естімейт. Це потрібно для кращої подальшої комунікації."
+              : "Щоб продовжити естімейт, надішліть одним повідомленням лише ваш робочий email у форматі name@company.com. Після цього я одразу продовжу розрахунок. Це потрібно для кращої подальшої комунікації."
+            : invalidEmailAttempt
+              ? "Email виглядає некоректним. Щоб продовжити, надішліть одним повідомленням лише робочий email у форматі name@company.com. Це потрібно для кращої подальшої комунікації."
+              : "Щоб продовжити спілкування, надішліть одним повідомленням лише ваш робочий email у форматі name@company.com. Це потрібно для кращої подальшої комунікації."
           : reason === "estimate"
-            ? "To continue with the estimate, please type your email in chat. Right after that I will continue the calculation."
-            : "To continue chatting with the assistant, please type your email in chat (written text) for better ongoing communication.";
+            ? invalidEmailAttempt
+              ? "That email looks invalid. Please send one message with only your work email in this format: name@company.com. I will continue the estimate right away. This helps with better follow-up communication."
+              : "To continue with the estimate, please send one message with only your work email in this format: name@company.com. I will continue right away. This helps with better follow-up communication."
+            : invalidEmailAttempt
+              ? "That email looks invalid. To continue, please send one message with only your work email in this format: name@company.com. This helps with better follow-up communication."
+              : "To continue chatting, please send one message with only your work email in this format: name@company.com. This helps with better follow-up communication.";
       setEmailComposerGateNotice(null);
       setEmailCaptureAwaitingInput(true);
       setEmailCapturePromptVisible(false);

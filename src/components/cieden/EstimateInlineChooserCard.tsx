@@ -13,7 +13,10 @@ import {
   getActiveEstimateSessionId,
   startEstimateSession,
 } from "@/src/utils/ciedenEstimateSession";
-import { normalizeAssistantMessage } from "@/src/utils/ciedenChatUi";
+import {
+  extractPrimaryEstimateQuestion,
+  normalizeAssistantMessage,
+} from "@/src/utils/ciedenChatUi";
 
 type EstimateChoice = "assistant" | "quick";
 
@@ -23,7 +26,29 @@ type ThreadRow = {
   content?: string;
 };
 
+function isEstimateThreadNoiseMessage(row: ThreadRow): boolean {
+  if (row.role !== "assistant") return false;
+  const lower = String(row.content ?? "").trim().toLowerCase();
+  if (!lower) return false;
+  return (
+    lower.includes("preliminary estimate chooser") ||
+    lower.includes("estimate chooser is now available") ||
+    lower.includes("please select an option there to proceed") ||
+    lower.includes("please select whether you'd like to work with the assistant") ||
+    lower.includes("виберіть опцію в картці естімейту") ||
+    lower.includes("оберіть варіант у попередньому естімейті")
+  );
+}
+
 function areAdjacentAssistantEstimatesDuplicate(a: string, b: string): boolean {
+  const aq = extractPrimaryEstimateQuestion(a);
+  const bq = extractPrimaryEstimateQuestion(b);
+  if (aq && bq) {
+    const na = normalizeAssistantMessage(aq);
+    const nb = normalizeAssistantMessage(bq);
+    if (na && nb && na === nb) return true;
+  }
+
   const x = normalizeAssistantMessage(a);
   const y = normalizeAssistantMessage(b);
   if (!x || !y) return false;
@@ -55,7 +80,9 @@ function dedupeAdjacentAssistantEstimateMessages<T extends ThreadRow>(rows: T[])
 }
 
 function getEstimateThreadDisplayRows(messages: ThreadRow[] | undefined, sliceFrom: number): ThreadRow[] {
-  const raw = (messages ?? []).filter((m) => m.role === "assistant" || m.role === "user");
+  const raw = (messages ?? [])
+    .filter((m) => m.role === "assistant" || m.role === "user")
+    .filter((m) => !isEstimateThreadNoiseMessage(m));
   const sliced = raw.slice(sliceFrom);
   return dedupeAdjacentAssistantEstimateMessages(sliced);
 }
@@ -72,6 +99,16 @@ function stripEstimateThreadDisplayContent(raw: string): string {
     .replace(/\[ESTIMATE\s+(?:MODE|PANEL)\][^\n]*\n?/gi, "")
     .replace(/\n?\s*\[\s*("[^"]*"\s*,\s*)*"[^"]*"\s*\]\s*$/m, "")
     .trim();
+}
+
+/** Improve readability: split summary and next question into separate paragraphs. */
+function formatEstimateAssistantDisplayContent(raw: string): string {
+  const cleaned = stripEstimateThreadDisplayContent(raw);
+  if (!cleaned || cleaned.includes("\n\n")) return cleaned;
+  return cleaned.replace(
+    /([.!?])\s+(?=(Do|Does|Did|Can|Could|Would|Will|Are|Is|What|Which|Who|When|Where|Why|How|Should|May|Чи|Що|Який|Яка|Які|Як|Коли|Де|Чому|Скільки)\b)/g,
+    "$1\n\n",
+  );
 }
 
 /** Same shell as thread rows — reads as one Assistant message inside Estimate chat. */
@@ -322,7 +359,11 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
                                 : "rounded-br-none bg-[#3C2780]/70 text-white"
                             }`}
                           >
-                            {stripEstimateThreadDisplayContent(String(m.content ?? ""))}
+                            <span className="whitespace-pre-wrap">
+                              {m.role === "assistant"
+                                ? formatEstimateAssistantDisplayContent(String(m.content ?? ""))
+                                : stripEstimateThreadDisplayContent(String(m.content ?? ""))}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -414,7 +455,11 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
                               : "rounded-br-none bg-[#3C2780]/70 text-white"
                           }`}
                         >
-                          {stripEstimateThreadDisplayContent(String(m.content ?? ""))}
+                          <span className="whitespace-pre-wrap">
+                            {m.role === "assistant"
+                              ? formatEstimateAssistantDisplayContent(String(m.content ?? ""))
+                              : stripEstimateThreadDisplayContent(String(m.content ?? ""))}
+                          </span>
                         </div>
                       </div>
                     </div>

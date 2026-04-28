@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { PhoneCall, FileText, Sparkles } from "lucide-react";
+import { PhoneCall, Sparkles } from "lucide-react";
 
 interface NextStepsData {
   primaryAction?: "schedule_call" | "request_deck" | "request_estimate";
@@ -28,8 +28,19 @@ export function NextStepsCard({
 
   const handleClick = (action: NextStepsData["primaryAction"]) => {
     if (!action) return;
-    const message = `User selected next step: ${action}`;
-    onUserAction?.(message);
+    switch (action) {
+      case "schedule_call":
+        onUserAction?.("OPEN_BOOK_CALL_PANEL");
+        break;
+      case "request_deck":
+        onUserAction?.("TOOL_CALL:show_cases:{\"mode\":\"default\"}");
+        break;
+      case "request_estimate":
+        onUserAction?.("TOOL_CALL:open_calculator:{\"mode\":\"default\"}");
+        break;
+      default:
+        break;
+    }
   };
 
   return (
@@ -68,15 +79,6 @@ export function NextStepsCard({
 
           <NextStepButton
             mirrorVariant={1}
-            icon={<FileText className="h-4 w-4" aria-hidden />}
-            title="Get a PDF deck"
-            description="Receive a short presentation with our process, pricing models, and relevant case studies."
-            active={current.primaryAction === "request_deck"}
-            onClick={() => handleClick("request_deck")}
-          />
-
-          <NextStepButton
-            mirrorVariant={2}
             icon={<Sparkles className="h-4 w-4" aria-hidden />}
             title="Ask for a rough estimate"
             description="We’ll turn your brief into a ballpark budget and timeline, not a final quote."

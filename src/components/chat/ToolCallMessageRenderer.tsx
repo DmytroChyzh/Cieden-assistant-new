@@ -216,7 +216,7 @@ export function ToolCallMessageRenderer({
     case "show_next_steps":
       return (
         <div className="w-full max-w-[900px] mx-auto">
-          <NextStepsCard data={data} />
+          <NextStepsCard data={data} onUserAction={onUserAction} />
         </div>
       );
 

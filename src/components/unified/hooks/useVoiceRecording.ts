@@ -25,6 +25,12 @@ interface UseVoiceRecordingProps {
   actionHandlers?: ActionHandlers;
 }
 
+const ESTIMATE_INTENT_RE =
+  /(estimate|estimation|calculator|pricing|price|cost|budget|ballpark|естімейт|естимейт|оцінк|оценк|калькулятор|скільки кошту|сколько сто|вартіст|бюджет)/i;
+
+const normalizeVoiceEventText = (value: string): string =>
+  (value || "").toLowerCase().replace(/\s+/g, " ").trim();
+
 export function useVoiceRecording({
   conversationId,
   onTranscript,
@@ -86,6 +92,38 @@ export function useVoiceRecording({
   const lastStatusRef = useRef<'idle' | 'connecting' | 'listening' | 'speaking'>('idle');
   const DEBUG_VOICE = false;
   const isStartingRef = useRef(false);
+  const recentUserEventRef = useRef<{ key: string; at: number } | null>(null);
+  const recentAiEventRef = useRef<{ key: string; at: number } | null>(null);
+  const lastForcedToolInjectRef = useRef<{ tool: string; at: number } | null>(null);
+
+  const maybeInjectEstimateToolCard = useCallback((rawText: string) => {
+    const text = rawText.trim();
+    if (!text) return;
+    if (!ESTIMATE_INTENT_RE.test(text)) return;
+    if (text.startsWith("TOOL_CALL:")) return;
+    if (typeof window === "undefined") return;
+    if ((window as unknown as { __ciedenEstimatePanelOpen?: boolean }).__ciedenEstimatePanelOpen === true) return;
+
+    const now = Date.now();
+    const lastForced = lastForcedToolInjectRef.current;
+    if (lastForced && lastForced.tool === "open_calculator" && now - lastForced.at < 2000) {
+      return;
+    }
+    lastForcedToolInjectRef.current = { tool: "open_calculator", at: now };
+
+    // Mirror text-mode fallback in voice: guarantee estimate chooser card appears.
+    const injectedContent = `TOOL_CALL:open_calculator:${JSON.stringify({ mode: "default" })}`;
+    window.setTimeout(() => {
+      handleAgentMessage(injectedContent, {
+        elevenLabsAgent: true,
+        forcedTool: "open_calculator",
+        via: "voice-fallback",
+        timestamp: Date.now(),
+      }).catch((error: any) => {
+        console.error("Failed to inject voice fallback estimate tool card:", error);
+      });
+    }, 350);
+  }, [handleAgentMessage]);
 
   // Store conversation ref for later use
   useEffect(() => {
@@ -164,6 +202,10 @@ export function useVoiceRecording({
       return;
     }
 
+    const normalizedKey = normalizeVoiceEventText(message);
+    if (!normalizedKey) return;
+    const now = Date.now();
+
     if (ENABLE_AUDIO_DEBUG) {
       console.log('📩 Voice Message Event:', {
         source,
@@ -173,6 +215,12 @@ export function useVoiceRecording({
     }
 
     if (source === 'user') {
+      const prevUser = recentUserEventRef.current;
+      if (prevUser && prevUser.key === normalizedKey && now - prevUser.at < 2000) {
+        return;
+      }
+      recentUserEventRef.current = { key: normalizedKey, at: now };
+
       // User said something - show transcript
       setTranscript(message);
       onTranscript?.(message);
@@ -196,7 +244,15 @@ export function useVoiceRecording({
           console.error('Failed to update voice transcript stream:', error);
         });
       }
+
+      maybeInjectEstimateToolCard(message);
     } else if (source === 'ai') {
+      const prevAi = recentAiEventRef.current;
+      if (prevAi && prevAi.key === normalizedKey && now - prevAi.at < 2500) {
+        return;
+      }
+      recentAiEventRef.current = { key: normalizedKey, at: now };
+
       // Agent response - save to Convex
       handleAgentMessage(message, {
         elevenLabsVoiceResponse: true,
@@ -223,6 +279,7 @@ export function useVoiceRecording({
     ENABLE_AUDIO_DEBUG,
     handleAgentMessage,
     handleUserMessage,
+    maybeInjectEstimateToolCard,
     onTranscript,
     updateStream
   ]);

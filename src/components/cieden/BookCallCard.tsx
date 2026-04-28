@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { ExternalLink } from "lucide-react";
@@ -17,6 +17,19 @@ export function BookCallCard({ className, compact = false }: BookCallCardProps) 
   const mailtoHref = useMemo(
     () => `mailto:${managerEmail}?subject=${encodeURIComponent("Book a call with Cieden")}`,
     [managerEmail],
+  );
+
+  const handleEmailClick = useCallback(
+    (event: React.MouseEvent<HTMLAnchorElement>) => {
+      // Keep mail action reliable inside chat wrappers that may intercept clicks.
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof window === "undefined") return;
+      const opened = window.open(mailtoHref, "_blank", "noopener,noreferrer");
+      if (opened) return;
+      window.location.assign(mailtoHref);
+    },
+    [mailtoHref],
   );
 
   return (
@@ -50,6 +63,7 @@ export function BookCallCard({ className, compact = false }: BookCallCardProps) 
             <div className="text-[16px] font-semibold text-white/90 leading-tight">Yulia Mahera</div>
             <a
               href={mailtoHref}
+              onClick={handleEmailClick}
               className="inline-flex items-center mt-1 text-[13px] text-violet-200/90 hover:text-violet-100 underline underline-offset-2 transition-colors"
               aria-label={`Email ${managerEmail}`}
             >
@@ -74,14 +88,6 @@ export function BookCallCard({ className, compact = false }: BookCallCardProps) 
           >
             Open booking form
           </button>
-          <a
-            href={mailtoHref}
-            className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl border border-violet-400/30 bg-gradient-to-br from-violet-500/10 via-purple-500/10 to-transparent px-5 py-3 text-sm font-semibold text-white/95 hover:border-violet-400/50 hover:from-violet-500/20 transition-all cursor-pointer"
-            aria-label="Email Yulia Mahera to book a call"
-          >
-            Or email directly
-          </a>
-
           {!compact && (
             <div className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-white/60 leading-relaxed">
               Prefer another format? Just write a short note in your email — we’ll reply and schedule the call.
