@@ -12,28 +12,42 @@ type WelcomeRobotProps = {
 export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [renderError, setRenderError] = useState(false);
+  const [modelReady, setModelReady] = useState(false);
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
+    setLoadError(false);
+    setRenderError(false);
+    setModelReady(false);
 
     let frameId = 0;
     let disposed = false;
     let robotRoot: THREE.Object3D | null = null;
     let baseScale = 1;
+    let normalizedModelSize = new THREE.Vector3(1, 1, 1);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
     camera.position.set(0, 0.18, 4.8);
     camera.lookAt(0, 0, 0);
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-      powerPreference: "high-performance",
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance",
+      });
+    } catch (error) {
+      console.error("WelcomeRobot renderer init failed", error);
+      setRenderError(true);
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor(0x000000, 0);
+    renderer.domElement.style.display = "block";
     mount.appendChild(renderer.domElement);
 
     const hemiLight = new THREE.HemisphereLight(0x9fb6ff, 0x120a24, 1.25);
@@ -50,25 +64,37 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
     const updateSize = () => {
       const width = mount.clientWidth || 360;
       const height = mount.clientHeight || 240;
-      renderer.setSize(width, height, false);
+      // Keep CSS canvas size and drawing buffer in sync across HiDPI browsers.
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(width, height, true);
       camera.aspect = width / height;
-      // Keep composition stable across small phones and compact laptop widths.
-      if (width < 330) {
-        camera.position.set(0, 0.12, 5.25);
-      } else if (width < 520) {
-        camera.position.set(0, 0.15, 5.0);
-      } else {
-        camera.position.set(0, 0.18, 4.8);
-      }
-      camera.lookAt(0, 0, 0);
 
       if (robotRoot) {
-        const widthScale = width < 330 ? 0.9 : width < 520 ? 0.95 : 1;
-        robotRoot.scale.setScalar(baseScale * widthScale);
-        // Keep deterministic center on all platforms.
+        // Keep scaling continuous (no breakpoint jumps) for more consistent
+        // cross-platform framing (Windows/macOS/iOS).
+        const widthScale = THREE.MathUtils.clamp(width / 340, 0.84, 1);
+        const finalScale = baseScale * widthScale;
+        robotRoot.scale.setScalar(finalScale);
+
+        const scaledWidth = Math.max(0.0001, normalizedModelSize.x * finalScale);
+        const scaledHeight = Math.max(0.0001, normalizedModelSize.y * finalScale);
+
+        // Device-independent camera fitting by object bounds + viewport aspect.
+        const vFov = THREE.MathUtils.degToRad(camera.fov);
+        const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+        const fillY = 0.6;
+        const fillX = 0.72;
+        const distByHeight = scaledHeight / (2 * Math.tan(vFov / 2) * fillY);
+        const distByWidth = scaledWidth / (2 * Math.tan(hFov / 2) * fillX);
+        const cameraZ = Math.max(distByHeight, distByWidth) + 0.68;
+        const cameraY = scaledHeight * 0.055;
+        camera.position.set(0, cameraY, cameraZ);
+
+        // Keep deterministic center on all platforms and preserve visual baseline.
         robotRoot.position.x = 0;
-        robotRoot.position.y = width < 330 ? -0.08 : -0.12;
+        robotRoot.position.y = -(scaledHeight * 0.078);
       }
+      camera.lookAt(0, 0, 0);
       camera.updateProjectionMatrix();
     };
 
@@ -116,20 +142,23 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
         robotRoot.position.sub(center);
 
         const size = bounds.getSize(new THREE.Vector3());
+        normalizedModelSize = size.clone();
         const maxDim = Math.max(size.x, size.y, size.z) || 1;
         const containerWidth = mount.clientWidth || 360;
-        const target =
-          containerWidth < 330 ? 1.6 : containerWidth < 520 ? 1.82 : 2.1;
+        const target = 2.0;
         baseScale = target / maxDim;
         robotRoot.scale.setScalar(baseScale);
         robotRoot.position.set(0, 0, 0);
 
         scene.add(robotRoot);
+        setModelReady(true);
         updateSize();
       },
       undefined,
       () => {
-        if (!disposed) setLoadError(true);
+        if (!disposed) {
+          setLoadError(true);
+        }
       },
     );
 
@@ -142,11 +171,17 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
 
     const resizeObserver = new ResizeObserver(() => updateSize());
     resizeObserver.observe(mount);
+    window.addEventListener("resize", updateSize);
+    window.addEventListener("orientationchange", updateSize);
+    window.visualViewport?.addEventListener("resize", updateSize);
 
     return () => {
       disposed = true;
       window.cancelAnimationFrame(frameId);
       resizeObserver.disconnect();
+      window.removeEventListener("resize", updateSize);
+      window.removeEventListener("orientationchange", updateSize);
+      window.visualViewport?.removeEventListener("resize", updateSize);
       if (renderer.domElement.parentNode === mount) {
         mount.removeChild(renderer.domElement);
       }
@@ -160,14 +195,20 @@ export function WelcomeRobot({ modelUrl, className }: WelcomeRobotProps) {
       className={className ?? "w-full max-w-[900px] mx-auto"}
       aria-label="Welcome robot preview"
     >
-      <div className="relative mx-auto w-full max-w-[240px] h-[150px] sm:max-w-[280px] sm:h-[170px] md:max-w-[320px] md:h-[200px] lg:max-w-[340px] lg:h-[210px]">
+      <div className="relative mx-auto w-full max-w-[340px] aspect-[16/10]">
         <div
           ref={mountRef}
           className="h-full w-full bg-transparent"
         />
-        {loadError && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-white/60">
-            Robot model failed to load
+        {(renderError || loadError || !modelReady) && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="rounded-xl border border-white/15 bg-black/35 px-3 py-2 text-xs text-white/70">
+              {renderError
+                ? "Robot preview unavailable on this device"
+                : loadError
+                  ? "Robot model failed to load"
+                  : "Loading robot preview..."}
+            </div>
           </div>
         )}
       </div>
