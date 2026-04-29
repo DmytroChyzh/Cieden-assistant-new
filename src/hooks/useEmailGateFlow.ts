@@ -37,6 +37,7 @@ export function useEmailGateFlow({
   const emailRequiredGateRef = useRef(false);
   const estimateEmailPromptCooldownRef = useRef(0);
   const pendingEstimateIntentRef = useRef<string | null>(null);
+  const gateAutoPromptedConversationRef = useRef<string | null>(null);
 
   const [emailCapturePromptVisible, setEmailCapturePromptVisible] = useState(false);
   const [emailCaptureDismissed, setEmailCaptureDismissed] = useState(false);
@@ -58,9 +59,9 @@ export function useEmailGateFlow({
   }, [selectedConversationGuestEmail, conversationId, capturedEmailConversationId]);
 
   const promptEmailRequiredInChat = useCallback(
-    (reason: "general" | "estimate" = "general", contextText?: string) => {
+    async (reason: "general" | "estimate" = "general", contextText?: string) => {
       const now = Date.now();
-      if (now - estimateEmailPromptCooldownRef.current < 2500) return;
+      if (now - estimateEmailPromptCooldownRef.current < 2500) return false;
       estimateEmailPromptCooldownRef.current = now;
       if (reason === "estimate" && contextText?.trim()) {
         pendingEstimateIntentRef.current = contextText.trim();
@@ -87,21 +88,20 @@ export function useEmailGateFlow({
       setEmailCaptureAwaitingInput(true);
       setEmailCapturePromptVisible(false);
       setEmailCaptureDismissed(false);
-      void (async () => {
-        const attempts = [0, 350, 900];
-        for (const delay of attempts) {
-          if (delay > 0) {
-            await new Promise((resolve) => setTimeout(resolve, delay));
-          }
-          const ok = await appendMessageToConvex({
-            role: "assistant",
-            source: "text",
-            content: promptText,
-          });
-          if (ok) return;
+      const attempts = [0, 350, 900];
+      for (const delay of attempts) {
+        if (delay > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
-        console.error("⚠️ Failed to persist estimate email gate prompt after retries");
-      })();
+        const ok = await appendMessageToConvex({
+          role: "assistant",
+          source: "text",
+          content: promptText,
+        });
+        if (ok) return true;
+      }
+      console.error("⚠️ Failed to persist estimate email gate prompt after retries");
+      return false;
     },
     [appendMessageToConvex, resolveLanguage],
   );
@@ -132,6 +132,44 @@ export function useEmailGateFlow({
   useEffect(() => {
     if (!emailRequiredGate) setEmailComposerGateNotice(null);
   }, [emailRequiredGate]);
+
+  // When gate becomes active (e.g. after Nth user query), send one explicit chat reminder
+  // so users do not rely only on input placeholder text.
+  useEffect(() => {
+    if (!emailRequiredGate) return;
+    if (!conversationId) return;
+    if (hasCapturedEmailForGate) return;
+    if (emailCaptureAwaitingInput) return;
+    const latestRenderableRole = [...(convexMessages || [])]
+      .reverse()
+      .find((message) => {
+        if (message.role !== "assistant" && message.role !== "user") return false;
+        if (!(message.content || "").trim()) return false;
+        return true;
+      })?.role;
+    // Wait until assistant replied to the turn that activated the gate,
+    // then show the email requirement reminder to avoid interleaving mid-response.
+    if (latestRenderableRole !== "assistant") return;
+    const convKey = String(conversationId);
+    if (gateAutoPromptedConversationRef.current === convKey) return;
+    let cancelled = false;
+    void (async () => {
+      const persisted = await promptEmailRequiredInChat("general");
+      if (!cancelled && persisted) {
+        gateAutoPromptedConversationRef.current = convKey;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    emailRequiredGate,
+    conversationId,
+    hasCapturedEmailForGate,
+    emailCaptureAwaitingInput,
+    convexMessages,
+    promptEmailRequiredInChat,
+  ]);
 
   return {
     emailCapturePromptVisible,
