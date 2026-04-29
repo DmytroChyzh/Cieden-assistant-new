@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ClipboardList, Sparkles, CheckCircle2 } from "lucide-react";
+import { ClipboardList, Sparkles } from "lucide-react";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { EstimateFinalResult } from "./EstimateWizardPanel";
 import { getGuestIdentityFromCookie } from "@/src/utils/guestIdentity";
@@ -133,6 +133,7 @@ interface EstimateInlineChooserCardProps {
 export function EstimateInlineChooserCard({ messageId, conversationId = null }: EstimateInlineChooserCardProps) {
   const [choice, setChoice] = useState<EstimateChoice | null>(null);
   const [finalResult, setFinalResult] = useState<EstimateFinalResult | null>(null);
+  const [forceInProgressAfterRestart, setForceInProgressAfterRestart] = useState(false);
   const [, forceUpdate] = useState(0);
   const estimateChatScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -158,7 +159,7 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
         }
       : "skip",
   );
-  const isCompletedSession = sessionData?.status === "completed" || !!finalResult;
+  const isCompletedSession = !forceInProgressAfterRestart && (sessionData?.status === "completed" || !!finalResult);
   const isCancelledSession = sessionData?.status === "cancelled";
   const isActiveSession = myId === getActiveEstimateSessionId() && sessionData?.status === "active";
 
@@ -193,6 +194,7 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
       if (myId === getActiveEstimateSessionId()) {
         setChoice(null);
         setFinalResult(null);
+        setForceInProgressAfterRestart(false);
       }
     };
 
@@ -202,6 +204,17 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
       const sessionId = detail.sessionId ? String(detail.sessionId) : null;
       if (sessionId && myId === sessionId) {
         setFinalResult((detail.result ?? null) as EstimateFinalResult | null);
+        setForceInProgressAfterRestart(false);
+      }
+    };
+
+    const handleRestart = (e: Event) => {
+      const detail = (e as CustomEvent<{ sessionId?: string }>).detail;
+      const restartedSessionId = detail?.sessionId ? String(detail.sessionId) : null;
+      if (restartedSessionId && myId === restartedSessionId) {
+        setChoice("assistant");
+        setFinalResult(null);
+        setForceInProgressAfterRestart(true);
       }
     };
 
@@ -225,10 +238,12 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
 
     window.addEventListener("estimate-cancel", handleCancel as EventListener);
     window.addEventListener("estimate-session-completed", handler as EventListener);
+    window.addEventListener("estimate-session-restarted", handleRestart as EventListener);
     window.addEventListener("estimate-panel-closed", handlePanelClosed);
     return () => {
       window.removeEventListener("estimate-cancel", handleCancel as EventListener);
       window.removeEventListener("estimate-session-completed", handler as EventListener);
+      window.removeEventListener("estimate-session-restarted", handleRestart as EventListener);
       window.removeEventListener("estimate-panel-closed", handlePanelClosed);
     };
   }, [myId, choice, isCompletedSession, sessionData?.status]);
@@ -256,6 +271,7 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
   const handleStartOver = () => {
     if (choice !== "assistant") return;
     setFinalResult(null);
+    setForceInProgressAfterRestart(true);
     forceUpdate((n) => n + 1);
     setChoice("assistant");
     window.dispatchEvent(
@@ -274,10 +290,6 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
 
   const completedActions = (
     <div className="mt-4 flex flex-col gap-2">
-      <div className="w-full flex items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-2.5 text-sm font-medium text-emerald-300/90">
-        <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden />
-        Completed
-      </div>
       <button
         type="button"
         onClick={openResultPanel}
@@ -326,7 +338,7 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
             <p className="text-[22px] font-semibold leading-tight text-white/96">{selectedLabel}</p>
             <p className="mt-1.5 text-sm leading-6 text-white/58">
               {flowDone
-                ? "Estimate completed successfully."
+                ? "Estimate details are available."
                 : choice === "quick"
                   ? "Questionnaire is open on the right. Fill it step-by-step."
                   : "Assistant will start asking questions in the chat."}
@@ -426,7 +438,7 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
           </p>
           <div className="mt-3">
             <p className="text-[22px] font-semibold leading-tight text-white/96">Answer a quick questionnaire</p>
-            <p className="mt-1.5 text-sm leading-6 text-white/58">Estimate completed successfully.</p>
+            <p className="mt-1.5 text-sm leading-6 text-white/58">Estimate details are available.</p>
             <div className="mt-4">{completedActions}</div>
           </div>
         </div>
@@ -455,7 +467,7 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
           </p>
           <div className="mt-3">
             <p className="text-[22px] font-semibold leading-tight text-white/96">Work with the assistant</p>
-            <p className="mt-1.5 text-sm leading-6 text-white/58">Estimate completed successfully.</p>
+            <p className="mt-1.5 text-sm leading-6 text-white/58">Estimate details are available.</p>
             <div className="mt-4 px-1 py-1">
               <p className="text-[17px] font-semibold leading-6 text-white/86">Estimate chat</p>
               <div

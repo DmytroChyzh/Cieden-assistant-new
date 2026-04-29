@@ -300,6 +300,13 @@ export function EstimateWizardPanel({
     );
     if (hasSessionUserContent) return estimateSessionMessages;
 
+    // Hard reset rule for "Work with the assistant":
+    // after session start/restart we must not reuse older conversation answers.
+    // This prevents immediate stale finalization right after Start over.
+    if (mode === "assistant" && typeof estimateSessionStartedAt === "number") {
+      return estimateSessionMessages;
+    }
+
     const pool = !conversationId ? localMessages : (allMessages ?? []);
     if (!pool || pool.length === 0) return estimateSessionMessages;
 
@@ -326,6 +333,7 @@ export function EstimateWizardPanel({
     allMessages,
     estimateSessionStartedAt,
     isKickoffMessage,
+    mode,
   ]);
 
   const extractedEstimateContext = useMemo(() => {
@@ -1055,21 +1063,22 @@ export function EstimateWizardPanel({
     }
 
     if (mode === "assistant") {
+      const currentSessionUserAnswers = (estimateSessionMessages ?? []).filter(
+        (m) =>
+          m.role === "user" &&
+          typeof m.content === "string" &&
+          m.content.trim().length > 0 &&
+          !isKickoffMessage(m.content),
+      );
+      const hasCurrentSessionUserAnswers = currentSessionUserAnswers.length > 0;
+      if (!hasCurrentSessionUserAnswers) return;
+
       // Safe fallback: once all required estimate inputs are collected (8/8),
       // finalize estimate even if the agent did not emit explicit final marker text yet.
       const isProgressComplete =
         estimateProgress.percent === 100 || estimateProgress.checks >= ESTIMATE_REQUIRED_INPUTS;
-      const hasWrapUpHandoffMessage =
-        !!estimateSessionMessages?.some(
-          (m) =>
-            m.role === "assistant" &&
-            /(estimate card|preliminary estimate.*available|ballpark|book a call|schedule( a)? call|relevant case stud|for a precise quote)/i.test(
-              (m.content ?? "").toLowerCase(),
-            ),
-        );
       const hasAgentFinalResult =
         assistantGaveFinalEstimate ||
-        hasWrapUpHandoffMessage ||
         estimateSessionMessages?.some(
           (m) => m.role === "assistant" && /ESTIMATE_PANEL_RESULT:\s*\{/.test(m.content ?? "")
         );
@@ -1685,7 +1694,7 @@ export function EstimateWizardPanel({
                 disabled={!extraNotes.trim()}
                 className="flex items-center justify-center gap-2 w-full rounded-xl border border-violet-400/30 bg-violet-500/20 backdrop-blur-sm px-4 py-3 text-sm font-medium text-white/90 hover:bg-violet-500/30 disabled:opacity-35 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-[0_0_20px_rgba(139,92,246,0.12),inset_0_1px_0_rgba(255,255,255,0.08)]"
               >
-                Add notes & see estimate →
+                Continue →
               </button>
 
               <button
@@ -1693,10 +1702,10 @@ export function EstimateWizardPanel({
                 onClick={handleExtraNext}
                 className="flex items-center justify-center gap-1.5 w-full rounded-xl border border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.08] backdrop-blur-sm px-4 py-2.5 text-sm text-white/60 hover:text-white/80 transition-all cursor-pointer"
               >
+                Skip this step
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
-                Skip this step — show my estimate
               </button>
             </motion.div>
           )}

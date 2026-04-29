@@ -2330,6 +2330,11 @@ export default function VoiceChatPage() {
       if (restartSessionId) {
         setEstimateFirstMessageId(restartSessionId);
         startEstimateSession(restartSessionId, "assistant");
+        window.dispatchEvent(
+          new CustomEvent("estimate-session-restarted", {
+            detail: { sessionId: restartSessionId },
+          }),
+        );
       }
       handleChooseAssistant(
         new CustomEvent("estimate-choose-assistant", {
@@ -3555,12 +3560,14 @@ export default function VoiceChatPage() {
 
     // Single-channel mode: avoid local onboarding message lane.
     // If conversation is not ready yet, try to initialize it and skip this transient message.
-    if (!conversationId) {
+    let activeConversationId = conversationId;
+    if (!activeConversationId) {
       if (!isGuestAiBridgeMessage && source === "text" && normalizedIncomingText.trim()) {
         setWelcomeHubMode("text");
         setWelcomeHubDismissed(false);
       }
       await ensureConversationId({ preferExisting: false });
+      activeConversationId = conversationIdRef.current ?? null;
       // First-turn race guard:
       // if ElevenLabs returns an AI reply before conversationId is ready,
       // persist that reply once the conversation exists instead of dropping it.
@@ -3577,8 +3584,11 @@ export default function VoiceChatPage() {
         });
         setPendingAssistantBubble(false);
         setEstimateTyping({ active: false, label: "" });
+        return;
       }
-      return;
+      if (!activeConversationId) {
+        return;
+      }
     }
 
     const trimmedUserText = normalizedIncomingText.trim();
@@ -3687,8 +3697,8 @@ export default function VoiceChatPage() {
       if (candidateEmail && candidateEmail !== onboardingEmail) {
         setOnboardingEmail(candidateEmail);
         emailRequiredGateRef.current = false;
-        if (conversationId) {
-          setCapturedEmailConversationId(String(conversationId));
+        if (activeConversationId) {
+          setCapturedEmailConversationId(String(activeConversationId));
         }
         updateGuestIdentityInCookie({ email: candidateEmail });
         if (emailCaptureAwaitingInput) {
