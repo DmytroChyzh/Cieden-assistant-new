@@ -254,9 +254,12 @@ export function useTextInput({
       }
 
       // Engagement / pricing models (collaboration models)
+      // IMPORTANT: only auto-inject this overview card for broad "show models" asks.
+      // Follow-up questions about a specific model (partnership / dedicated team / T&M)
+      // should be answered in plain text, not by repeating the same card.
       if (
         !injectedTool &&
-        /(engagement models|collaboration models|pricing models|collaboration|models of cooperation|retainer|partnership|dedicated team|time & material|time and material|tm)\b/.test(
+        /(engagement models?|collaboration models?|pricing models?|models of cooperation|cooperation models?|show (me )?(the )?models|what are (your )?models|compare models)\b/.test(
           lower,
         )
       ) {
@@ -264,7 +267,7 @@ export function useTextInput({
       }
       if (
         !injectedTool &&
-        /(модел[іь] співпрац[іи]|модел[іь] сотрудничеств[а] |моделі співпраці|модели сотрудничества|ретейнер|партнерств[оа]|партнёрств[оа]|підписк[аі]|подписк[аы]|dedicated team|time & material|t&m)/.test(
+        /(модел[іь] співпрац[іи]|модел[іь] сотрудничеств[а]|моделі співпраці|модели сотрудничества|покажи .*модел|які .*модел|сравни .*модел|порівняй .*модел)/.test(
           lower,
         )
       ) {

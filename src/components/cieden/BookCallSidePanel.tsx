@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, Clock3, Loader2, MessageCircleMore, ShieldCheck, Sparkles, X } from "lucide-react";
 
@@ -37,6 +37,7 @@ export function BookCallFormBody({
   const [projectDetails, setProjectDetails] = useState(initialProjectDetails);
   const [status, setStatus] = useState<SubmitState>("idle");
   const [errorText, setErrorText] = useState("");
+  const heardFromInputRef = useRef<HTMLInputElement | null>(null);
   const trimmedName = name.trim();
   const trimmedEmail = email.trim();
   const trimmedProjectDetails = projectDetails.trim();
@@ -116,12 +117,10 @@ export function BookCallFormBody({
     : "rounded-xl border border-white/16 bg-black/20 p-3";
 
   const innerShellClass = isPanelFill
-    ? "w-full space-y-6 rounded-2xl border border-indigo-400/20 bg-gradient-to-br from-indigo-500/[0.12] to-violet-600/[0.08] p-5 shadow-[0_0_32px_rgba(99,102,241,0.12),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md"
+    ? "mx-auto w-full max-w-[980px] space-y-6"
     : "mx-auto w-full max-w-[860px] space-y-5";
 
-  const sectionClass = isPanelFill
-    ? "rounded-xl border border-indigo-400/15 bg-indigo-500/[0.06] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-    : "";
+  const sectionClass = "";
 
   return (
     <div className={rootClassName}>
@@ -218,7 +217,14 @@ export function BookCallFormBody({
                     <button
                       key={preset}
                       type="button"
-                      onClick={() => setHeardFrom(preset)}
+                      onClick={() => {
+                        if (preset === "Other") {
+                          setHeardFrom("");
+                          heardFromInputRef.current?.focus();
+                          return;
+                        }
+                        setHeardFrom(preset);
+                      }}
                       className={`rounded-lg border px-3.5 py-2 text-sm font-medium transition ${
                         active
                           ? "border-violet-400/50 bg-violet-500/25 text-white shadow-[0_0_18px_rgba(139,92,246,0.25)]"
@@ -235,6 +241,7 @@ export function BookCallFormBody({
                 })}
               </div>
               <input
+                ref={heardFromInputRef}
                 value={heardFrom}
                 onChange={(e) => setHeardFrom(e.target.value)}
                 className={inputClassName}
@@ -252,27 +259,14 @@ export function BookCallFormBody({
                   {projectCharsLeft > 0 ? `${projectCharsLeft} chars left` : "Looks good"}
                 </span>
               </div>
-              {isPanelFill ? (
-                <div className="rounded-xl border border-indigo-400/20 bg-gradient-to-br from-indigo-500/[0.1] to-violet-600/[0.06] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                  <textarea
-                    value={projectDetails}
-                    onChange={(e) => setProjectDetails(e.target.value)}
-                    className={`${textareaClassName} !border-0 !bg-transparent !shadow-none rounded-lg ring-0 focus:!ring-2 focus:!ring-violet-400/30`}
-                    placeholder="Project type, goals, stage, deadlines, and expectations."
-                    required
-                    aria-label="Project details"
-                  />
-                </div>
-              ) : (
-                <textarea
-                  value={projectDetails}
-                  onChange={(e) => setProjectDetails(e.target.value)}
-                  className={textareaClassName}
-                  placeholder="Project type, goals, stage, deadlines, and expectations."
-                  required
-                  aria-label="Project details"
-                />
-              )}
+              <textarea
+                value={projectDetails}
+                onChange={(e) => setProjectDetails(e.target.value)}
+                className={textareaClassName}
+                placeholder="Project type, goals, stage, deadlines, and expectations."
+                required
+                aria-label="Project details"
+              />
             </label>
 
             {status === "error" && (
@@ -345,7 +339,7 @@ export function BookCallSidePanel({ onClose, initialProjectDetails = "" }: BookC
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", damping: 30, stiffness: 300 }}
-      className="fixed right-0 top-0 z-50 flex h-full w-full flex-col border-l border-white/[0.12] bg-[#0a0a0f]/95 backdrop-blur-2xl ring-1 ring-inset ring-white/[0.05] sm:w-[58%] sm:max-w-[980px]"
+      className="fixed right-0 top-0 z-50 flex h-full w-full flex-col border-l border-white/[0.12] bg-gradient-to-br from-[#131525] via-[#181727] to-[#231833] backdrop-blur-2xl ring-1 ring-inset ring-white/[0.05] sm:w-[58%] sm:max-w-[980px]"
     >
       <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-2.5">
         <div className="flex items-center gap-2">

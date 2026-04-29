@@ -31,6 +31,41 @@ const ESTIMATE_EN = "I want a preliminary estimate";
 const ESTIMATE_UA = "Хочу попередню оцінку";
 const TARGET_SUGGESTIONS_COUNT = 5;
 
+type TopicKey =
+  | "cases"
+  | "engagement"
+  | "process"
+  | "about"
+  | "support"
+  | "getting_started"
+  | "estimate"
+  | null;
+
+const detectMessageTopic = (text: string): TopicKey => {
+  const lower = text.toLowerCase();
+  if (/(case stud|portfolio|best case|show cases|кейси|портфоліо|портфолио)/i.test(lower)) return "cases";
+  if (/(engagement model|collaboration model|partnership|dedicated team|time\s*&\s*material|модел[іь] співпрац|партнерств|ретейнер)/i.test(lower)) return "engagement";
+  if (/(process|workflow|discovery|етап|процес|воркфлоу)/i.test(lower)) return "process";
+  if (/(about cieden|about us|про нас|who are you|хто ви)/i.test(lower)) return "about";
+  if (/(support|post-launch|підтримк|після запуску)/i.test(lower)) return "support";
+  if (/(how to start|first step|get started|як почати|перший крок)/i.test(lower)) return "getting_started";
+  if (/(estimate|pricing|budget|cost|оцінк|бюджет|вартіст|ціна)/i.test(lower)) return "estimate";
+  return null;
+};
+
+const shouldDropSuggestionForTopic = (topic: TopicKey, suggestion: string): boolean => {
+  const s = suggestion.trim().toLowerCase();
+  if (!topic) return false;
+  if (topic === "cases") return /(best case|portfolio|кей|кейс)/i.test(s);
+  if (topic === "engagement") return /(partnership|dedicated team|time & material|collaboration|model|детальніше|more about that)/i.test(s);
+  if (topic === "process") return /(process|workflow|процес|етап)/i.test(s);
+  if (topic === "about") return /(about|про нас|хто ви)/i.test(s);
+  if (topic === "support") return /(support|підтримк)/i.test(s);
+  if (topic === "getting_started") return /(start|first step|почати|перший крок)/i.test(s);
+  if (topic === "estimate") return /(estimate|оцінк|pricing|budget|ціна|вартіст)/i.test(s);
+  return false;
+};
+
 /**
  * One message bubble — Chatbot visual style.
  * No Theme/Language context, no VoiceSpeaker; wired for FinPilot.
@@ -119,10 +154,19 @@ export function ChatMessage({ message, onQuickPrompt, userName }: ChatMessagePro
   const suggestions = (() => {
     if (baseSuggestions.length === 0) return baseSuggestions;
     if (isPreliminaryEstimateMessage || isVoiceModeChooserMessage) return baseSuggestions;
+    const topic = detectMessageTopic(cleanContent);
     const pool = hasUkrainian ? DEFAULT_SUGGESTIONS_UA : DEFAULT_SUGGESTIONS_EN;
-    const unique = Array.from(new Set(baseSuggestions.map((s) => s.trim()).filter(Boolean)));
+    const unique = Array.from(
+      new Set(
+        baseSuggestions
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .filter((s) => !shouldDropSuggestionForTopic(topic, s)),
+      ),
+    );
     for (const option of pool) {
       if (unique.length >= TARGET_SUGGESTIONS_COUNT) break;
+      if (shouldDropSuggestionForTopic(topic, option)) continue;
       if (!unique.some((s) => s.toLowerCase() === option.toLowerCase())) {
         unique.push(option);
       }

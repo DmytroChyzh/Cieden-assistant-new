@@ -993,7 +993,9 @@ export default function VoiceChatPage() {
         );
       }
       if (isBookCallPrompt(trimmed)) {
-        startEstimateQuestionnaireForBookCall();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("open-book-call-form-direct"));
+        }
         return;
       }
 
@@ -1100,7 +1102,9 @@ export default function VoiceChatPage() {
         );
       }
       if (isBookCallPrompt(trimmedRequest)) {
-        startEstimateQuestionnaireForBookCall();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("open-book-call-form-direct"));
+        }
         return;
       }
       if (emailRequiredGate && !hasKnownEmailForGate && !containsValidEmailInText(trimmedRequest)) {
@@ -1119,7 +1123,6 @@ export default function VoiceChatPage() {
       sendProgrammaticMessage,
       jumpToLatestMessages,
       promptEmailRequiredInChat,
-      startEstimateQuestionnaireForBookCall,
     ],
   );
 
@@ -2107,6 +2110,10 @@ export default function VoiceChatPage() {
 
       const token = typeof detail.token === "number" ? detail.token : null;
       if (token !== estimateFlowTokenRef.current) return;
+      const activeSessionId = getActiveEstimateSessionId();
+      const activeSession = activeSessionId ? getEstimateSession(String(activeSessionId)) : undefined;
+      // Ignore stale/late final events when session is already cancelled or not active.
+      if (!activeSession || activeSession.status !== "active") return;
 
       const appendEstimateFollowUpToMainChat = () => {
         const msgs = convexMessagesRef.current ?? [];
@@ -2188,6 +2195,7 @@ export default function VoiceChatPage() {
       pendingEstimateContextualMessagesRef.current = [];
       cancelEstimateSession();
       resetCiedenEstimateSessionCompleted();
+      setEstimateEndMsgId(null);
       setEstimateFlowWindowFlag(false);
       setShowEstimatePanel(false);
       setEstimateFinalResult(null);
@@ -2195,6 +2203,43 @@ export default function VoiceChatPage() {
       setShowEstimateAssistantRunner(false);
       openBookCallAfterEstimateRef.current = false;
       window.dispatchEvent(new CustomEvent("estimate-panel-closed", { detail: { reason: "cancel" } }));
+
+      // Mandatory UX: after cancel we always send one assistant follow-up with suggestions.
+      const lastUserText =
+        [...visibleConvexChatMessagesRef.current]
+          .reverse()
+          .find((m) => m.role === "user" && (m.content || "").trim().length > 0)
+          ?.content || "";
+      const lang = detectLanguageFromText(lastUserText);
+      const followUpText =
+        lang === "ua"
+          ? "Окей, естімейт скасовано. Можемо перезапустити оцінку іншим шляхом або перейти до іншого запиту."
+          : "Okay, estimate flow is cancelled. We can restart the estimate with a different path or continue with another request.";
+      const followUpSuggestions =
+        lang === "ua"
+          ? [
+              "Хочу попередню оцінку",
+              "Покажи портфоліо",
+              "Які у вас моделі співпраці?",
+              "Розкажи про процес",
+              "Записатися на дзвінок",
+            ]
+          : [
+              "I want a preliminary estimate",
+              "Show your portfolio",
+              "What are your collaboration models?",
+              "Tell me about your process",
+              "Book a call",
+            ];
+
+      if (conversationId) {
+        void appendMessageToConvex({
+          role: "assistant",
+          source: "text",
+          content: `${followUpText}\n${JSON.stringify(followUpSuggestions)}`,
+          metadata: { estimateCompletionFollowUp: true },
+        });
+      }
     };
 
     const handleStartOver = (e: Event) => {
@@ -2429,6 +2474,28 @@ export default function VoiceChatPage() {
   }, [startEstimateQuestionnaireForBookCall]);
 
   useEffect(() => {
+    const handleOpenBookCallDirect = () => {
+      closeAllRightPanels();
+      openBookCallAfterEstimateRef.current = false;
+      setEstimateFlowWindowFlag(false);
+      setShowEstimatePanel(false);
+      setShowEstimateAssistantRunner(false);
+      setShowEstimateInline(false);
+
+      const latestResult = (estimateFinalResult ??
+        ((typeof window !== "undefined" ? (window as any).__lastEstimateFinalResult : null) as
+          | EstimateFinalResult
+          | null));
+      const projectSummary = typeof latestResult?.projectSummary === "string" ? latestResult.projectSummary : "";
+      setBookCallInitialProjectDetails(projectSummary);
+      setShowBookCallPanel(true);
+    };
+
+    window.addEventListener("open-book-call-form-direct", handleOpenBookCallDirect);
+    return () => window.removeEventListener("open-book-call-form-direct", handleOpenBookCallDirect);
+  }, [closeAllRightPanels, estimateFinalResult]);
+
+  useEffect(() => {
     const handleOpenPricingModelDetails = (e: Event) => {
       const detail = (e as CustomEvent<{ modelId?: PricingModelDetailsId }>).detail;
       if (!detail?.modelId) return;
@@ -2506,6 +2573,32 @@ export default function VoiceChatPage() {
     return typeof t === "number" && Date.now() - t < CIEDEN_ESTIMATE_PRIMARY_SUPPRESS_MS;
   }, []);
 
+  const appendDeterministicToolNarrative = useCallback(
+    async (toolName: string, text: string) => {
+      const body = (text || "").trim();
+      if (!conversationId || !body) return;
+      if (typeof window !== "undefined") {
+        const key = `__ciedenToolNarrativeLastAt_${toolName}`;
+        const lastAt = (window as any)[key] as number | undefined;
+        const now = Date.now();
+        if (typeof lastAt === "number" && now - lastAt < 3000) return;
+        (window as any)[key] = now;
+      }
+      if (hasRecentAssistantDuplicate(body)) return;
+      await appendMessageToConvex({
+        content: body,
+        role: "assistant",
+        source: "text",
+        metadata: {
+          deterministicToolNarrative: true,
+          toolName,
+          timestamp: Date.now(),
+        },
+      });
+    },
+    [appendMessageToConvex, conversationId, hasRecentAssistantDuplicate],
+  );
+
   // Action Handlers – Cieden sales tools only (must match ElevenLabs Agent Tools)
   const actionHandlers: ActionHandlers = {
     // When the estimate panel is open, do NOT divert the agent to sales/case-study tools.
@@ -2546,6 +2639,10 @@ export default function VoiceChatPage() {
             timestamp: Date.now(),
           });
         }
+        await appendDeterministicToolNarrative(
+          "show_cases",
+          "Here are relevant portfolio case studies. Pick any category and I will explain what we delivered and why it matches your request.",
+        );
       } catch (error) {
         console.error('❌ Failed to queue show_cases:', error);
       }
@@ -2589,6 +2686,10 @@ export default function VoiceChatPage() {
             });
           }, 250);
         }
+        await appendDeterministicToolNarrative(
+          "show_best_case",
+          "I opened our flagship case. I can break down scope, timeline, and outcomes if you want a focused example.",
+        );
       } catch (error) {
         console.error('❌ Failed to queue show_best_case:', error);
       }
@@ -2736,6 +2837,10 @@ export default function VoiceChatPage() {
             });
           }, 250);
         }
+        await appendDeterministicToolNarrative(
+          "show_engagement_models",
+          "These are our collaboration models. Tell me your team setup and timeline, and I will recommend the best fit.",
+        );
       } catch (error) {
         console.error('❌ Failed to queue show_engagement_models:', error);
       }
@@ -2954,6 +3059,10 @@ export default function VoiceChatPage() {
         queueToolMessageRef.current?.(toolCallMessage, {
           toolCall: true, toolName: 'show_getting_started', timestamp: Date.now()
         });
+        await appendDeterministicToolNarrative(
+          "show_getting_started",
+          "Great start. This card shows the fastest path to kick off your project with us.",
+        );
       } catch (error) {
         console.error('❌ Failed to queue show_getting_started:', error);
       }
@@ -2987,6 +3096,10 @@ export default function VoiceChatPage() {
             });
           }, 250);
         }
+        await appendDeterministicToolNarrative(
+          "show_support",
+          "This covers post-launch support and iteration options. I can suggest the right support format for your product.",
+        );
       } catch (error) {
         console.error('❌ Failed to queue show_support:', error);
       }
@@ -3128,6 +3241,10 @@ export default function VoiceChatPage() {
             toolCall: true, toolName: 'show_next_steps', timestamp: Date.now()
           });
         }
+        await appendDeterministicToolNarrative(
+          "show_next_steps",
+          "Here are the practical next steps. Choose one and I will continue with the exact action.",
+        );
       } catch (error) {
         console.error('❌ Failed to queue show_next_steps:', error);
       }
@@ -3760,6 +3877,9 @@ export default function VoiceChatPage() {
     isFirstTurnIntroEcho,
     estimateToolOnlyMarker: ESTIMATE_TOOL_ONLY_MARKER,
     isEstimateFlowActive: showEstimatePanel || showEstimateAssistantRunner || showEstimateInline,
+    enforceSingleAssistantReplyPerUserTurn: true,
+    suppressAssistantTextWhileEstimateChooser:
+      showEstimateInline && !showEstimatePanel && !showEstimateAssistantRunner,
   });
 
   const visibleConvexChatMessagesRef = useRef(visibleConvexChatMessages);
@@ -4557,12 +4677,15 @@ export default function VoiceChatPage() {
                   // Show end-session card whenever we have a pinned message (do not hide while result panel is open).
                   const isEstimateEndMsg =
                     estimateEndMsgId !== null && String(message._id) === String(estimateEndMsgId);
+                  const shouldShowPinnedEstimateSessionCard =
+                    isCiedenEstimateSessionCompleted() &&
+                    !!(estimateFinalResult ?? (typeof window !== "undefined" ? (window as any).__lastEstimateFinalResult : null));
                   // Inline chooser already shows Completed + View at the end for any completed session.
                   const suppressPinnedEstimateSessionCard =
                     Boolean(estimateFirstMessageId) &&
                     getEstimateSession(String(estimateFirstMessageId))?.status === "completed";
                   const estimateEndButton =
-                    isEstimateEndMsg && !suppressPinnedEstimateSessionCard ? (
+                    isEstimateEndMsg && shouldShowPinnedEstimateSessionCard && !suppressPinnedEstimateSessionCard ? (
                     <div key={`est-card-${message._id}`} className="w-full max-w-[900px] mx-auto my-3">
                       <div className="rounded-2xl border border-white/[0.12] bg-white/[0.04] backdrop-blur-sm px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                         <p className="text-xs font-medium text-white/70 uppercase tracking-widest">
@@ -4961,7 +5084,7 @@ export default function VoiceChatPage() {
                   window.dispatchEvent(
                     new CustomEvent("estimate-final-ready", {
                       detail: {
-                        token: estimateFlowTokenRef.current,
+                        token: estimateFlowToken,
                         ...finalResult,
                       },
                     }),
@@ -5007,7 +5130,7 @@ export default function VoiceChatPage() {
                       window.dispatchEvent(
                         new CustomEvent("estimate-final-ready", {
                           detail: {
-                            token: estimateFlowTokenRef.current,
+                            token: estimateFlowToken,
                             ...finalResult,
                           },
                         }),

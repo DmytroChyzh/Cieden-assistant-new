@@ -316,7 +316,11 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
                   : "Assistant will start asking questions in the chat."}
             </p>
             {!flowDone ? (
-              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div
+                className={`mt-4 grid grid-cols-1 gap-2 ${
+                  choice === "assistant" ? "sm:grid-cols-2" : "sm:grid-cols-1"
+                }`}
+              >
                 {choice === "assistant" ? (
                   <button
                     type="button"
@@ -331,7 +335,7 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="w-full rounded-xl border border-white/20 bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/80 hover:bg-white/[0.1] hover:border-white/30 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-0"
+                  className="w-full rounded-xl border border-white/20 bg-white/[0.06] px-4 py-2.5 text-center text-sm font-medium text-white/80 hover:bg-white/[0.1] hover:border-white/30 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-0"
                   aria-label="Cancel estimate flow"
                   aria-disabled={false}
                 >

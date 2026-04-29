@@ -17,7 +17,14 @@ const isEstimateChooserInstructionMessage = (content: string): boolean => {
     t.includes("i've opened a card in the chat") ||
     t.includes("i have opened a card in the chat") ||
     t.includes("choose to either work with me to get an estimate or fill out a short questionnaire") ||
-    t.includes("for an exact quote, you can always speak with a manager")
+    t.includes("for an exact quote, you can always speak with a manager") ||
+    // Common variant that still should be hidden while chooser is waiting for selection.
+    t.includes("i've opened the preliminary estimate tool") ||
+    t.includes("i have opened the preliminary estimate tool") ||
+    t.includes("i've opened a preliminary estimate tool") ||
+    t.includes("i have opened a preliminary estimate tool") ||
+    (t.includes("choose to work with me here in the chat") && t.includes("step-by-step questionnaire")) ||
+    (t.includes("preliminary estimate tool") && t.includes("choose"))
   );
 };
 
@@ -29,12 +36,16 @@ export function useVisibleConvexMessages({
   isFirstTurnIntroEcho,
   estimateToolOnlyMarker,
   isEstimateFlowActive = false,
+  enforceSingleAssistantReplyPerUserTurn = false,
+  suppressAssistantTextWhileEstimateChooser = false,
 }: {
   convexMessages: ChatRow[];
   getMessageMode: (content: string) => "default" | "update" | "overlay";
   isFirstTurnIntroEcho: (content: string) => boolean;
   estimateToolOnlyMarker: string;
   isEstimateFlowActive?: boolean;
+  enforceSingleAssistantReplyPerUserTurn?: boolean;
+  suppressAssistantTextWhileEstimateChooser?: boolean;
 }) {
   return useMemo(() => {
     const raw = convexMessages || [];
@@ -55,16 +66,27 @@ export function useVisibleConvexMessages({
     const filtered = raw.filter((message, idx) => {
       if (message.role === "system" && message.source === "contextual") return false;
       const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+      const isEstimateCompletionFollowUp =
+        (metadata as { estimateCompletionFollowUp?: boolean } | undefined)?.estimateCompletionFollowUp === true;
       if (metadata.threadType === "estimate") return false;
       if (message.role === "user" && message.content.startsWith("I selected:")) return false;
       if (/onboarding complete\./i.test((message.content || "").trim())) return false;
       if (message.role === "assistant" && (message.content || "").trim() === estimateToolOnlyMarker) {
         return false;
       }
-      // While estimate flow is active, hide chooser helper narration from the main feed.
-      // The user already sees the in-chat estimate card and runner.
+      // While estimate chooser is visible and user has not selected a path yet,
+      // hide plain assistant text from main lane (prevents premature narration).
       if (
-        isEstimateFlowActive &&
+        suppressAssistantTextWhileEstimateChooser &&
+        message.role === "assistant" &&
+        !parseToolCall(message.content || "") &&
+        !isEstimateCompletionFollowUp
+      ) {
+        return false;
+      }
+      // Hide estimate chooser helper narration from main feed in all modes.
+      // It is UI-helper copy, not conversational value, and should never surface as a bubble.
+      if (
         message.role === "assistant" &&
         isEstimateChooserInstructionMessage(message.content || "")
       ) {
@@ -73,6 +95,14 @@ export function useVisibleConvexMessages({
       const mode = getMessageMode(message.content);
       if (mode === "update") return false;
       const c = message.content || "";
+      // Never render empty assistant rows (these create blank bubbles).
+      if (
+        message.role === "assistant" &&
+        !parseToolCall(c) &&
+        normalizeAssistantMessage(c) === ""
+      ) {
+        return false;
+      }
       if (message.role === "user" && /^\[ESTIMATE\s+(MODE|PANEL)\]/i.test(c.trim())) return false;
       if (
         message.role === "assistant" &&
@@ -87,11 +117,13 @@ export function useVisibleConvexMessages({
     const toolDeduped: ChatRow[] = [];
     const seenAssistantInSegment = new Set<string>();
     let hasRenderedCaseFamilyToolInSegment = false;
+    let hasRenderedAssistantTextInSegment = false;
     for (const message of filtered) {
       // Reset assistant dedupe scope after each user turn.
       if (message.role === "user") {
         seenAssistantInSegment.clear();
         hasRenderedCaseFamilyToolInSegment = false;
+        hasRenderedAssistantTextInSegment = false;
         toolDeduped.push(message);
         continue;
       }
@@ -114,11 +146,31 @@ export function useVisibleConvexMessages({
         const normalized = normalizeAssistantMessage(message.content || "");
         if (normalized && seenAssistantInSegment.has(normalized)) continue;
         if (normalized) seenAssistantInSegment.add(normalized);
+        const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+        const isEstimateCompletionFollowUp =
+          (metadata as { estimateCompletionFollowUp?: boolean } | undefined)?.estimateCompletionFollowUp === true;
+        if (
+          enforceSingleAssistantReplyPerUserTurn &&
+          !isEstimateCompletionFollowUp &&
+          !isTool &&
+          hasRenderedAssistantTextInSegment
+        ) {
+          continue;
+        }
+        hasRenderedAssistantTextInSegment = true;
       }
 
       toolDeduped.push(message);
     }
 
     return toolDeduped;
-  }, [convexMessages, estimateToolOnlyMarker, getMessageMode, isEstimateFlowActive, isFirstTurnIntroEcho]);
+  }, [
+    convexMessages,
+    enforceSingleAssistantReplyPerUserTurn,
+    suppressAssistantTextWhileEstimateChooser,
+    estimateToolOnlyMarker,
+    getMessageMode,
+    isEstimateFlowActive,
+    isFirstTurnIntroEcho,
+  ]);
 }

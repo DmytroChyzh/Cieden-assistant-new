@@ -1488,12 +1488,11 @@ export function EstimateWizardPanel({
                         Great — we have enough to prepare a real quote! Our manager will review your project and get back to you within 1 business day.
                       </p>
                     </div>
-                    <a
-                      href="https://cieden.com/contact"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
                       className="flex items-center justify-center gap-2 w-full rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-500/25 to-teal-500/20 backdrop-blur-sm px-4 py-3 text-sm font-semibold text-emerald-200 hover:from-emerald-500/35 hover:to-teal-500/30 transition-all cursor-pointer shadow-[0_0_22px_rgba(52,211,153,0.12),inset_0_1px_0_rgba(255,255,255,0.07)]"
                       onClick={() => {
+                        window.dispatchEvent(new CustomEvent("open-book-call-panel"));
                         window.dispatchEvent(
                           new CustomEvent("estimate-assistant-message", {
                             detail: {
@@ -1509,7 +1508,7 @@ export function EstimateWizardPanel({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                       Contact our manager
-                    </a>
+                    </button>
                   </div>
                 )}
               </div>
@@ -1800,13 +1799,14 @@ export function EstimateWizardPanel({
                 <p className="text-xs text-white/40 leading-relaxed px-0.5">
                   Based on Cieden&apos;s real project catalog. For an accurate quote, our manager will be in touch within 1 business day.
                 </p>
-                <a href="https://cieden.com/contact" target="_blank" rel="noopener noreferrer"
+                <button type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent("open-book-call-panel"))}
                   className="flex items-center justify-center gap-2 w-full rounded-xl bg-violet-600/30 hover:bg-violet-600/45 backdrop-blur-md border border-violet-400/30 py-3 px-4 text-sm font-medium text-white transition-all cursor-pointer shadow-[0_0_20px_rgba(139,92,246,0.15),inset_0_1px_0_rgba(255,255,255,0.08)]">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                   Contact our manager
-              </a>
+              </button>
             </motion.div>
             );
           })()}

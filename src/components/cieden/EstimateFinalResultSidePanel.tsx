@@ -50,7 +50,7 @@ export function EstimateFinalResultSidePanel({ result, onClose }: EstimateFinalR
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", damping: 30, stiffness: 300 }}
-      className="fixed right-0 top-0 h-full w-full sm:w-1/2 z-50 flex flex-col bg-[#0a0a0c]/60 backdrop-blur-2xl border-l border-white/[0.12] shadow-[-8px_0_32px_rgba(0,0,0,0.4)]"
+      className="fixed right-0 top-0 h-full w-full sm:w-1/2 z-50 flex flex-col bg-gradient-to-br from-[#131525] via-[#181727] to-[#231833] backdrop-blur-2xl border-l border-white/[0.12] shadow-[-8px_0_32px_rgba(0,0,0,0.4)]"
       style={{ boxShadow: "inset 1px 0 0 rgba(255,255,255,0.06), -8px 0 32px rgba(0,0,0,0.35)" }}
     >
       <div className="flex items-center justify-between gap-3 px-5 py-3 shrink-0 bg-white/[0.03] backdrop-blur-sm border-b border-white/[0.08]">
@@ -89,7 +89,7 @@ export function EstimateFinalResultSidePanel({ result, onClose }: EstimateFinalR
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-4 scrollbar-chat">
-          <div className="rounded-2xl border border-indigo-400/20 bg-gradient-to-br from-indigo-500/[0.12] to-violet-600/[0.08] backdrop-blur-md p-5 shadow-[0_0_32px_rgba(99,102,241,0.12),inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <div className="w-full p-0">
             <p className="text-xs font-medium text-white/60 uppercase tracking-widest">Final numbers</p>
 
             <div className="mt-3 flex items-baseline gap-3">
