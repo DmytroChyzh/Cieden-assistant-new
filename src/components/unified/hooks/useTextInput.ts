@@ -94,6 +94,13 @@ export function useTextInput({
   conversationIdRef.current = conversationId;
   /** Guard against duplicate websocket assistant persists from racey multi-handler events. */
   const recentAiPersistRef = useRef<{ key: string; at: number } | null>(null);
+  /**
+   * Estimate-mode reliability guard:
+   * keep track of active estimate thread and allow the first assistant turn
+   * even if strict classifier marks it as non-estimate.
+   */
+  const lastEstimateThreadIdRef = useRef<string | null>(null);
+  const estimateFirstAssistantDeliveredRef = useRef(false);
   const buildEstimateThreadMetadata = useCallback((base?: Record<string, unknown>) => {
     const activeThreadId = getActiveEstimateThreadId();
     if (!activeThreadId) return base;
@@ -457,6 +464,11 @@ export function useTextInput({
     const unsubscribe = registerTextHandler(async (event: NormalizedMessageEvent) => {
       if (event.source !== 'ai' || event.via !== 'websocket') return;
       const estimateMode = isEstimateFlowUiActive() || !!getActiveEstimateThreadId();
+      const activeEstimateThreadId = getActiveEstimateThreadId();
+      if (activeEstimateThreadId !== lastEstimateThreadIdRef.current) {
+        lastEstimateThreadIdRef.current = activeEstimateThreadId;
+        estimateFirstAssistantDeliveredRef.current = false;
+      }
       const normalizedEstimateText = estimateMode
         ? extractPrimaryEstimateQuestion(event.message) ?? event.message
         : event.message;
@@ -465,8 +477,21 @@ export function useTextInput({
         (!shouldKeepAssistantMessageInEstimateMode(normalizedEstimateText) ||
           !isAllowedToolCallInEstimateMode(normalizedEstimateText))
       ) {
+        // Do not lose the first assistant turn in a fresh estimate thread.
+        // Some first replies are short acknowledgements and can be over-filtered.
+        const isFirstEstimateAssistantTurn = !estimateFirstAssistantDeliveredRef.current;
+        const canBypassOnce =
+          isFirstEstimateAssistantTurn &&
+          normalizedEstimateText.trim().length > 0 &&
+          !isLikelyDefaultCiedenGreeting(normalizedEstimateText);
+        if (canBypassOnce) {
+          console.warn(
+            "[useTextInput] estimate first-turn bypass: preserving assistant message that strict filter would drop",
+          );
+        } else {
         // Keep estimate thread focused: ignore generic/non-question chatter while runner is active.
         return;
+        }
       }
 
       const activeConversationId = conversationIdRef.current;
@@ -500,6 +525,9 @@ export function useTextInput({
           }),
           guestId: guestId ?? undefined,
         });
+        if (estimateMode) {
+          estimateFirstAssistantDeliveredRef.current = true;
+        }
       } catch (error) {
         console.error('Failed to persist ElevenLabs text response:', error);
       }
