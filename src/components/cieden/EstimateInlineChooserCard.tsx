@@ -182,6 +182,9 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
     };
     requestAnimationFrame(scrollToEnd);
     const t = window.setTimeout(scrollToEnd, 80);
+    // Notify main chat container that inline estimate card height changed.
+    // This keeps bottom anchoring stable when the card grows with new rows.
+    window.dispatchEvent(new CustomEvent("estimate-inline-content-resized"));
     return () => window.clearTimeout(t);
   }, [estimateThreadScrollKey]);
 
@@ -194,27 +197,41 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
     };
 
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ token?: number } & EstimateFinalResult>).detail;
+      const detail = (e as CustomEvent<{ sessionId?: string; result?: EstimateFinalResult }>).detail;
       if (!detail) return;
-      if (myId === getActiveEstimateSessionId()) {
-        const { token: _token, ...rest } = detail;
-        setFinalResult(rest as EstimateFinalResult);
+      const sessionId = detail.sessionId ? String(detail.sessionId) : null;
+      if (sessionId && myId === sessionId) {
+        setFinalResult((detail.result ?? null) as EstimateFinalResult | null);
       }
     };
 
-    const handlePanelClosed = () => {
+    const handlePanelClosed = (e: Event) => {
+      const detail = (e as CustomEvent<{ reason?: string; sessionId?: string | null }>).detail;
+      if (detail?.reason === "cancel") {
+        const cancelledSessionId = detail?.sessionId ? String(detail.sessionId) : null;
+        const persistedCompleted = sessionData?.status === "completed";
+        const shouldResetThisCard =
+          (cancelledSessionId && myId === cancelledSessionId) ||
+          // If cancel arrives without a session id (race), always clear currently chosen
+          // card unless session is explicitly completed in persisted session map.
+          (!cancelledSessionId && !!choice && !persistedCompleted);
+        if (shouldResetThisCard) {
+          setChoice(null);
+          setFinalResult(null);
+        }
+      }
       forceUpdate((n) => n + 1);
     };
 
     window.addEventListener("estimate-cancel", handleCancel as EventListener);
-    window.addEventListener("estimate-final-ready", handler as EventListener);
+    window.addEventListener("estimate-session-completed", handler as EventListener);
     window.addEventListener("estimate-panel-closed", handlePanelClosed);
     return () => {
       window.removeEventListener("estimate-cancel", handleCancel as EventListener);
-      window.removeEventListener("estimate-final-ready", handler as EventListener);
+      window.removeEventListener("estimate-session-completed", handler as EventListener);
       window.removeEventListener("estimate-panel-closed", handlePanelClosed);
     };
-  }, [myId]);
+  }, [myId, choice, isCompletedSession, sessionData?.status]);
 
   const dispatchChoose = (next: EstimateChoice) => {
     if (choice || isOldSession) return;
@@ -239,7 +256,6 @@ export function EstimateInlineChooserCard({ messageId, conversationId = null }: 
   const handleStartOver = () => {
     if (choice !== "assistant") return;
     setFinalResult(null);
-    if (myId) startEstimateSession(myId, "assistant");
     forceUpdate((n) => n + 1);
     setChoice("assistant");
     window.dispatchEvent(
